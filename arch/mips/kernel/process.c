@@ -42,6 +42,8 @@
 #include <asm/inst.h>
 #include <asm/stacktrace.h>
 
+#include <mxu.h>
+
 #ifdef CONFIG_HOTPLUG_CPU
 void arch_cpu_idle_dead(void)
 {
@@ -66,6 +68,8 @@ void start_thread(struct pt_regs * regs, unsigned long pc, unsigned long sp)
 	clear_fpu_owner();
 	if (cpu_has_dsp)
 		__init_dsp();
+	if (cpu_has_mxu)
+		__init_mxu();
 	regs->cp0_epc = pc;
 	regs->regs[29] = sp;
 }
@@ -95,6 +99,9 @@ int copy_thread(unsigned long clone_flags, unsigned long usp,
 
 	if (cpu_has_dsp)
 		save_dsp(p);
+
+	if (cpu_has_mxu)
+		save_mxu(p);
 
 	preempt_enable();
 

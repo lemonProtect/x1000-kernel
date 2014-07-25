@@ -722,12 +722,13 @@ static void __init resource_init(void)
 
 void __init setup_arch(char **cmdline_p)
 {
-	cpu_probe();
-	prom_init();
-
 #ifdef CONFIG_EARLY_PRINTK
 	setup_early_printk();
 #endif
+
+	cpu_probe();
+	prom_init();
+
 	cpu_report();
 	check_bugs_early();
 

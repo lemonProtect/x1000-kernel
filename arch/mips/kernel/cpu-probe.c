@@ -17,6 +17,7 @@
 #include <linux/smp.h>
 #include <linux/stddef.h>
 #include <linux/export.h>
+#include <linux/kallsyms.h>
 
 #include <asm/bugs.h>
 #include <asm/cpu.h>
@@ -1019,17 +1020,34 @@ platform:
 
 static inline void cpu_probe_ingenic(struct cpuinfo_mips *c, unsigned int cpu)
 {
+	unsigned int errorpc;
+	static unsigned int showerrorpc[NR_CPUS];
+	if(showerrorpc[cpu] == 0) {
+		__asm__ __volatile__ (
+			"mfc0  %0, $30,  0   \n\t"
+			"nop                  \n\t"
+			:"=r"(errorpc)
+			:);
+
+		printk("CPU%d RESET ERROR PC:%08X\n", cpu,errorpc);
+		if(kernel_text_address(errorpc))
+			print_ip_sym(errorpc);
+		showerrorpc[cpu] = 1;
+	}
 	decode_configs(c);
 	/* JZRISC does not implement the CP0 counter. */
 	c->options &= ~MIPS_CPU_COUNTER;
-	switch (c->processor_id & 0xff00) {
-	case PRID_IMP_JZRISC:
-		c->cputype = CPU_JZRISC;
-		__cpu_name[cpu] = "Ingenic JZRISC";
-		break;
-	default:
-		panic("Unknown Ingenic Processor ID!");
-		break;
+
+	c->cputype = CPU_JZRISC;
+	__cpu_name[cpu] = "Ingenic Xburst";
+	c->isa_level = MIPS_CPU_ISA_M32R1;
+	c->tlbsize = 32;
+
+	c->ases |= MIPS_ASE_XBURSTMXU;
+
+	__write_32bit_c0_register($16, 7, 0x10);
+	if((c->processor_id & PRID_CPU_ISA_MASK) == PRID_IMP_ISA_R2) {
+		c->isa_level = MIPS_CPU_ISA_M32R2;
 	}
 }
 
@@ -1157,6 +1175,9 @@ __cpuinit void cpu_probe(void)
 		break;
 	case PRID_COMP_NETLOGIC:
 		cpu_probe_netlogic(c, cpu);
+		break;
+	default:
+		cpu_probe_ingenic(c, cpu);
 		break;
 	}
 

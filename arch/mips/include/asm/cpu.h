@@ -148,9 +148,18 @@
 
 /*
  * These are the PRID's for when 23:16 == PRID_COMP_INGENIC
+ * cpu_h(12bit CPU_FEATURE),chips(8bit),cpu_l(12bit CPU_ISA_ID)
  */
+#define PRID_CPU_FEATURE_MASK       0xFFF00000
+#define PRID_CPU_CHIPS_MASK         0x000FF000
+#define PRID_CPU_ISA_MASK           0x00000FFF
 
-#define PRID_IMP_JZRISC	       0x0200
+#define PRID_IMP_JZRISC             0x00010000
+#define PRID_IMP_JZ4775             0x2ed00000
+#define PRID_IMP_JZ4780             0x3ee00000
+#define PRID_IMP_M200               0x7ae00000
+#define PRID_IMP_ISA_R2             0x0000024f
+
 
 /*
  * These are the PRID's for when 23:16 == PRID_COMP_NETLOGIC
@@ -347,5 +356,6 @@ enum cpu_type_enum {
 #define MIPS_ASE_MIPSMT		0x00000020 /* CPU supports MIPS MT */
 #define MIPS_ASE_DSP2P		0x00000040 /* Signal Processing ASE Rev 2 */
 #define MIPS_ASE_VZ		0x00000080 /* Virtualization ASE */
+#define MIPS_ASE_XBURSTMXU	0x80000000 /* CPU supports MIPS MT */
 
 #endif /* _ASM_CPU_H */

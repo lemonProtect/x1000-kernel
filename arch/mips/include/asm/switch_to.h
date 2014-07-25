@@ -15,6 +15,7 @@
 #include <asm/cpu-features.h>
 #include <asm/watch.h>
 #include <asm/dsp.h>
+#include <mxu.h>
 
 struct task_struct;
 
@@ -70,6 +71,8 @@ do {									\
 	__mips_mt_fpaff_switch_to(prev);				\
 	if (cpu_has_dsp)						\
 		__save_dsp(prev);					\
+	if (cpu_has_mxu)						\
+		__save_mxu(prev);					\
 	__clear_software_ll_bit();					\
 	__usedfpu = test_and_clear_tsk_thread_flag(prev, TIF_USEDFPU);	\
 	(last) = resume(prev, next, task_thread_info(next), __usedfpu); \
@@ -81,6 +84,8 @@ do {									\
 		__restore_dsp(current);					\
 	if (cpu_has_userlocal)						\
 		write_c0_userlocal(current_thread_info()->tp_value);	\
+	if (cpu_has_mxu)                                                \
+		__restore_mxu(current); 				\
 	__restore_watch();						\
 } while (0)
 

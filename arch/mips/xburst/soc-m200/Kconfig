@@ -1,0 +1,16 @@
+choice
+	prompt "Board type"
+	depends on SOC_M200
+	default BOARD_DORADO
+
+config BOARD_4785_FPGA
+       bool "FPGA"
+
+config BOARD_DORADO
+       bool "DORADO"
+endchoice
+
+config BOARD_NAME
+	string
+	default "fpga" if BOARD_4785_FPGA
+	default "dorado" if BOARD_DORADO
