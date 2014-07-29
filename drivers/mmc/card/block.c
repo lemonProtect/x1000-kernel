@@ -2148,7 +2148,7 @@ static int mmc_blk_alloc_parts(struct mmc_card *card, struct mmc_blk_data *md)
 
 	if (!mmc_card_mmc(card))
 		return 0;
-
+#if 0
 	for (idx = 0; idx < card->nr_parts; idx++) {
 		if (card->part[idx].size) {
 			ret = mmc_blk_alloc_part(card, md,
@@ -2161,7 +2161,7 @@ static int mmc_blk_alloc_parts(struct mmc_card *card, struct mmc_blk_data *md)
 				return ret;
 		}
 	}
-
+#endif
 	return ret;
 }
 
