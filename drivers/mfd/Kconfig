@@ -18,6 +18,15 @@ config MFD_CS5535
 	  This is the core driver for CS5535/CS5536 MFD functions.  This is
           necessary for using the board's GPIO and MFGPT functionality.
 
+config MFD_DA9024
+	  bool "Support PMIC DA9024 or D2041"
+	  depends on I2C=y && MACH_XBURST
+	  select MFD_CORE
+	  help
+	    This supports for DA9024 or D2041 Power Management IC.
+	    This includes the I2C driver and the core APIs _only_, you have to
+	    select individual components like voltage regulators, RTC.
+
 config MFD_AS3711
 	bool "AMS AS3711"
 	select MFD_CORE
@@ -1148,3 +1157,28 @@ config VEXPRESS_CONFIG
 	help
 	  Platform configuration infrastructure for the ARM Ltd.
 	  Versatile Express.
+
+config MFD_RICOH618
+	bool "Ricoh RC5T618 Power Management system device"
+	depends on I2C && GPIOLIB && GENERIC_HARDIRQS
+	select MFD_CORE
+	default n
+	help
+	  If you say yes here you get support for the RICOH618 Power
+	  Management system device.
+	  This driver provides common support for accessing the device,
+	  additional drivers must be enabled in order to use the
+	  functionality of the device.
+
+config MFD_RICOH619
+	bool "Ricoh R5T619 Power Management system device"
+	depends on I2C && GPIOLIB && GENERIC_HARDIRQS
+	select MFD_CORE
+	default n
+	help
+	  If you say yes here you get support for the Ricoh R5T619
+	  Power Management system device.
+	  This driver provides common support for accessing the device,
+	  additional drivers must be enabled in order to use the
+	  functionality of the device.
+

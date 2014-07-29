@@ -155,3 +155,7 @@ obj-$(CONFIG_MFD_LM3533)	+= lm3533-core.o lm3533-ctrlbank.o
 obj-$(CONFIG_VEXPRESS_CONFIG)	+= vexpress-config.o vexpress-sysreg.o
 obj-$(CONFIG_MFD_RETU)		+= retu-mfd.o
 obj-$(CONFIG_MFD_AS3711)	+= as3711.o
+
+obj-$(CONFIG_MFD_DA9024)    	+= d2041-core.o d2041-irq.o d2041-i2c.o
+obj-$(CONFIG_MFD_RICOH618)	+= ricoh618.o ricoh618-irq.o
+obj-$(CONFIG_MFD_RICOH619)	+= ricoh619.o ricoh619-irq.o

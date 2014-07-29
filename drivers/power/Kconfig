@@ -342,6 +342,20 @@ config CHARGER_SMB347
 	  Say Y to include support for Summit Microelectronics SMB347
 	  Battery Charger.
 
+config BATTERY_RICOH618
+	tristate "Ricoh RD5T618 PMIC battery driver"
+	depends on MFD_RICOH618 && I2C && GENERIC_HARDIRQS
+	help
+	  Say Y to enable support for the battery control of the Ricoh RD5T618
+	  Power Management device.
+
+config BATTERY_RICOH619
+	tristate "Ricoh R5T619 PMIC battery driver"
+	depends on MFD_RICOH619 && I2C && GENERIC_HARDIRQS
+	help
+	  Say Y to enable support for the battery control of the Ricoh R5T619
+	  Power Management device.
+
 config CHARGER_TPS65090
 	tristate "TPS65090 battery charger driver"
 	depends on MFD_TPS65090
