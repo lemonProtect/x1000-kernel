@@ -99,7 +99,7 @@ static int m200_target(struct cpufreq_policy *policy,
 	if (freqs.old == freqs.new && policy->cur == freqs.new)
 		return ret;
 
-	cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
+	cpufreq_notify_transition(policy,&freqs, CPUFREQ_PRECHANGE);
 	debug("set speed = %d\n",freqs.new);
 	ret = clk_set_rate(jz_cpufreq->cpu_clk, freqs.new * 1000);
 
@@ -115,7 +115,7 @@ static int m200_target(struct cpufreq_policy *policy,
 
 	loops_per_jiffy = cpufreq_scale(loops_per_jiffy,freqs.old, freqs.new);
 	/* notifiers */
-	cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
+	cpufreq_notify_transition(policy,&freqs, CPUFREQ_POSTCHANGE);
 	return ret;
 }
 static void init_freq_table(struct cpufreq_frequency_table *table)
