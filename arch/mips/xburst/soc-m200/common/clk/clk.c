@@ -395,38 +395,36 @@ struct clk *clk_get_parent(struct clk *clk)
 	return clk->source->parent;
 }
 EXPORT_SYMBOL(clk_get_parent);
+
 //////////////////////////clk_proc_fops////////////////////////////
-static int clk_proc_show(struct seq_file *m, void *v)
+static int clocks_show(struct seq_file *m, void *v)
 {
-	int i;
-	int len = 0;
-	len += seq_printf(m,"ID NAME       FRE        stat       count     parent\n");
-	for(i = 0; i < ARRAY_SIZE(clk_srcs); i++) {
-		if (clk_srcs[i].name == NULL) {
-			len += seq_printf(m ,"--------------------------------------------------------\n");
-		} else {
-			unsigned int mhz = clk_srcs[i].rate / 10000;
-			len += seq_printf(m,"%2d %-10s %4d.%02dMHz %3sable   %d %s\n",i,clk_srcs[i].name
-				    , mhz/100, mhz%100
-				    , clk_srcs[i].flags & CLK_FLG_ENABLE? "en": "dis"
-				    , clk_srcs[i].count
-				    , clk_srcs[i].parent? clk_srcs[i].parent->name: "root");
+	int i,len=0;
+	if(m->private != NULL) {
+		len += seq_printf(m ,"CLKGR\t: %08x\n",cpm_inl(CPM_CLKGR));
+		len += seq_printf(m ,"CLKGR1\t: %08x\n",cpm_inl(CPM_CLKGR1));
+		len += seq_printf(m ,"LCR1\t: %08x\n",cpm_inl(CPM_LCR));
+		len += seq_printf(m ,"PGR\t: %08x\n",cpm_inl(CPM_PGR));
+		len += seq_printf(m ,"SPCR0\t: %08x\n",cpm_inl(CPM_SPCR0));
+	} else {
+		len += seq_printf(m,"ID NAME       FRE        stat       count     parent\n");
+		for(i = 0; i < ARRAY_SIZE(clk_srcs); i++) {
+			if (clk_srcs[i].name == NULL) {
+				len += seq_printf(m ,"--------------------------------------------------------\n");
+			} else {
+				unsigned int mhz = clk_srcs[i].rate / 10000;
+				len += seq_printf(m,"%2d %-10s %4d.%02dMHz %3sable   %d %s\n",i,clk_srcs[i].name
+						, mhz/100, mhz%100
+						, clk_srcs[i].flags & CLK_FLG_ENABLE? "en": "dis"
+						, clk_srcs[i].count
+						, clk_srcs[i].parent? clk_srcs[i].parent->name: "root");
+			}
 		}
 	}
-	len += seq_printf(m ,"CLKGR\t: %08x\n",cpm_inl(CPM_CLKGR));
-	len += seq_printf(m ,"CLKGR1\t: %08x\n",cpm_inl(CPM_CLKGR1));
-	len += seq_printf(m ,"LCR1\t: %08x\n",cpm_inl(CPM_LCR));
-	len += seq_printf(m ,"PGR\t: %08x\n",cpm_inl(CPM_PGR));
-	len += seq_printf(m ,"SPCR0\t: %08x\n",cpm_inl(CPM_SPCR0));
 	return len;
 }
-static int clk_proc_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, clk_proc_show, PDE_DATA(inode));
-}
 
-/////////////////////////enable_proc_fops////////////////////////
-static int clk_enable_proc_write(struct file *file, const char __user *buffer,size_t count, loff_t *data)
+static int enable_write(struct file *file, const char __user *buffer,size_t count, loff_t *data)
 {
 	struct clk *clk = file->private_data;
 	if(clk) {
@@ -440,21 +438,7 @@ static int clk_enable_proc_write(struct file *file, const char __user *buffer,si
 	return count;
 }
 
-static int clk_enable_proc_show(struct seq_file *m, void *v)
-//static int clk_enable_proc_read(char *page, char **start, off_t off,int count, int *eof, void *data)
-{
-	struct clk *clk = m->private;
-	int len;
-	len = seq_printf(m,"%s\n",clk_is_enabled(clk) ? "enabled" : "disabled");
-	return len;
-}
-
-static int clk_enable_proc_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, clk_enable_proc_show, PDE_DATA(inode));
-}
-///////////////////////rate_proc_fops////////////////////////////
-static int clk_set_rate_proc_write(struct file *file, const char __user *buffer,size_t count, loff_t *data)
+static int rate_write(struct file *file, const char __user *buffer,size_t count, loff_t *data)
 {
 	struct clk *clk = (struct clk *)data;
 	long rate;
@@ -462,222 +446,82 @@ static int clk_set_rate_proc_write(struct file *file, const char __user *buffer,
 		if(kstrtol_from_user(buffer,count,0,&rate) >= 0) {
 			clk_set_rate(clk,rate);
 		}else
-			printk("\"echo 100000000 > rate");
+			printk("\"usage : echo 100000000 > rate");
 	}
 	return count;
 }
 
-static int clk_set_rate_proc_show(struct seq_file *m, void *v)
-//static int clk_set_rate_proc_read(struct file *file, char __user *user, size_t length,loff_t *loff)
+static int enable_show(struct seq_file *m, void *v)
 {
 	struct clk *clk = m->private;
-	int len;
-	len = seq_printf(m,"rate: %ld\n",clk_get_rate(clk));
-	return len;
-}
-static int clk_set_rate_proc_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, clk_set_rate_proc_show, PDE_DATA(inode));
-}
-///////////////////////////////////////////////////////////////////
-static const struct file_operations enable_proc_fops ={
-	.read = seq_read,
-	.open = clk_enable_proc_open,
-	.write = clk_enable_proc_write,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-
-static const struct file_operations rate_proc_fops ={
-	.read = seq_read,
-        .open = clk_set_rate_proc_open,
-	.write = clk_set_rate_proc_write,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-
-struct list_clk
-{
-	struct list_head head;
-	struct clk *clk;
-	struct proc_dir_entry *p_entry;
-};
-LIST_HEAD(ctrl_clk_top);
-
-static struct list_clk* ctrl_clk_get_exist(char *name)
-{
-	struct list_clk *pos_clk;
-	list_for_each_entry(pos_clk,&ctrl_clk_top,head) {
-		if(strcmp(pos_clk->clk->name,name) == 0) {
-			return pos_clk;
-		}
-	}
-	return NULL;
+	return seq_printf(m,"%s\n",clk_is_enabled(clk) ? "enabled" : "disabled");
 }
 
-static int clk_get_proc_show(struct seq_file *m, void *v)
-//static int clk_get_proc_read(char *page, char **start, off_t off,
-//		int count, int *eof, void *data)
+static int rate_show(struct seq_file *m, void *v)
 {
-	struct list_clk *pos_clk;
-	int len = 0;
-	list_for_each_entry(pos_clk,&ctrl_clk_top,head) {
-		len += seq_printf(m,"%s \t",pos_clk->clk->name);
-	}
-	len += seq_printf(m ,"\n");
-	return len;
+	struct clk *clk = m->private;
+	return seq_printf(m,"rate: %ld\n",clk_get_rate(clk));
 }
 
-
-static int clk_get_proc_open(struct inode *inode, struct file *file)
+static int clocks_open(struct inode *inode, struct file *file)
 {
-	return single_open(file, clk_get_proc_show, PDE_DATA(inode));
+	return single_open(file, clocks_show, PDE_DATA(inode));
 }
 
-
-static void get_str_from_user(unsigned char *str,int strlen,const char *buffer,unsigned long count)
+static int enable_open(struct inode *inode, struct file *file)
 {
-	int len = count > strlen-1 ? strlen-1 : count;
-	int i;
-	if(len == 0) {
-		str[0] = 0;
-		return;
-	}
-	copy_from_user(str,buffer,len);
-	str[len] = 0;
-	for(i = len;i >= 0;i--) {
-		if((str[i] == '\r') || (str[i] == '\n'))
-			str[i] = 0;
-	}
+	return single_open(file, enable_show, PDE_DATA(inode));
 }
 
-static int clk_get_proc_write(struct file *file, const char __user *buffer,
-		size_t count, loff_t *data)
+static int rate_open(struct inode *inode, struct file *file)
 {
-	struct list_clk *l_clk;
-	struct list_head *c_clk_top = &ctrl_clk_top;
-	struct proc_dir_entry *p = (struct proc_dir_entry *)data;
-	char str[21];
-	get_str_from_user(str,21,buffer,count);
-	if(strlen(str) > 0 && !ctrl_clk_get_exist(str)) {
-		l_clk = vmalloc(sizeof(struct list_clk));
-		list_add_tail(&l_clk->head,c_clk_top);
-		l_clk->clk = clk_get(NULL,str);
-		if(IS_ERR(l_clk->clk)) {
-			list_del(&l_clk->head);
-			vfree(l_clk);
-		}else
-		{
-			p = proc_mkdir(str,p);
-			l_clk->p_entry = p;
-			//			res = create_proc_entry("enable", 0666, p);
-			proc_create("enable",0666,p,&enable_proc_fops);
-			/*			if (res) {
-						res->read_proc = clk_enable_proc_read;
-						res->write_proc = clk_enable_proc_write;
-						res->data = (void *)l_clk->clk;
-						}
-						*/
-			//			res = create_proc_entry("rate", 0666, p);
-			proc_create("rate",0666,p,&rate_proc_fops);
-			/*			if (res) {
-						res->read_proc = clk_set_rate_proc_read;
-						res->write_proc = clk_set_rate_proc_write;
-						res->data = (void *)l_clk->clk;
-						*/
-
-		}
-	}
-
-
-	return count;
-}
-
-/*
-static int clk_put_proc_show(struct seq_file *m, void *v)
-
-static int proc_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, clk_put_proc_show, PDE_DATA(inode));
-}
-*/
-
-static ssize_t clk_put_proc_write(struct file *file, const char __user *buffer,
-		size_t count, loff_t *data)
-{
-	struct list_clk *l_clk;
-	struct proc_dir_entry *p = (struct proc_dir_entry *)data;
-	char str[21];
-	get_str_from_user(str,21,buffer,count);
-	l_clk = ctrl_clk_get_exist(str);
-	if(strlen(str) > 0 && l_clk) {
-		list_del(&l_clk->head);
-		clk_put(l_clk->clk);
-		remove_proc_entry("enable",l_clk->p_entry);
-		remove_proc_entry("rate",l_clk->p_entry);
-		vfree(l_clk);
-		remove_proc_entry(str,p);
-	}
-	return count;
+	return single_open(file, rate_show, PDE_DATA(inode));
 }
 
 static const struct file_operations clocks_proc_fops ={
 	.read = seq_read,
-	.open = clk_proc_open,
-//	.write = clk_put_proc_write,
+	.open = clocks_open,
 	.llseek = seq_lseek,
 	.release = single_release,
 };
 
-static const struct file_operations getclk_proc_fops ={
+static const struct file_operations enable_fops ={
 	.read = seq_read,
-	.open = clk_get_proc_open,
-	.write = clk_get_proc_write,
+	.open = enable_open,
+	.write = enable_write,
 	.llseek = seq_lseek,
 	.release = single_release,
 };
 
-static const struct file_operations putclk_proc_fops ={
-//	.read = seq_read,
-//	.open = proc_open,
-	.write = clk_put_proc_write,
+static const struct file_operations rate_fops ={
+	.read = seq_read,
+        .open = rate_open,
+	.write = rate_write,
 	.llseek = seq_lseek,
 	.release = single_release,
 };
 
 static int __init init_clk_proc(void)
 {
+	int i=0;
 	struct proc_dir_entry *p;
+	struct proc_dir_entry *sub;
 
 	p = jz_proc_mkdir("clock");
 	if (!p) {
 		pr_warning("create_proc_entry for common clock failed.\n");
 		return -ENODEV;
 	}
-	proc_create("clocks", 0444,p,&clocks_proc_fops);
-/*	res = create_proc_entry("clocks", 0444, p);
-	if (res) {
-		res->read_proc = clk_read_proc;
-		res->write_proc = NULL;
-		res->data = NULL;
+	proc_create_data("clocks", 0600,p,&clocks_proc_fops,0);
+	proc_create_data("misc", 0600,p,&clocks_proc_fops,(void *)1);
+
+	for(i = 0; i < ARRAY_SIZE(clk_srcs); i++) {
+		if (clk_srcs[i].name == NULL)
+			continue;
+		sub = proc_mkdir(clk_srcs[i].name,p);
+		proc_create_data("enable", 0600,sub,&enable_fops,&clk_srcs[i]);
+		proc_create_data("rate", 0600,sub,&rate_fops,&clk_srcs[i]);
 	}
-*/	
-	proc_create("get_clk", 0600,p,&getclk_proc_fops);
-/*	res = create_proc_entry("get_clk", 0600, p);
-	if (res) {
-		res->read_proc = clk_get_proc_read;
-		res->write_proc = clk_get_proc_write;
-		res->data = (void *)p;
-	}
-*/
-	proc_create("put_clk", 0600,p,&putclk_proc_fops);
-/*	res = create_proc_entry("put_clk", 0600, p);
-	if (res) {
-		res->read_proc = NULL;
-		res->write_proc = clk_put_proc_write;
-		res->data = (void *)p;
-	}
-*/
 	return 0;
 }
 
