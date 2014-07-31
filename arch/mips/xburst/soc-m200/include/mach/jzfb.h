@@ -25,7 +25,7 @@ enum jzfb_lcd_type {
 	LCD_TYPE_NON_INTERLACED_TV = 4 | (1 << 26),
 	LCD_TYPE_INTERLACED_TV = 6 | (1 << 26) | (1 << 30),
 	LCD_TYPE_8BIT_SERIAL = 0xc,
-	LCD_TYPE_LCM = 0xd | (1 << 31),
+	LCD_TYPE_SLCD = 0xd | (1 << 31),
 };
 
 /* smart lcd interface_type */
@@ -159,8 +159,8 @@ struct jzfb_platform_data {
 		enum smart_lcd_new_dtimes data_new_times2;
 		unsigned newcfg_6800_md:1;
 		unsigned newcfg_fmt_conv:1;
-		unsigned newcfg_datatx_type:1;
-		unsigned newcfg_cmdtx_type:1;
+		unsigned datatx_type_serial:1;
+		unsigned cmdtx_type_serial:1;
 		unsigned newcfg_cmd_9bit:1;
 
 		unsigned long write_gram_cmd;

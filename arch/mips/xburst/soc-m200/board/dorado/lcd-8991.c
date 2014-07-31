@@ -2,7 +2,7 @@
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
 #include <linux/pwm_backlight.h>
-#include <linux/digital_pulse_backlight.h>
+//#include <linux/digital_pulse_backlight.h>
 #include <mach/jzfb.h>
 
 #include "board.h"

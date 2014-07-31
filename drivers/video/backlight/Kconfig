@@ -148,6 +148,10 @@ config LCD_HX8357
 	  If you have a HX-8357 LCD panel, say Y to enable its LCD control
 	  driver.
 
+config LCD_BYD_8991FTGF
+	tristate "BYD 8991FTGF panel(480x800)"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
 endif # LCD_CLASS_DEVICE
 
 #
