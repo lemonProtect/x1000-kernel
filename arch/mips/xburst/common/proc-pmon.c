@@ -1,7 +1,7 @@
 #include <linux/proc_fs.h>
 #include <asm/mipsregs.h>
 #include <asm/uaccess.h>
-
+#include <linux/seq_file.h>
 #define get_pmon_csr()		__read_32bit_c0_register($16, 7)
 #define set_pmon_csr(val)	__write_32bit_c0_register($16, 7, val)
 
@@ -76,16 +76,13 @@ void on_each_cpu_pmon_read(void *info)
 	per_cpu(rc, cpu) = get_pmon_rc();
 }
 
-static int pmon_read_proc(char *page, char **start, off_t off,
-			  int count, int *eof, void *data)
+static int pmon_proc_show(struct seq_file *m, void *v)
 {
 	int cpu,len = 0;
 	on_each_cpu(on_each_cpu_pmon_read, NULL, 1);
 
-#define PRINT(ARGS...) len += sprintf (page+len, ##ARGS)
-
 	for_each_online_cpu(cpu)
-	PRINT("CPU%d:\n%x %x %x %x\n",cpu,
+	seq_printf(m,"CPU%d:\n%x %x %x %x\n",cpu,
 			per_cpu(csr, cpu),
 			per_cpu(high, cpu),
 			per_cpu(lc, cpu),
@@ -94,10 +91,15 @@ static int pmon_read_proc(char *page, char **start, off_t off,
 	return len;
 }
 
-static int pmon_write_proc(struct file *file, const char __user *buffer,
-			   unsigned long count, void *data)
+static int pmon_open(struct inode *inode, struct file *file)
 {
-	struct pmon_data *d = data;
+	return single_open(file, pmon_proc_show, PDE_DATA(inode));
+}
+
+static int pmon_write_proc(struct file *file, const char __user *buffer,
+			   size_t count, loff_t *data)
+{
+	struct pmon_data *d = file->private_data;
 	int i;
 
 	if (count > BUF_LEN)
@@ -127,20 +129,21 @@ static int pmon_write_proc(struct file *file, const char __user *buffer,
 			break;
 		}
 	}
-	
+
 	return count;
 }
 
+static const struct file_operations gpios_proc_fops ={
+	.read = seq_read,
+	.open = pmon_open,
+	.write = pmon_write_proc,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
 static int __init init_proc_pmon(void)
 {
-	struct proc_dir_entry *res;
+        proc_create("proc-pmon",0644,NULL,&gpios_proc_fops);
 
-	res = create_proc_entry("pmon", 0644, NULL);
-	if (res) {
-		res->read_proc = pmon_read_proc;
-		res->write_proc = pmon_write_proc;
-		res->data = kmalloc(sizeof(struct pmon_data),GFP_KERNEL);
-	}
 	return 0;
 }
 

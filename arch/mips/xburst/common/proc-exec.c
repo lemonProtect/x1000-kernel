@@ -2,8 +2,8 @@
 #include <linux/syscalls.h>
 #include <linux/kmod.h>
 #include <asm/uaccess.h>
-
-static int exec_write_proc(struct file *file, const char __user *buffer, unsigned long count, void *data)
+#include <linux/seq_file.h>
+static int exec_write_proc(struct file *file, const char __user *buffer, size_t count, loff_t *data)
 {
 	char buf[128];
 	char tmp[3][64];
@@ -15,7 +15,7 @@ static int exec_write_proc(struct file *file, const char __user *buffer, unsigne
 	memset(buf, 0, sizeof(buf));
 	memset(tmp, 0, sizeof(tmp));
 	if (copy_from_user(buf, buffer, count))
-		return -EFAULT;		
+		return -EFAULT;
 	for (i = 0; i < count; i++) {
 		strncpy(&tmp_one, &buf[i], 1);
 		if (!strncmp(&tmp_one, ":", 1)) {
@@ -30,7 +30,7 @@ static int exec_write_proc(struct file *file, const char __user *buffer, unsigne
 				strncpy(tmp[j], buf, i);
 			else
 				strncpy(&tmp[j][0], &buf[k+1], (i - k));
-		} 
+		}
 	}
 	argv[0] = &tmp[0][0];
 	argv[3] = NULL;
@@ -50,16 +50,14 @@ static int exec_write_proc(struct file *file, const char __user *buffer, unsigne
 	return count;
 }
 
+static const struct file_operations exec_proc_fops ={
+	.write = exec_write_proc,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
 static int __init init_proc_exec(void)
 {
-	struct proc_dir_entry *res;
-
-	res = create_proc_entry("exec", 0666, NULL);
-	if (res) {
-		res->read_proc = NULL;
-		res->write_proc = exec_write_proc;
-		res->data = NULL;
-	}
+	proc_create("proc-exec",0600,NULL,&exec_proc_fops);
 	return 0;
 }
 

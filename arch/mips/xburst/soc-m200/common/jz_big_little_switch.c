@@ -7,11 +7,11 @@
 #include <linux/regulator/consumer.h>
 #include <linux/proc_fs.h>
 #include <linux/clk.h>
-
+#include <linux/workqueue.h>
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
 #include <jz_proc.h>
-
+#include <linux/seq_file.h>
 #include <asm/cpu.h>
 #include <smp_cp0.h>
 
@@ -285,8 +285,9 @@ static void cpu_entry_wait(void)
 
 	iounmap(intc_base);
 }
+//////////////////////////////////////////////////////////////////////////////
 static int cpu_wait_proc_write(struct file *file, const char __user *buffer,
-			       unsigned long count, void *data)
+			       size_t count,loff_t *data)
 {
 	char str[10];
 	get_str_from_user(str,10,buffer,count);
@@ -297,17 +298,21 @@ static int cpu_wait_proc_write(struct file *file, const char __user *buffer,
 	}
 	return count;
 }
-static int cpu_switch_read_proc(char *page, char **start, off_t off,
-				int count, int *eof, void *data)
+static int cpu_switch_proc_show(struct seq_file *m, void *v)
 {
 	int cpu_no, len;
 	cpu_no = read_c0_ebase() & 1;
-	len = sprintf(page,"current cpu status is %s cpu\n", !cpu_no? "big" : "little");
+	len = seq_printf(m,"current cpu status is %s cpu\n", !cpu_no? "big" : "little");
 
 	return len;
 }
 
-static int cpu_switch_write_proc(struct file *file, const char __user *buffer,unsigned long count, void *data)
+static int cpu_switch_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, cpu_switch_proc_show, PDE_DATA(inode));
+}
+
+static int cpu_switch_write_proc(struct file *file, const char __user *buffer,size_t count, loff_t *data)
 {
 	struct cpu_core_ctrl *p = (struct cpu_core_ctrl *)data;
 	if(count && (buffer[0] == '1'))
@@ -318,15 +323,33 @@ static int cpu_switch_write_proc(struct file *file, const char __user *buffer,un
 		printk("\"echo 1 > cpu_switch\" or \"echo 0 > cpu_switch \" ");
 	return count;
 }
+
+static const struct file_operations cpu_switch_proc_fops ={
+	.read = seq_read,
+	.open = cpu_switch_proc_open,
+	.write = cpu_switch_write_proc,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+
+static const struct file_operations cpu_wait_proc_fops ={
+	.read = seq_read,
+//	.open = clk_get_proc_open,
+	.write = cpu_wait_proc_write,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
 void* __init create_switch_core(void)
 {
-	struct proc_dir_entry *res,*p;
+	struct proc_dir_entry *p;
 
 	p = jz_proc_mkdir("cpu_switch");
 	if (!p) {
 		pr_warning("create_proc_entry for common cpu switch failed.\n");
 		return NULL;
 	}
+/*
 	res = create_proc_entry("cpu_switch", 0600, p);
 	if (res) {
 		res->read_proc = cpu_switch_read_proc;
@@ -339,9 +362,14 @@ void* __init create_switch_core(void)
 		res->write_proc = cpu_wait_proc_write;
 		res->data = (void *) &sw_core;
 	}
+	
 	if(switch_cpu_init(&sw_core) != 0){
 		return NULL;
 	}
+*/
+	proc_create("cpu_proc_switch", 0600,p,&cpu_switch_proc_fops);
+	proc_create("cpu_proc_wait", 0600,p,&cpu_wait_proc_fops);
 	return (void *)&sw_core;
 
 }
+

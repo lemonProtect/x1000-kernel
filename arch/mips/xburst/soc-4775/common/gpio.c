@@ -592,7 +592,7 @@ int gpio_suspend(void)
 		jz->save[2] = readl(jz->reg + PXPAT1);
 		jz->save[3] = readl(jz->reg + PXPAT0);
 		jz->save[4] = readl(jz->reg + PXPEN);
-	
+
         gpio_suspend_set(jz);
 	}
 	return 0;
@@ -672,7 +672,7 @@ int __init gpio_ss_check(void)
 
 	pr_info("GPIO sleep states:\n");
 	for(i = 0; i < GPIO_NR_PORTS; i++) {
-		pr_info("OH:%08x OL:%08x IP:%08x IN:%08x\n", 
+		pr_info("OH:%08x OL:%08x IP:%08x IN:%08x\n",
 				jz_gpio_chips[i].sleep_state.output_high,
 				jz_gpio_chips[i].sleep_state.output_low,
 				jz_gpio_chips[i].sleep_state.input_pull,
@@ -795,17 +795,20 @@ static int gpio_read_proc(char *page, char **start, off_t off,
 	return len;
 }
 
+static struct file_operations *proc_file_fops ={
+	.read	 = gpio_read_proc;
+};
+
 static int __init init_gpio_proc(void)
 {
 	struct proc_dir_entry *res;
 
-	res = create_proc_entry("gpios", 0444, NULL);
-	if (res) {
-		res->read_proc = gpio_read_proc;
-		res->write_proc = NULL;
-		res->data = NULL;
+	res = proc_create("gpios",0444,NULL,proc_file_fops);
+
+	if(!res){
+		PRINT("proc create error");
+		return -1;
 	}
 	return 0;
 }
-
 module_init(init_gpio_proc);

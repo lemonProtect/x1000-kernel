@@ -127,7 +127,7 @@ static inline void dump_ddr_param(void) {
 	TCSM_PCHAR('\n');
 
 }
-extern void dump_clk(void);
+
 struct save_reg
 {
 	unsigned int addr;

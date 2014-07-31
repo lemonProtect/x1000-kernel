@@ -156,41 +156,4 @@ int get_clk_id(struct clk *clk)
 	return (clk - &clk_srcs[0]);
 }
 
-int dump_out_clk(char* str,DUMP_CALLBACK dump_callback)
-{
-	int i;
-	int len = 0;
-//	len += dump_callback(str + len,"ID NAME       FRE        stat       count     parent\n");
-	for(i = 0; i < ARRAY_SIZE(clk_srcs); i++) {
-		if (clk_srcs[i].name == NULL) {
-			//len += dump_callback(str + len,"--------------------------------------------------------\n");
-		} else {
-			unsigned int mhz = clk_srcs[i].rate / 10000;
-			len += dump_callback(str + len,"%2d %-10s %4d.%02dMHz %3sable   %d %s\n",i,clk_srcs[i].name
-				    , mhz/100, mhz%100
-				    , clk_srcs[i].flags & CLK_FLG_ENABLE? "en": "dis"
-				    , clk_srcs[i].count
-				    , clk_srcs[i].parent? clk_srcs[i].parent->name: "root");
-		}
-	}
-	len += dump_callback(str + len,"CLKGR\t: %08x\n",cpm_inl(CPM_CLKGR));
-	len += dump_callback(str + len,"CLKGR1\t: %08x\n",cpm_inl(CPM_CLKGR1));
-	len += dump_callback(str + len,"LCR1\t: %08x\n",cpm_inl(CPM_LCR));
-	len += dump_callback(str + len,"PGR\t: %08x\n",cpm_inl(CPM_PGR));
-	len += dump_callback(str + len,"SPCR0\t: %08x\n",cpm_inl(CPM_SPCR0));
-	return len;
-}
-static int dump_str(char *s, const char *fmt, ...)
-{
-	va_list args;
-	int r;
-	s = s;
-	va_start(args, fmt);
-	r = vprintk(fmt, args);
-	va_end(args);
-	return r;
-}
-void dump_clk(void)
-{
-	dump_out_clk(0,dump_str);
-}
+

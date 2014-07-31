@@ -1,7 +1,7 @@
 ## WARNING! DO NOT change this lists order because power sleep order depends on it!! ##
 
 obj-y += setup.o
-#obj-y += reset.o
+obj-y += reset.o
 obj-y += timer.o
 
 obj-y += serial.o

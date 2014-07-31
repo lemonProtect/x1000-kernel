@@ -254,9 +254,8 @@ enum {
 int get_clk_sources_size(void);
 struct clk *get_clk_from_id(int clk_id);
 int get_clk_id(struct clk *clk);
-typedef int (*DUMP_CALLBACK)(char *, const char *, ...);
-int dump_out_clk(char *str,DUMP_CALLBACK dump_callback);
-void dump_clk(void);
+//typedef int (*DUMP_CALLBACK)(char *, const char *, ...);
+int dump_out_clk(char *str);
 
 void __init init_cgu_clk(struct clk *clk);
 void __init init_cpccr_clk(struct clk *clk);

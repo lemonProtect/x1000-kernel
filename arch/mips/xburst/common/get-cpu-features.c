@@ -6,19 +6,17 @@
 
 #include <linux/module.h>
 #include <linux/proc_fs.h>
-
+#include <linux/seq_file.h>
 /* uninclude mach-ingenic/cpu-feature-overrides.h */
 #define __ASM_MACH_INGENIC_CPU_FEATURE_OVERRIDES_H__
 #include <asm/cpu-features.h>
 #include <asm/mipsregs.h>
 
-#if 0
-static int cpu_read_proc(char *page, char **start, off_t off,
-			 int count, int *eof, void *data)
+static int cpu_proc_show(struct seq_file *m, void *v)
 {
 	int len = 0;
 
-#define PRINT(ARGS...) len += sprintf (page+len, ##ARGS)
+#define PRINT(ARGS...) len += seq_printf (m, ##ARGS)
 
 #define PRT0(X,Y) PRINT("#define " "%s()\t(%d * 1024)\n",#X,(Y)/1024)
 #define PRT1(X,Y) PRINT("#define " "%s()\t%d\n",#X,(Y))
@@ -81,18 +79,21 @@ static int cpu_read_proc(char *page, char **start, off_t off,
 
 	return len;
 }
-#endif
+
+static int cpu_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, cpu_proc_show, PDE_DATA(inode));
+}
+static const struct file_operations cpu_proc_fops ={
+	.read = seq_read,
+	.open = cpu_open,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
 static int __init init_cpu_features(void)
 {
-#if 0
-	struct proc_dir_entry *res;
-	res = create_proc_entry("cpu-feature-override", 0444, NULL);
-	if (res) {
-		res->read_proc = cpu_read_proc;
-		res->write_proc = NULL;
-		res->data = NULL;
-	}
-#endif
+	proc_create("cpu-feature-override",0444,NULL,&cpu_proc_fops);
+
 	return 0;
 }
 

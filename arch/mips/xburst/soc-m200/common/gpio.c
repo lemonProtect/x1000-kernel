@@ -16,11 +16,10 @@
 #include <linux/syscore_ops.h>
 #include <linux/delay.h>
 #include <irq.h>
-
+#include <linux/seq_file.h>
 #include <soc/base.h>
 #include <soc/gpio.h>
 #include <soc/irq.h>
-
 #if !defined CONFIG_GPIOLIB
 #error  "Need GPIOLIB !!!"
 #endif
@@ -52,16 +51,13 @@
 #define PXDSS		0x84   /* Port Drive Strength set Register */
 #define PXDSC		0x88   /* Port Drive Strength clear Register */
 #define PZGID2LD	0xB0   /* GPIOZ Group ID to load */
-
 extern int gpio_ss_table[][2];
 #ifdef CONFIG_RECONFIG_SLEEP_GPIO
 extern int gpio_ss_table2[][2];
 extern bool need_update_gpio_ss(void);
 int __init gpio_ss_recheck(void);
 #endif
-
 extern void __enable_irq(struct irq_desc *desc, unsigned int irq, bool resume);
-
 struct jzgpio_state {
 	unsigned int pxint;
 	unsigned int pxmsk;
@@ -866,40 +862,42 @@ int __init setup_gpio_pins(void)
 arch_initcall(setup_gpio_pins);
 /* -------------------------gpio proc----------------------- */
 #include <jz_proc.h>
-#if 0
-static int gpio_read_proc(char *page, char **start, off_t off,
-			  int count, int *eof, void *data)
+
+static int gpio_proc_show(struct seq_file *m, void *v)
 {
-	int len = 0;
-	int i;
-
-#define PRINT(ARGS...) len += sprintf (page + len, ##ARGS)
-	PRINT("INT\t\tMASK\t\tPAT1\t\tPAT0\n");
+	int i=0;
+	seq_printf(m,"INT\t\tMASK\t\tPAT1\t\tPAT0\n");
 	for(i = 0; i < GPIO_NR_PORTS; i++) {
-		PRINT("0x%08x\t0x%08x\t0x%08x\t0x%08x\n",
-		      readl(jz_gpio_chips[i].reg + PXINT),
-		      readl(jz_gpio_chips[i].reg + PXMSK),
-		      readl(jz_gpio_chips[i].reg + PXPAT1),
-		      readl(jz_gpio_chips[i].reg + PXPAT0));
+		seq_printf(m,"0x%08x\t0x%08x\t0x%08x\t0x%08x\n",
+				readl(jz_gpio_chips[i].reg + PXINT),
+				readl(jz_gpio_chips[i].reg + PXMSK),
+				readl(jz_gpio_chips[i].reg + PXPAT1),
+				readl(jz_gpio_chips[i].reg + PXPAT0));
 	}
-
-	return len;
+	return 0;
 }
-#endif
+
+static int gpio_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, gpio_proc_show, PDE_DATA(inode));
+}
+static const struct file_operations gpios_proc_fops ={
+	.read = seq_read,
+	.open = gpio_open,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
 
 static int __init init_gpio_proc(void)
 {
-#if 0
 	struct proc_dir_entry *p;
-
 	p = jz_proc_mkdir("gpio");
 	if (!p) {
 		pr_warning("create_proc_entry for common gpio failed.\n");
 		return -ENODEV;
 	}
-	
-	return proc_create("gpios", 0600, p,gpio_proc_fops) != NULL;
-#endif
+	proc_create("gpios", 0600,p,&gpios_proc_fops);
+
 	return 0;
 }
 
