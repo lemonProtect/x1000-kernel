@@ -11,22 +11,9 @@
 #include <soc/extal.h>
 #include "clk.h"
 #define USE_PLL
-#if 0
 extern void prepare_switch_core(void *handle,unsigned int cur_rate,unsigned long target_rate);
 extern void switch_core(void *handle);
 extern void* __init create_switch_core(void);
-#else
-void prepare_switch_core(void *handle,unsigned int cur_rate,unsigned long target_rate)
-{
-}
-void switch_core(void *handle)
-{
-}
-int* __init create_switch_core(void)
-{
-	return 0;
-}
-#endif
 static DEFINE_SPINLOCK(cpm_cpccr_lock);
 struct cpccr_clk {
 	short off,sel,ce;
