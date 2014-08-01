@@ -149,6 +149,7 @@ static void switch_core_work(struct work_struct *work)
 	printk("after:current lcr1 = 0x%x\n", *(unsigned int*)(0xb0000004));
 
 }
+
 void switch_core(void *handle)
 {
 	struct cpu_core_ctrl *core = (struct cpu_core_ctrl *)handle;
@@ -156,7 +157,7 @@ void switch_core(void *handle)
 		if(!(current->flags & PF_KTHREAD)) {
 			printk("queue_work\n");
 			queue_work(core->sw_core_q,&core->work);
-			flush_work_sync(&core->work);
+			flush_work(&core->work);
 		}else{
 			switch_core_work(&core->work);
 		}
@@ -285,7 +286,6 @@ static void cpu_entry_wait(void)
 
 	iounmap(intc_base);
 }
-//////////////////////////////////////////////////////////////////////////////
 static int cpu_wait_proc_write(struct file *file, const char __user *buffer,
 			       size_t count,loff_t *data)
 {
@@ -349,24 +349,10 @@ void* __init create_switch_core(void)
 		pr_warning("create_proc_entry for common cpu switch failed.\n");
 		return NULL;
 	}
-/*
-	res = create_proc_entry("cpu_switch", 0600, p);
-	if (res) {
-		res->read_proc = cpu_switch_read_proc;
-		res->write_proc = cpu_switch_write_proc;
-		res->data = (void *) &sw_core;
-	}
-	res = create_proc_entry("wait", 0600, p);
-	if (res) {
-		res->read_proc = NULL;
-		res->write_proc = cpu_wait_proc_write;
-		res->data = (void *) &sw_core;
-	}
-	
 	if(switch_cpu_init(&sw_core) != 0){
 		return NULL;
 	}
-*/
+
 	proc_create("cpu_proc_switch", 0600,p,&cpu_switch_proc_fops);
 	proc_create("cpu_proc_wait", 0600,p,&cpu_wait_proc_fops);
 	return (void *)&sw_core;
