@@ -26,123 +26,6 @@
 
 #include "clk.h"
 
-static struct clk clk_srcs[] = {
-#define GATE(x)  (((x)<<24) | CLK_FLG_GATE)
-#define CPCCR(x) (((x)<<24) | CLK_FLG_CPCCR)
-#define CGU(no)  (((no)<<24) | CLK_FLG_CGU)
-#define PLL(no)  (((no)<<24) | CLK_FLG_PLL)
-#define PWC(no)  (((no)<<24) | CLK_FLG_PWC)
-#define PARENT(P)  (((CLK_ID_##P)<<16) | CLK_FLG_PARENT)
-#define RELATIVE(P)  (((CLK_ID_##P)<<16) | CLK_FLG_RELATIVE)
-#define DEF_CLK(N,FLAG)						\
-	[CLK_ID_##N] = { .name = CLK_NAME_##N, .flags = FLAG, }
-
-	DEF_CLK(EXT0,  		CLK_FLG_NOALLOC),
-	DEF_CLK(EXT1,  		CLK_FLG_NOALLOC),
-	DEF_CLK(OTGPHY,         CLK_FLG_NOALLOC),
-
-	DEF_CLK(APLL,  		PLL(CPM_CPAPCR)),
-	DEF_CLK(MPLL,  		PLL(CPM_CPMPCR)),
-
-	DEF_CLK(SCLKA,		CPCCR(SCLKA)),
-	DEF_CLK(CCLK,  		CPCCR(CDIV)),
-	DEF_CLK(L2CLK,  	CPCCR(L2CDIV)),
-	DEF_CLK(H0CLK,  	CPCCR(H0DIV)),
-	DEF_CLK(H2CLK, 		CPCCR(H2DIV)),
-	DEF_CLK(PCLK, 		CPCCR(PDIV)),
-
-	DEF_CLK(NFI,   		GATE(0) | PARENT(H2CLK)),
-	DEF_CLK(NEMC,  		GATE(1) | PARENT(H2CLK)),
-	DEF_CLK(BCH,   		GATE(2) | PARENT(H2CLK)),
-	DEF_CLK(OTG,   		GATE(3) | PARENT(CGU_USB)),
-	DEF_CLK(MSC0,  		GATE(4) | PARENT(PCLK)),
-	DEF_CLK(MSC1,  		GATE(5) | PARENT(PCLK)),
-	DEF_CLK(SSI0,  		GATE(6) | PARENT(PCLK)),
-	DEF_CLK(I2C0,  		GATE(7) | PARENT(PCLK)),
-
-	DEF_CLK(I2C1,  		GATE(8) | PARENT(PCLK)),
-	DEF_CLK(I2C2,  		GATE(9) | PARENT(PCLK)),
-	DEF_CLK(I2C3,  		GATE(10) | PARENT(PCLK)),
-	DEF_CLK(AIC,  		GATE(11) | PARENT(PCLK)),
-	DEF_CLK(MSC2,  		GATE(12) | PARENT(PCLK)),
-	DEF_CLK(SADC,  		GATE(13) | PARENT(PCLK)),
-	DEF_CLK(UART0,  	GATE(14) | PARENT(EXT1)),
-	DEF_CLK(UART1,  	GATE(15) | PARENT(EXT1)),
-
-	DEF_CLK(UART2,  	GATE(16) | PARENT(EXT1)),
-	DEF_CLK(UART3,  	GATE(17) | PARENT(EXT1)),
-	DEF_CLK(UART4,  	GATE(18) | PARENT(EXT1)),
-	DEF_CLK(SSI1,  		GATE(19) | PARENT(PCLK)),
-	DEF_CLK(SSI2,  		GATE(20) | PARENT(PCLK)),
-	DEF_CLK(PDMA,  		GATE(21) | PARENT(PCLK)),
-	DEF_CLK(UHC,  		GATE(22) | PARENT(PCLK)),
-	DEF_CLK(ISP,  		GATE(23) | PARENT(PCLK)),
-
-	DEF_CLK(LCD,  		GATE(24) | PARENT(H0CLK)),
-	DEF_CLK(CSI,  		GATE(25) | PARENT(PCLK)),
-	DEF_CLK(DSI,  		GATE(26) | PARENT(PCLK)),
-	DEF_CLK(PCM,  		GATE(27) | PARENT(H0CLK)),
-	DEF_CLK(DES,  		GATE(28) | PARENT(PCLK)),
-	DEF_CLK(RTC,  		GATE(29) | PARENT(EXT0)),
-	DEF_CLK(TCU,  		GATE(30) | PARENT(PCLK)),
-	DEF_CLK(DDR,  		GATE(31) | PARENT(PCLK)),
-
-	DEF_CLK(VPU,  		GATE(32 + 0) | PARENT(PCLK)),
-	DEF_CLK(GPU,  		GATE(32 + 1) | PARENT(PCLK)),
-	DEF_CLK(IPU,  		GATE(32 + 2) | PARENT(LCD)),
-	DEF_CLK(AHB_MON, 	GATE(32 + 3) | PARENT(PCLK)),
-	DEF_CLK(EPD, 	        GATE(32 + 4) | PARENT(PCLK)),
-	DEF_CLK(AES, 	        GATE(32 + 5) | PARENT(PCLK)),
-	DEF_CLK(HASH, 	        GATE(32 + 6) | PARENT(PCLK)),
-	DEF_CLK(DMIC, 	        GATE(32 + 7) | PARENT(PCLK)),
-
-	DEF_CLK(P1,	        GATE(32 + 8)),
-	DEF_CLK(P0,	        GATE(32 + 9)),
-	DEF_CLK(AHB0,	        GATE(32 + 10)),
-	DEF_CLK(SYS_OST,	GATE(32 + 11)),
-	DEF_CLK(TCU_EXCLK,	GATE(32 + 12)),
-	DEF_CLK(DLINE, 		GATE(32 + 13)),
-	DEF_CLK(APB0,  		GATE(32 + 14)),
-	DEF_CLK(CPU,  		GATE(32 + 15)),
-
-	DEF_CLK(CGU_MSC_MUX,  	CGU(CGU_MSC_MUX)),
-	DEF_CLK(CGU_BCH,	CGU(CGU_BCH)),
-	DEF_CLK(CGU_ISP,	CGU(CGU_ISP)),
-	DEF_CLK(CGU_GPU,	CGU(CGU_GPU)),
-	DEF_CLK(CGU_PCM,	CGU(CGU_PCM)),
-	DEF_CLK(CGU_CIM,	CGU(CGU_CIM)),
-	DEF_CLK(CGU_SSI,	CGU(CGU_SSI)),
-	DEF_CLK(CGU_UHC,	CGU(CGU_UHC)),
-	DEF_CLK(CGU_MSC2,	CGU(CGU_MSC2) | PARENT(CGU_MSC_MUX)),
-	DEF_CLK(CGU_MSC1,	CGU(CGU_MSC1) | PARENT(CGU_MSC_MUX)),
-	DEF_CLK(CGU_MSC0,	CGU(CGU_MSC0) | PARENT(CGU_MSC_MUX)),
-	DEF_CLK(CGU_LPC,	CGU(CGU_LPC)),
-	DEF_CLK(CGU_I2S,	CGU(CGU_I2S)),
-	DEF_CLK(CGU_USB,	CGU(CGU_USB)),
-	DEF_CLK(CGU_VPU,	CGU(CGU_VPU)),
-	DEF_CLK(CGU_DDR,	CGU(CGU_DDR)),
-
-	DEF_CLK(PWC_P0,         PWC(PWC_P0) | RELATIVE(P0)),
-	DEF_CLK(PWC_P1,         PWC(PWC_P1) | RELATIVE(P1)),
-	DEF_CLK(PWC_VPU,        PWC(PWC_VPU) | RELATIVE(VPU)),
-	DEF_CLK(PWC_GPU,        PWC(PWC_GPU) | RELATIVE(GPU)),
-	DEF_CLK(PWC_ISP,        PWC(PWC_ISP) | RELATIVE(ISP)),
-	DEF_CLK(PWC_IPU,        PWC(PWC_IPU) | RELATIVE(IPU)),
-	DEF_CLK(PWC_DMIC,       PWC(PWC_DMIC) | RELATIVE(DMIC)),
-	DEF_CLK(PWC_BCH,        PWC(PWC_BCH)  | RELATIVE(BCH)),
-	DEF_CLK(PWC_HASH,       PWC(PWC_HASH) | RELATIVE(HASH)),
-	DEF_CLK(PWC_LCD,        PWC(PWC_LCD) | RELATIVE(LCD)),
-	DEF_CLK(PWC_USB,        PWC(PWC_USB) | RELATIVE(CGU_USB)),
-	DEF_CLK(PWC_UHC,        PWC(PWC_UHC) | RELATIVE(CGU_UHC)),
-
-#undef GATE
-#undef CPCCR
-#undef CGU
-#undef PWC
-#undef PARENT
-#undef DEF_CLK
-#undef RELATIVE
-};
 int clk_suspend(void)
 {
 	printk("clk suspend!\n");
@@ -275,6 +158,7 @@ int clk_enable(struct clk *clk)
 		if(clk->init_state) {
 			clk->count = 1;
 			clk->init_state = 0;
+		clk->flags |= CLK_FLG_ENABLE;
 			return 0;
 		}
 	}
@@ -400,6 +284,7 @@ EXPORT_SYMBOL(clk_get_parent);
 static int clocks_show(struct seq_file *m, void *v)
 {
 	int i,len=0;
+	struct clk *clk_srcs = get_clk_from_id(0);
 	if(m->private != NULL) {
 		len += seq_printf(m ,"CLKGR\t: %08x\n",cpm_inl(CPM_CLKGR));
 		len += seq_printf(m ,"CLKGR1\t: %08x\n",cpm_inl(CPM_CLKGR1));
@@ -408,7 +293,7 @@ static int clocks_show(struct seq_file *m, void *v)
 		len += seq_printf(m ,"SPCR0\t: %08x\n",cpm_inl(CPM_SPCR0));
 	} else {
 		len += seq_printf(m,"ID NAME       FRE        stat       count     parent\n");
-		for(i = 0; i < ARRAY_SIZE(clk_srcs); i++) {
+		for(i = 0; i < get_clk_sources_size(); i++) {
 			if (clk_srcs[i].name == NULL) {
 				len += seq_printf(m ,"--------------------------------------------------------\n");
 			} else {
@@ -428,12 +313,14 @@ static int enable_write(struct file *file, const char __user *buffer,size_t coun
 {
 	struct clk *clk = file->private_data;
 	if(clk) {
+		struct clk *tmp = clk_get(NULL,clk->name);
 		if(count && (buffer[0] == '1'))
-			clk_enable(clk);
+			clk_enable(tmp);
 		else if(count && (buffer[0] == '0'))
-			clk_disable(clk);
+			clk_disable(tmp);
 		else
 			printk("\"echo 1 > enable\" or \"echo 0 > enable \" ");
+		clk_put(tmp);
 	}
 	return count;
 }
@@ -444,8 +331,10 @@ static int rate_write(struct file *file, const char __user *buffer,size_t count,
 	long rate;
 	if(clk) {
 		if(kstrtol_from_user(buffer,count,0,&rate) >= 0) {
-			clk_set_rate(clk,rate);
-		}else
+			struct clk *tmp = clk_get(NULL,clk->name);
+			clk_set_rate(tmp,rate);
+			clk_put(tmp);
+		} else
 			printk("\"usage : echo 100000000 > rate");
 	}
 	return count;
@@ -506,6 +395,7 @@ static int __init init_clk_proc(void)
 	int i=0;
 	struct proc_dir_entry *p;
 	struct proc_dir_entry *sub;
+	struct clk *clk_srcs = get_clk_from_id(0);
 
 	p = jz_proc_mkdir("clock");
 	if (!p) {
@@ -515,7 +405,7 @@ static int __init init_clk_proc(void)
 	proc_create_data("clocks", 0600,p,&clocks_proc_fops,0);
 	proc_create_data("misc", 0600,p,&clocks_proc_fops,(void *)1);
 
-	for(i = 0; i < ARRAY_SIZE(clk_srcs); i++) {
+	for(i = 0; i < get_clk_sources_size(); i++) {
 		if (clk_srcs[i].name == NULL)
 			continue;
 		sub = proc_mkdir(clk_srcs[i].name,p);
