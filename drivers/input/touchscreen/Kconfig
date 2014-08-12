@@ -86,6 +86,21 @@ config TOUCHSCREEN_AD7879_SPI
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad7879-spi.
 
+config TOUCHSCREEN_FT6X06
+        tristate "FocalTech FT6X06 TouchScreen driver"
+        depends on I2C
+        default n
+        help
+          pisecs FocalTech FT6X06 TouchSreen Driver implemented by Ingenic.
+
+config FT6X06_MULTITOUCH
+        bool "Enable multi-touch on FocalTech FT6X06 "
+        depends on TOUCHSCREEN_FT6X06
+        default y
+        help
+          support multitouch ft6206,if you want , say Y here.
+
+
 config TOUCHSCREEN_ATMEL_MXT
 	tristate "Atmel mXT I2C Touchscreen"
 	depends on I2C

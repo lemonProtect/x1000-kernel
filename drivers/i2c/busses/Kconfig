@@ -765,6 +765,108 @@ config I2C_RCAR
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-rcar.
 
+
+config I2C_V12_JZ
+        tristate "Ingenic SoC based on Xburst arch's I2C controler Driver support"
+	depends on MACH_XBURST
+	default n
+	help
+	  Say Y here in order to support Ingenic SoC's I2C Controller Drvier,
+	  for example, M200, M150, JZ4775, JZ4780, and so on.
+
+config I2C_FIFO_LEN
+        int "JZ_V12 I2C Controller FIFO length"
+	default 64
+	depends on I2C_V12_JZ
+	help
+	  M200 and JZ4775 have 64 entries FIFO.
+
+config I2C_DEBUG_INFO
+	bool "enable or disable Ingenic Soc's I2C driver debug info"
+	default n
+	depends on I2C_V12_JZ
+	help
+	  I2C debug print info, you can get the debug information from
+	  /sys/devices/platform/jz_i2c.x/debug_info,
+	  for example, echo 3 > /sys/devices/platform/jz_i2c.x/debug
+
+config I2C0_V12_JZ
+        tristate "JZ_v12 i2c controler 0 Interface support"
+	depends on I2C_V12_JZ
+	default n
+
+config I2C0_SPEED
+        int "Jz_v12 i2c0 speed in KHZ"
+        range 100 400
+        default 400
+        depends on I2C0_V12_JZ
+
+config I2C1_V12_JZ
+        tristate "JZ_v12 i2c controler 1 Interface support"
+	depends on I2C_V12_JZ
+	default n
+
+config I2C1_SPEED
+        int "Jz_v12 i2c1 speed in KHZ"
+        range 10 400
+        default 400
+        depends on I2C1_V12_JZ
+
+config I2C2_V12_JZ
+        tristate "JZ_v12 i2c controler 2 Interface support"
+	depends on I2C_V12_JZ
+	default n
+
+choice
+        prompt "JZ_v12 i2c controler 2  function pins select"
+        depends on I2C2_V12_JZ
+        default I2C2_PA
+config I2C3_PA
+        bool "GPIO_PA16 & GPIO_PA17"
+config I2C3_PE
+        bool "GPIO_PE0 & GPIO_PE3"
+endchoice
+
+config I2C2_SPEED
+        int "Jz_v12 i2c2 speed in KHZ"
+        range 100 400
+        default 100
+	depends on I2C2_V12_JZ
+
+config I2C3_V12_JZ
+        tristate "JZ_v12 i2c controler 3 Interface support"
+	depends on I2C_V12_JZ
+	default n
+
+choice
+        prompt "JZ_v12 i2c controler 3  function pins select"
+        depends on I2C3_V12_JZ
+        default I2C3_PB
+config I2C3_PB
+        bool "GPIO_PB7 & GPIO_PB8"
+config I2C3_PC
+        bool "GPIO_PC22 & GPIO_PC23"
+endchoice
+
+config I2C3_SPEED
+        int "Jz_v12 i2c3 speed in KHZ"
+        range 100 400
+        default 100
+        depends on I2C3_V12_JZ
+
+config I2C_JZV10_WAIT_MS
+        int "JZ_v10 i2c bus wait time in ms"
+	range 10 1000
+        default 1000
+        depends on I2C0_V12_JZ || I2C1_V12_JZ || I2C2_V12_JZ || I2C3_V12_JZ
+        help
+        Select Jz bus wait time in ms.
+         Examples:
+	      100 => 100 ms
+              200 => 200 ms
+	      300 =>  300 ms
+
+
 comment "External I2C/SMBus adapter drivers"
 
 config I2C_DIOLAN_U2C
