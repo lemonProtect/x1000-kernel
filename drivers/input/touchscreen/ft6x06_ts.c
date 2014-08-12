@@ -270,7 +270,6 @@ static void ft6x06_report_value(struct ft6x06_ts_data *data)
 					if (event->au16_x[i] >= 0 && event->au16_x[i] < 100){
 						if(0 == key_menu_status){
 							input_event(data->input_dev,EV_KEY,KEY_MENU,1);
-							//printk("this test-------------------------key_menu down\n");
 							key_menu_status = 1;
 						}
 					}
@@ -278,7 +277,6 @@ static void ft6x06_report_value(struct ft6x06_ts_data *data)
 					if (event->au16_x[i] >= 100 && event->au16_x[i] < 200){
 						if(0 == key_home_status){
 							input_event(data->input_dev,EV_KEY,KEY_HOMEPAGE,1);
-							//printk("this test-------------------------key_home_page down\n");
 							key_home_status = 1;
 						}
 					}
@@ -286,7 +284,6 @@ static void ft6x06_report_value(struct ft6x06_ts_data *data)
 					if (event->au16_x[i] >= 200 && event->au16_x[i] < 300){
 						if(0 == key_back_status){
 							input_event(data->input_dev,EV_KEY,KEY_BACK,1);
-							//printk("this test-------------------------key_back down\n");
 							key_back_status = 1;
 						}
 					}
@@ -294,17 +291,14 @@ static void ft6x06_report_value(struct ft6x06_ts_data *data)
 			}else{
 				if(1 == key_menu_status){
 					input_event(data->input_dev,EV_KEY,KEY_MENU,0);
-					//printk("this test-------------------------key_menu up\n");
 					key_menu_status = 0;
 				}
 				if(1 == key_home_status){
 					input_event(data->input_dev,EV_KEY,KEY_HOMEPAGE,0);
-					//printk("this test-------------------------key_home_page up\n");
 					key_home_status = 0;
 				}
 				if(1 == key_back_status){
 					input_event(data->input_dev,EV_KEY,KEY_BACK,0);
-					//printk("this test-------------------------key_back up\n");
 					key_back_status = 0;
 				}
 			}
@@ -336,7 +330,6 @@ static void ft6x06_work_handler(struct work_struct *work)
 static irqreturn_t ft6x06_ts_interrupt(int irq, void *dev_id)
 {
 	struct ft6x06_ts_data *ft6x06_ts = dev_id;
-	printk("in ts_interrupt\n");
 	disable_irq_nosync(ft6x06_ts->irq);
 
 #if 0
@@ -355,7 +348,6 @@ static irqreturn_t ft6x06_ts_interrupt(int irq, void *dev_id)
 
 static void ft6x06_ts_reset(struct ft6x06_ts_data *ts)
 {
-	printk("in ft6x06_ts_reset func \n");
 	gpio_set_value(ts->pdata->reset, 1);
 	msleep(5);
 	gpio_set_value(ts->pdata->reset, 0);
