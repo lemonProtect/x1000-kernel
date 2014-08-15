@@ -301,6 +301,12 @@ $(boot-y): $(vmlinux-32) FORCE
 	$(Q)$(MAKE) $(build)=arch/mips/boot VMLINUX=$(vmlinux-32) \
 		$(bootvars-y) arch/mips/boot/$@
 
+# zImage
+zImage: $(vmlinux-32) FORCE
+	$(Q)$(MAKE) $(build)=arch/mips/boot/zcompressed VMLINUX=$(vmlinux-32) $@
+	@cp arch/mips/boot/zcompressed/$@ arch/mips/boot/compressed/$@ 
+	@echo '  Kernel: arch/mips/boot/compressed/$@ is ready'
+
 # boot/compressed
 $(bootz-y): $(vmlinux-32) FORCE
 	$(Q)$(MAKE) $(build)=arch/mips/boot/compressed \
