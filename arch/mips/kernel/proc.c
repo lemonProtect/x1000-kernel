@@ -22,6 +22,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	unsigned long n = (unsigned long) v - 1;
 	unsigned int version = cpu_data[n].processor_id;
 	unsigned int fp_vers = cpu_data[n].fpu_id;
+	uint32_t efbuf[4] = {0};
 	char fmt [64];
 	int i;
 
@@ -124,6 +125,10 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	seq_printf(m, fmt, 'D', vced_count);
 	seq_printf(m, fmt, 'I', vcei_count);
 	seq_printf(m, "\n");
+
+	/* Android requires 'Hardware' to setup the init.%hardware%.rc */
+	seq_printf(m, "Hardware\t\t: %s\n", get_system_type());
+	seq_printf(m, "Serial\t\t\t: %08x %08x %08x %08x\n", efbuf[0], efbuf[1], efbuf[2], efbuf[3]);
 
 	return 0;
 }
