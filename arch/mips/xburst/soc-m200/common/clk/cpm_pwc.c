@@ -131,18 +131,13 @@ void cpm_pwc_resume(void)
 
 void __init cpm_pwc_init(void)
 {
-	int i;
 	//set power switch timing
 	cpm_outl(0,CPM_PSWC0ST);
 	cpm_outl(16,CPM_PSWC1ST);
 	cpm_outl(24,CPM_PSWC2ST);
 	cpm_outl(8,CPM_PSWC3ST);
 	spin_lock_init(&cpm_pwc_ctrl.spin_lock);
-	cpm_pwc_ctrl.is_suspend = 0;
-	wake_lock_init(&cpm_pwc_ctrl.pwc_wakelock,WAKE_LOCK_SUSPEND,"pwc wakelock");
-	for(i = 0;i < ARRAY_SIZE(cpm_pwc_srcs);i++) {
-		setup_timer(&cpm_pwc_srcs[i].timer,cpm_pwc_poweroff,(unsigned long)&cpm_pwc_srcs[i]);
-	}
+	cpm_pwc_ctrl.is_suspend = 1;
 }
 
 static struct clk_ops clk_pwc_ops = {
@@ -172,3 +167,16 @@ void __init init_pwc_clk(struct clk *clk)
 	}
 	clk->parent = NULL;
 }
+
+static int __init cpm_pwc_dev_init(void)
+{
+	int i;
+	cpm_pwc_ctrl.is_suspend = 0;
+	wake_lock_init(&cpm_pwc_ctrl.pwc_wakelock,WAKE_LOCK_SUSPEND,"pwc wakelock");
+	for(i = 0;i < ARRAY_SIZE(cpm_pwc_srcs);i++) {
+		setup_timer(&cpm_pwc_srcs[i].timer,cpm_pwc_poweroff,(unsigned long)&cpm_pwc_srcs[i]);
+	}
+	return 0;
+}
+
+module_init(cpm_pwc_dev_init);

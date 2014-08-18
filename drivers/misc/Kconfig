@@ -511,6 +511,12 @@ config USB_SWITCH_FSA9480
 	  stereo and mono audio, video, microphone and UART data to use
 	  a common connector port.
 
+config BCM_PM_CORE
+	tristate "BCM module power control core driver"
+	default n
+	---help---
+	The driver is for power management of BCM chips, NFC, BT, WiFi.
+
 config LATTICE_ECP3_CONFIG
 	tristate "Lattice ECP3 FPGA bitstream configuration via SPI"
 	depends on SPI && SYSFS
