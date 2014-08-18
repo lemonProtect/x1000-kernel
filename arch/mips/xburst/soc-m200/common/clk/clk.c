@@ -280,7 +280,6 @@ struct clk *clk_get_parent(struct clk *clk)
 }
 EXPORT_SYMBOL(clk_get_parent);
 
-//////////////////////////clk_proc_fops////////////////////////////
 static int clocks_show(struct seq_file *m, void *v)
 {
 	int i,len=0;
@@ -308,14 +307,15 @@ static int clocks_show(struct seq_file *m, void *v)
 	}
 	return len;
 }
-
 static int enable_write(struct file *file, const char __user *buffer,size_t count, loff_t *data)
 {
-	struct clk *clk = file->private_data;
+
+	struct clk *clk = ((struct seq_file *)file->private_data)->private;
 	if(clk) {
-		struct clk *tmp = clk_get(NULL,clk->name);
-		if(count && (buffer[0] == '1'))
+        struct clk *tmp = clk_get(NULL,clk->name);
+		if(count && (buffer[0] == '1')){
 			clk_enable(tmp);
+		}
 		else if(count && (buffer[0] == '0'))
 			clk_disable(tmp);
 		else
@@ -327,7 +327,7 @@ static int enable_write(struct file *file, const char __user *buffer,size_t coun
 
 static int rate_write(struct file *file, const char __user *buffer,size_t count, loff_t *data)
 {
-	struct clk *clk = (struct clk *)data;
+	struct clk *clk = ((struct seq_file *)file->private_data)->private;
 	long rate;
 	if(clk) {
 		if(kstrtol_from_user(buffer,count,0,&rate) >= 0) {
