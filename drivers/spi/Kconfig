@@ -86,6 +86,12 @@ config SPI_BCM2835
 	  is for the regular SPI controller. Slave mode operation is not also
 	  not supported.
 
+config SPI_JZ47XX
+        tristate "SPI controller driver for JZ47XX"
+	help
+	  This is the SPI controller master driver for jz47xx processor.
+
+
 config SPI_BFIN5XX
 	tristate "SPI controller driver for ADI Blackfin5xx"
 	depends on BLACKFIN
