@@ -305,7 +305,7 @@ static void ft6x06_report_value(struct ft6x06_ts_data *data)
 		}
 	}
 
-	dev_info(&data->client->dev, "$ly-test----%s: x1:%d y1:%d |<*_*>| \
+	dev_dbg(&data->client->dev, "$ly-test----%s: x1:%d y1:%d |<*_*>| \
 			x2:%d y2:%d \n", __func__,
 			event->au16_x[0], event->au16_y[0],
 			event->au16_x[1], event->au16_y[1]);
