@@ -32,6 +32,7 @@
 #include <asm/fpu.h>
 #include <linux/syscore_ops.h>
 #include <linux/regulator/consumer.h>
+#include <linux/clk.h>
 
 #include <asm/cacheops.h>
 #include <soc/cache.h>
@@ -41,6 +42,7 @@
 #include <soc/ddr.h>
 #include <tcsm.h>
 #include <smp_cp0.h>
+
 extern long long save_goto(unsigned int);
 extern int restore_goto(void);
 
@@ -127,7 +129,7 @@ static inline void dump_ddr_param(void) {
 	TCSM_PCHAR('\n');
 
 }
-
+extern void dump_clk(void);
 struct save_reg
 {
 	unsigned int addr;
@@ -186,6 +188,17 @@ static inline void config_powerdown_core(unsigned int *resume_pc) {
 /* 		REG32(addr + 0x10 * i) |= (((type >> (3 - i)) & 1) << pin); */
 /* 	} */
 /* } */
+
+int get_gpio_func(int port,int pin) {
+	int i;
+	int ret = 0;
+	int addr = 0xb0010010 + port * 0x100;
+	for(i = 0;i < 4;i++){
+		ret |= ((REG32(addr + 0x10 * i) >> pin) & 1)  << (3 - i);
+	}
+	return ret;
+}
+
 #define SLEEP_TSCM_SPACE    0xb3423000
 #define SLEEP_TSCM_DATA_LEN 0x20
 #define SLEEP_TSCM_TEXT     (SLEEP_TSCM_SPACE+SLEEP_TSCM_DATA_LEN)
@@ -380,13 +393,45 @@ static int m200_pm_enter(suspend_state_t state)
 	set_smp_ctrl(core_ctrl);
 	return 0;
 }
+static struct m200_early_sleep_t {
+	struct regulator*  core_vcc;
+	struct clk *cpu_clk;
+	unsigned int rate_hz;
+	unsigned int vol_uv;
 
+}m200_early_sleep;
+const unsigned int sleep_rate_hz = 24*1000*1000;
+const unsigned int sleep_vol_uv = 1025 * 1000;
+static int m200_prepare(void)
+{
+	m200_early_sleep.core_vcc = regulator_get(NULL,"cpu_core");
+	m200_early_sleep.rate_hz = clk_get_rate(m200_early_sleep.cpu_clk);
+	clk_set_rate(m200_early_sleep.cpu_clk,sleep_rate_hz);
+	if(!IS_ERR(m200_early_sleep.core_vcc))
+	{
+		m200_early_sleep.vol_uv = regulator_get_voltage(m200_early_sleep.core_vcc);
+		printk("save vol_uv = %d\n",m200_early_sleep.vol_uv);
+		regulator_set_voltage(m200_early_sleep.core_vcc,sleep_vol_uv,sleep_vol_uv);
+	}
+	return 0;
+}
+static void m200_finish(void)
+{
+	if(!IS_ERR(m200_early_sleep.core_vcc))
+	{
+		regulator_set_voltage(m200_early_sleep.core_vcc,m200_early_sleep.vol_uv,m200_early_sleep.vol_uv);
+		regulator_put(m200_early_sleep.core_vcc);
+	}
+	clk_set_rate(m200_early_sleep.cpu_clk,m200_early_sleep.rate_hz);
+}
 /*
  * Initialize power interface
  */
 struct platform_suspend_ops pm_ops = {
 	.valid = suspend_valid_only_mem,
 	.enter = m200_pm_enter,
+	.prepare = m200_prepare,
+	.finish = m200_finish,
 };
 //extern void ddr_retention_exit(void);
 //extern void ddr_retention_entry(void);
@@ -407,6 +452,12 @@ int __init m200_pm_init(void)
         opcr &= ~(2 << 25);	/* OPCR.PD=2'b00 */
         opcr |= 0xff << 8;	/* EXCLK stable time */
         cpm_outl(opcr,CPM_OPCR);
+	m200_early_sleep.cpu_clk = clk_get(NULL, "cclk");
+	if (IS_ERR(m200_early_sleep.cpu_clk)) {
+		printk("ERROR:cclk request fail!");
+		suspend_set_ops(NULL);
+		return -1;
+	}
         /* sysfs */
 	return 0;
 }
