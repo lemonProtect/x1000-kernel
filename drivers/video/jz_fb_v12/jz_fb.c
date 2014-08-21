@@ -29,7 +29,6 @@
 #include <linux/platform_device.h>
 #include <linux/io.h>
 #include <linux/memory.h>
-//#include <linux/earlysuspend.h>
 #include <linux/suspend.h>
 #include <linux/string.h>
 #include <linux/kthread.h>
@@ -1031,6 +1030,9 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
+#ifdef CONFIG_JZ_MIPI_DSI
+		jzfb->dsi->master_ops->set_blank_mode(jzfb->dsi, FB_BLANK_UNBLANK);
+#endif
 		reg_write(jzfb, LCDC_STATE, 0);
 		reg_write(jzfb, LCDC_OSDS, 0);
 		ctrl = reg_read(jzfb, LCDC_CTRL);
@@ -1048,6 +1050,9 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 		jzfb->is_lcd_en = 1;
 		break;
 	default:
+#ifdef CONFIG_JZ_MIPI_DSI
+		jzfb->dsi->master_ops->set_blank_mode(jzfb->dsi, FB_BLANK_POWERDOWN);
+#endif
 		if (jzfb->pdata->lcd_type != LCD_TYPE_SLCD) {
 			ctrl = reg_read(jzfb, LCDC_CTRL);
 			ctrl |= LCDC_CTRL_DIS;
@@ -1566,7 +1571,7 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			tmp = reg_read(jzfb, LCDC_CTRL);
 			reg_write(jzfb, LCDC_CTRL, tmp | LCDC_CTRL_EOFM);
 
-			/* is lcdc already in earlysuspend, make trigger a vsync. */
+			/* is lcdc already in suspend, make trigger a vsync. */
 			if (jzfb->is_suspend) {
 				dev_err(jzfb->dev,
 					"*** JZFB_SET_VSYNCINT but jzfb->is_suspend, trigger a dummy vsync end envent. ***\n");
@@ -1755,68 +1760,6 @@ static struct fb_ops jzfb_ops = {
 	.fb_ioctl = jzfb_ioctl,
 	.fb_mmap = jzfb_mmap,
 };
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-void dump_cpm_reg(void)
-{
-	printk("----reg:0x10000020 value=0x%08x  (24bit) Clock Gate Register0\n",
-			*(unsigned int *)0xb0000020);
-	printk("----reg:0x100000e4 value=0x%08x  (5bit_lcdc 21bit_lcdcs) Power Gate Register: \n",
-			*(unsigned int *)0xb00000e4);
-	printk("----reg:0x100000b8 value=0x%08x  (10bit) SRAM Power Control Register0 \n",
-			*(unsigned int *)0xb00000b8);
-	printk("----reg:0x10000064 value=0x%08x  Lcd pixclock \n",
-			*(unsigned int *)0xb0000064);
-}
-
-static void jzfb_early_suspend(struct early_suspend *h)
-{
-	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
-	mutex_lock(&jzfb->lock);
-#ifdef CONFIG_JZ_MIPI_DSI
-	jzfb->dsi->master_ops->set_early_blank_mode(jzfb->dsi, FB_BLANK_POWERDOWN);
-#endif
-		/* set suspend state and notify panel, backlight client */
-	fb_blank(jzfb->fb, FB_BLANK_POWERDOWN);
-	mutex_lock(&jzfb->suspend_lock);
-	jzfb->is_suspend = 1;
-	mutex_unlock(&jzfb->suspend_lock);
-	mutex_unlock(&jzfb->lock);
-
-	/*disable clock*/
-	jzfb_clk_disable(jzfb);
-	clk_disable(jzfb->pclk);
-	clk_disable(jzfb->pwcl);
-#if 0
-	printk("----lcd early suspend:\n");
-	dump_cpm_reg();
-#endif
-}
-
-static void jzfb_late_resume(struct early_suspend *h)
-{
-	/*enable clock*/
-	struct jzfb *jzfb = container_of(h, struct jzfb, early_suspend);
-#ifdef CONFIG_JZ_MIPI_DSI
-	jzfb->dsi->master_ops->set_blank_mode(jzfb->dsi, FB_BLANK_UNBLANK);
-#endif
-	fb_blank(jzfb->fb, FB_BLANK_UNBLANK);
-	clk_enable(jzfb->pwcl);
-	jzfb_clk_enable(jzfb);
-	jzfb_set_par(jzfb->fb);
-	jzfb_disable(jzfb->fb);
-	jzfb_enable(jzfb->fb);
-
-	mutex_lock(&jzfb->suspend_lock);
-	jzfb->is_suspend = 0;
-	mutex_unlock(&jzfb->suspend_lock);
-
-#if 0
-	printk("----lcd early resume:\n");
-	dump_cpm_reg();
-#endif
-}
-#endif
 
 static void jzfb_change_dma_desc(struct fb_info *info)
 {
@@ -2496,12 +2439,6 @@ static int jzfb_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err_free_devmem;
 	}
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	jzfb->early_suspend.suspend = jzfb_early_suspend;
-	jzfb->early_suspend.resume = jzfb_late_resume;
-	jzfb->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB;
-	register_early_suspend(&jzfb->early_suspend);
-#endif
 
 	ret = sysfs_create_group(&jzfb->dev->kobj, &lcd_debug_attr_group);
 	if (ret) {
@@ -2546,9 +2483,6 @@ err_kthread_stop:
 	kthread_stop(jzfb->vsync_thread);
 err_free_file:
 	sysfs_remove_group(&jzfb->dev->kobj, &lcd_debug_attr_group);
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	unregister_early_suspend(&jzfb->early_suspend);
-#endif
 err_free_irq:
 	free_irq(jzfb->irq, jzfb);
 err_free_devmem:
@@ -2587,9 +2521,6 @@ static int jzfb_remove(struct platform_device *pdev)
 
 	sysfs_remove_group(&jzfb->dev->kobj, &lcd_debug_attr_group);
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	unregister_early_suspend(&jzfb->early_suspend);
-#endif
 	iounmap(jzfb->base);
 	release_mem_region(jzfb->mem->start, resource_size(jzfb->mem));
 
@@ -2611,25 +2542,58 @@ static void jzfb_shutdown(struct platform_device *pdev)
 };
 
 #ifdef CONFIG_PM
+void dump_cpm_reg(void)
+{
+	printk("----reg:0x10000020 value=0x%08x  (24bit) Clock Gate Register0\n",
+			*(unsigned int *)0xb0000020);
+	printk("----reg:0x100000e4 value=0x%08x  (5bit_lcdc 21bit_lcdcs) Power Gate Register: \n",
+			*(unsigned int *)0xb00000e4);
+	printk("----reg:0x100000b8 value=0x%08x  (10bit) SRAM Power Control Register0 \n",
+			*(unsigned int *)0xb00000b8);
+	printk("----reg:0x10000064 value=0x%08x  Lcd pixclock \n",
+			*(unsigned int *)0xb0000064);
+}
+
 static int jzfb_suspend(struct device *dev)
 {
-	/* struct platform_device *pdev = to_platform_device(dev); */
-	/* struct jzfb *jzfb = platform_get_drvdata(pdev); */
-	/* clk_disable(jzfb->clk); */
-	/* clk_disable(jzfb->pclk); */
-	printk("++++++%s\n",__func__);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct jzfb *jzfb = platform_get_drvdata(pdev);
 
+	mutex_lock(&jzfb->suspend_lock);
+	jzfb->is_suspend = 1;
+	mutex_unlock(&jzfb->suspend_lock);
+
+	/*disable clock*/
+	jzfb_clk_disable(jzfb);
+	clk_disable(jzfb->pclk);
+	clk_disable(jzfb->pwcl);
+
+#if 0
+	printk("----[ lcd suspend ]:\n");
+	dump_cpm_reg();
+#endif
 	return 0;
 }
 
 static int jzfb_resume(struct device *dev)
 {
-	/* struct platform_device *pdev = to_platform_device(dev); */
-	/* struct jzfb *jzfb = platform_get_drvdata(pdev); */
-	/* clk_enable(jzfb->pclk); */
-	/* jzfb_clk_enable(jzfb); */
-	printk("++++++%s\n",__func__);
+	struct platform_device *pdev = to_platform_device(dev);
+	struct jzfb *jzfb = platform_get_drvdata(pdev);
 
+	clk_enable(jzfb->pwcl);
+	jzfb_clk_enable(jzfb);
+	jzfb_set_par(jzfb->fb);
+	jzfb_disable(jzfb->fb);
+	jzfb_enable(jzfb->fb);
+
+	mutex_lock(&jzfb->suspend_lock);
+	jzfb->is_suspend = 0;
+	mutex_unlock(&jzfb->suspend_lock);
+
+#if 0
+	printk("----[ lcd resume ]:\n");
+	dump_cpm_reg();
+#endif
 	return 0;
 }
 
