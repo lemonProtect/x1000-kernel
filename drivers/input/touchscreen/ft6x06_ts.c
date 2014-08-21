@@ -67,9 +67,6 @@ struct ft6x06_ts_data {
 	struct input_dev *input_dev;
 	struct ts_event event;
 	struct ft6x06_platform_data *pdata;
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	struct early_suspend early_suspend;
-#endif
 	struct work_struct  work;
 	struct workqueue_struct *workqueue;
 	struct regulator *vcc_reg;
@@ -356,26 +353,23 @@ static void ft6x06_ts_reset(struct ft6x06_ts_data *ts)
 	msleep(15);
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void ft6x06_ts_suspend(struct early_suspend *handler)
+static void ft6x06_close(struct input_dev *dev)
 {
-	struct ft6x06_ts_data *ts = container_of(handler, struct ft6x06_ts_data,
-						early_suspend);
+	struct ft6x06_ts_data *ts = input_get_drvdata(dev);
 
 	dev_dbg(&ts->client->dev, "[FTS]ft6x06 suspend\n");
 	disable_irq(ts->pdata->irq);
 }
 
-static void ft6x06_ts_resume(struct early_suspend *handler)
+static int ft6x06_open(struct input_dev *dev)
 {
-	struct ft6x06_ts_data *ts = container_of(handler, struct ft6x06_ts_data,
-						early_suspend);
+	struct ft6x06_ts_data *ts = input_get_drvdata(dev);
 
 	dev_dbg(&ts->client->dev, "[FTS]ft6x06 resume.\n");
 	ft6x06_ts_reset(ts);
 	enable_irq(ts->pdata->irq);
+	return 0;
 }
-#endif
 
 static int ft6x06_ts_probe(struct i2c_client *client,
 			   const struct i2c_device_id *id)
@@ -489,16 +483,13 @@ static int ft6x06_ts_probe(struct i2c_client *client,
 			dev_name(&client->dev));
 		goto exit_input_register_device_failed;
 	}
+
+	input_dev->open = ft6x06_open;
+	input_dev->close = ft6x06_close;
+	input_set_drvdata(input_dev, ft6x06_ts);
 	/*make sure CTP already finish startup process */
 	ft6x06_ts_reset(ft6x06_ts);
 	msleep(150);
-
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	ft6x06_ts->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
-	ft6x06_ts->early_suspend.suspend = ft6x06_ts_suspend;
-	ft6x06_ts->early_suspend.resume	= ft6x06_ts_resume;
-	register_early_suspend(&ft6x06_ts->early_suspend);
-#endif
 
 	/*get some register information */
 	uc_reg_addr = FT6x06_REG_FW_VER;
