@@ -19,7 +19,7 @@ static struct jztsc_platform_data fpga_tsc_pdata = {
 #endif
 
 #ifdef CONFIG_TOUCHSCREEN_FT6X0X
-#include <linux/i2c/ft6x0x_ts.h>
+#include <linux/input/ft6x0x_ts.h>
 extern int touch_power_init(struct device *dev);
 extern int touch_power_on(struct device *dev);
 extern int touch_power_off(struct device *dev);
@@ -45,7 +45,7 @@ static struct ft6x0x_platform_data ft6x0x_tsc_pdata = {
 #endif
 
 #ifdef CONFIG_TOUCHSCREEN_FT6X06
-#include <linux/i2c/ft6x06_ts.h>
+#include <linux/input/ft6x06_ts.h>
 struct ft6x06_platform_data ft6x06_tsc_pdata = {
 	.x_max          = 300,
 	.y_max          = 540,

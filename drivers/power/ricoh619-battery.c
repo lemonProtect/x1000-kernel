@@ -4167,7 +4167,7 @@ struct power_supply	powerusb = {
 		.get_property = ricoh61x_batt_get_prop,
 };
 
-static __devinit int ricoh61x_battery_probe(struct platform_device *pdev)
+static int ricoh61x_battery_probe(struct platform_device *pdev)
 {
 	struct ricoh61x_battery_info *info;
 	struct ricoh619_battery_platform_data *pdata;
@@ -4294,7 +4294,7 @@ static __devinit int ricoh61x_battery_probe(struct platform_device *pdev)
 #ifdef ENABLE_FACTORY_MODE
 	info->factory_mode_wqueue
 		= create_singlethread_workqueue("ricoh61x_factory_mode");
-	INIT_DELAYED_WORK_DEFERRABLE(&info->factory_mode_work,
+	INIT_DEFERRABLE_WORK(&info->factory_mode_work,
 					 check_charging_state_work);
 
 	ret = ricoh61x_factory_mode(info);
@@ -4315,17 +4315,17 @@ static __devinit int ricoh61x_battery_probe(struct platform_device *pdev)
 		= create_singlethread_workqueue("ricoh61x_battery_monitor");
 	info->workqueue = create_singlethread_workqueue("r5t61x_charger_in");
 	INIT_WORK(&info->irq_work, charger_irq_work);
-	INIT_DELAYED_WORK_DEFERRABLE(&info->monitor_work,
+	INIT_DEFERRABLE_WORK(&info->monitor_work,
 					 ricoh61x_battery_work);
-	INIT_DELAYED_WORK_DEFERRABLE(&info->displayed_work,
+	INIT_DEFERRABLE_WORK(&info->displayed_work,
 					 ricoh61x_displayed_work);
-	INIT_DELAYED_WORK_DEFERRABLE(&info->charge_stable_work,
+	INIT_DEFERRABLE_WORK(&info->charge_stable_work,
 					 ricoh61x_stable_charge_countdown_work);
-	INIT_DELAYED_WORK_DEFERRABLE(&info->charge_monitor_work,
+	INIT_DEFERRABLE_WORK(&info->charge_monitor_work,
 					 ricoh61x_charge_monitor_work);
-	INIT_DELAYED_WORK_DEFERRABLE(&info->get_charge_work,
+	INIT_DEFERRABLE_WORK(&info->get_charge_work,
 					 ricoh61x_get_charge_work);
-	INIT_DELAYED_WORK_DEFERRABLE(&info->jeita_work, ricoh61x_jeita_work);
+	INIT_DEFERRABLE_WORK(&info->jeita_work, ricoh61x_jeita_work);
 	INIT_DELAYED_WORK(&info->changed_work, ricoh61x_changed_work);
 
 	/* Charger IRQ workqueue settings */
@@ -4379,7 +4379,7 @@ static __devinit int ricoh61x_battery_probe(struct platform_device *pdev)
 			"Can't get ADC_VSYSL IRQ for chrager: %d\n", ret);
 		goto out;
 	}
-	INIT_DELAYED_WORK_DEFERRABLE(&info->low_battery_work,
+	INIT_DEFERRABLE_WORK(&info->low_battery_work,
 					 low_battery_irq_work);
 #endif
 
@@ -4405,7 +4405,7 @@ out:
 	return ret;
 }
 
-static int __devexit ricoh61x_battery_remove(struct platform_device *pdev)
+static int ricoh61x_battery_remove(struct platform_device *pdev)
 {
 	struct ricoh61x_battery_info *info = platform_get_drvdata(pdev);
 	uint8_t val;
@@ -4774,7 +4774,7 @@ static struct platform_driver ricoh61x_battery_driver = {
 #endif
 	},
 	.probe	= ricoh61x_battery_probe,
-	.remove	= __devexit_p(ricoh61x_battery_remove),
+	.remove	= ricoh61x_battery_remove,
 };
 
 static int __init ricoh61x_battery_init(void)

@@ -31,7 +31,9 @@
 #include "gadget_chips.h"
 
 #include "f_fs.c"
+#ifdef CONFIG_USB_GADGET_AUDIO_SOURCE
 #include "f_audio_source.c"
+#endif
 #include "f_mass_storage.c"
 #include "f_mtp.c"
 #include "f_accessory.c"
@@ -868,6 +870,7 @@ static struct android_usb_function accessory_function = {
 	.ctrlrequest	= accessory_function_ctrlrequest,
 };
 
+#ifdef CONFIG_USB_GADGET_AUDIO_SOURCE
 static int audio_source_function_init(struct android_usb_function *f,
 			struct usb_composite_dev *cdev)
 {
@@ -929,6 +932,7 @@ static struct android_usb_function audio_source_function = {
 	.unbind_config	= audio_source_function_unbind_config,
 	.attributes	= audio_source_function_attributes,
 };
+#endif
 
 static struct android_usb_function *supported_functions[] = {
 	&ffs_function,
@@ -938,7 +942,9 @@ static struct android_usb_function *supported_functions[] = {
 	&rndis_function,
 	&mass_storage_function,
 	&accessory_function,
+#ifdef CONFIG_USB_GADGET_AUDIO_SOURCE
 	&audio_source_function,
+#endif
 	NULL
 };
 
