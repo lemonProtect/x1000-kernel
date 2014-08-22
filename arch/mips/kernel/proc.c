@@ -15,6 +15,7 @@
 #include <asm/processor.h>
 #include <asm/prom.h>
 
+extern const char *get_board_type(void);
 unsigned int vced_count, vcei_count;
 
 static int show_cpuinfo(struct seq_file *m, void *v)
@@ -127,7 +128,7 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 	seq_printf(m, "\n");
 
 	/* Android requires 'Hardware' to setup the init.%hardware%.rc */
-	seq_printf(m, "Hardware\t\t: %s\n", get_system_type());
+	seq_printf(m, "Hardware\t\t: %s\n", get_board_type());
 	seq_printf(m, "Serial\t\t\t: %08x %08x %08x %08x\n", efbuf[0], efbuf[1], efbuf[2], efbuf[3]);
 
 	return 0;
