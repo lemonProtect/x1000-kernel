@@ -24,5 +24,6 @@ obj-$(CONFIG_CPU_FREQ) += cpufreq.o
 
 obj-y += jz_big_little_switch.o cpu_switch.o
 obj-$(SW-DEBUG) +=  cpu_switch_debug.o
+obj-y		+=  cpm_usb.o
 
 obj-$(CONFIG_DWC_LM_INTERFACE)  += lm.o lm-device.o

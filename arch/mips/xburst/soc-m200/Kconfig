@@ -1,16 +1,24 @@
 choice
-	prompt "Board type"
+	prompt "PRODUCT type"
 	depends on SOC_M200
-	default BOARD_DORADO
+	default PRODUCT_DEVELOP
 
 config BOARD_4785_FPGA
        bool "FPGA"
 
-config BOARD_DORADO
-       bool "DORADO"
+config PRODUCT_DEVELOP
+       bool "DEVELOP"
+
+config BOARD_FORNAX
+       bool "FORNAX"
 endchoice
 
-config BOARD_NAME
+config PRODUCT_NAME
 	string
 	default "fpga" if BOARD_4785_FPGA
-	default "dorado" if BOARD_DORADO
+	default "dorado" if PRODUCT_DEVELOP
+	default "fornax" if BOARD_FORNAX
+
+if PRODUCT_DEVELOP
+source "arch/mips/xburst/soc-m200/board/dorado/Kconfig"
+endif

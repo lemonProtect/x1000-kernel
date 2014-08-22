@@ -69,6 +69,7 @@ enum smart_lcd_new_dtimes {
 	SMART_LCD_NEW_DTIMES_ONCE = (0 << 8),
 	SMART_LCD_NEW_DTIMES_TWICE = (1 << 8),
 	SMART_LCD_NEW_DTIMES_THICE = (2 << 8),
+	SMART_LCD_NEW_DTIMES_MASK = (3 << 8),
 };
 
 /**
@@ -78,11 +79,15 @@ enum smart_lcd_new_dtimes {
  * @udelay: delay time in us
  */
 
+enum smart_config_type {
+	SMART_CONFIG_CMD =  0,
+	SMART_CONFIG_DATA =  1,
+	SMART_CONFIG_UDELAY =  2,
+};
+
 struct smart_lcd_data_table {
-	uint32_t reg;
+	enum smart_config_type type;
 	uint32_t value;
-	uint32_t type;
-	uint32_t udelay;
 };
 
 struct jzdsi_platform_data {
@@ -103,8 +108,7 @@ struct jzdsi_platform_data {
  * @height: height of the lcd display in mm
  * @pinmd: 16bpp lcd data pin mapping. 0: LCD_D[15:0],1: LCD_D[17:10] LCD_D[8:1]
  * @pixclk_falling_edge: pixel clock at falling edge
- * @date_enable_active_low: data enable active low
- * @alloc_vidmem: allocate video memory for LCDC. 0: not allocate, 1: allocate
+ * @data_enable_active_low: data enable active low
  * @smart_type: smart lcd transfer type, 0: parrallel, 1: serial
  * @cmd_width: smart lcd command width
  * @data_width:smart lcd data Width
@@ -141,29 +145,22 @@ struct jzfb_platform_data {
 	unsigned pinmd:1;
 
 	unsigned pixclk_falling_edge:1;
-	unsigned date_enable_active_low:1;
-
-	unsigned alloc_vidmem:1;
+	unsigned data_enable_active_low:1;
 
 	struct {
 		enum smart_lcd_type smart_type;
-		enum smart_lcd_cwidth cmd_width;
-		enum smart_lcd_dwidth data_width;
-		enum smart_lcd_dwidth data_width2;
 		unsigned clkply_active_rising:1;
 		unsigned rsply_cmd_high:1;
 		unsigned csply_active_high:1;
 
-		enum smart_lcd_new_dwidth data_new_width;
-		enum smart_lcd_new_dtimes data_new_times;
-		enum smart_lcd_new_dtimes data_new_times2;
 		unsigned newcfg_6800_md:1;
 		unsigned newcfg_fmt_conv:1;
 		unsigned datatx_type_serial:1;
 		unsigned cmdtx_type_serial:1;
 		unsigned newcfg_cmd_9bit:1;
 
-		unsigned long write_gram_cmd;
+		size_t length_cmd;
+		unsigned long *write_gram_cmd;
 		unsigned bus_width;
 		size_t length_data_table;
 		struct smart_lcd_data_table *data_table;

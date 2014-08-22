@@ -159,7 +159,7 @@ void jz_otg_phy_init(otg_mode_t mode)
 	/* OTGTUNE adjust */
 	//cpm_outl(7 << 14, CPM_USBPCR);
 
-	cpm_outl(0x8380385F, CPM_USBPCR);
+	cpm_outl(0x83803857, CPM_USBPCR);
 
 	if (mode == DEVICE_ONLY) {
 		pr_info("DWC IN DEVICE ONLY MODE\n");

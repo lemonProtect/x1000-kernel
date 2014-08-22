@@ -183,7 +183,7 @@ static int __init board_init(void)
 #ifdef CONFIG_USB_EHCI_HCD
 	platform_device_register(&jz_ehci_device);
 #endif
-#ifdef CONFIG_USB_DWC2
+#ifdef CONFIG_USB_JZ_DWC2
 	platform_device_register(&jz_dwc_otg_device);
 #endif
 /* msc */

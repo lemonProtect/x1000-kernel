@@ -12,6 +12,7 @@ config SOC_4780
 	select NR_CPUS_DEFAULT_2
 	select SYS_SUPPORTS_SMP
 	select GENERIC_CLOCKEVENTS_BROADCAST
+	select USB_ARCH_HAS_HCD
 
 config SOC_4775
 	bool "4775"
@@ -19,6 +20,7 @@ config SOC_4775
 	select TRACEPOINTS
 	select SYS_SUPPORTS_HIGHMEM
 	select GENERIC_CLOCKEVENTS_BROADCAST
+	select USB_ARCH_HAS_HCD
 
 config SOC_M200
 	bool "m200"
@@ -27,6 +29,7 @@ config SOC_M200
 	select SYS_SUPPORTS_HIGHMEM
 	select GENERIC_CLOCKEVENTS_BROADCAST
 	select JZ_CPU_SCACHE
+	select USB_ARCH_HAS_HCD
 
 endchoice
 

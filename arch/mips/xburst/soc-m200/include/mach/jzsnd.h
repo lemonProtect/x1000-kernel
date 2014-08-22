@@ -226,9 +226,17 @@ struct snd_dev_data {
 	struct list_head list;
 	struct device *dev;
 	void *ext_data;
+	/*********for update*********/
+	void *priv_data;
+	/*********for update*********/
 	int minor;
 	bool is_suspend;
 	long (*dev_ioctl) (unsigned int cmd, unsigned long arg);
+	/*********for update**********/
+	long (*dev_ioctl_2)(struct snd_dev_data *dev_data, unsigned int cmd, unsigned long arg);
+	struct dsp_endpoints * (*get_endpoints)(struct snd_dev_data *dev_data);
+
+	/************end**************/
 	int (*init)(struct platform_device *pdev);
 	void (*shutdown)(struct platform_device *pdev);
 	int (*suspend)(struct platform_device *pdev, pm_message_t state);

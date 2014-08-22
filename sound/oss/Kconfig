@@ -258,6 +258,8 @@ menuconfig SOUND_OSS
 	  driver for your sound card above, then pick your driver from the
 	  list below.
 
+source "sound/oss/jzsound/Kconfig"
+
 if SOUND_OSS
 
 config SOUND_TRACEINIT

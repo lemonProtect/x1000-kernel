@@ -124,6 +124,7 @@ struct ricoh619_battery_type_data {
 	int	fg_target_vsys;
 	int	fg_target_ibat;
 	int	fg_poff_vbat;
+	int	fg_rsense_val;
 	int	jt_en;
 	int	jt_hw_sw;
 	int	jt_temp_h;
@@ -134,7 +135,7 @@ struct ricoh619_battery_type_data {
 	int	jt_ichg_l;
 };
 
-#define BATTERY_TYPE_NUM 1
+#define BATTERY_TYPE_NUM 2
 struct ricoh619_battery_platform_data {
 	int	irq;
 	int	alarm_vol_mv;
