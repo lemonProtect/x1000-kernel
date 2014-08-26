@@ -1,6 +1,6 @@
 #include <asm/processor.h>
 #include <linux/sched.h>
-#include <mxu.h>
+#include <asm/mxu.h>
 
 void __save_mxu(void *tsk_void)
 {

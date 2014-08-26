@@ -28,8 +28,6 @@
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
 #include <jz_proc.h>
-#include <linux/slab.h>
-#include <linux/seq_file.h>
 //#define DEBUG 1
 #undef DEBUG
 
@@ -332,14 +330,14 @@ static void imem_free_all(void)
 /*
  * Return the allocated buffer address and the max order of free buffer
  */
-
-static int imem_proc_show(struct seq_file *m, void *v)
+static int imem_read_proc(char *page, char **start, off_t off,
+			  int count, int *eof, void *data)
 {
 	int len = 0;
 	unsigned int start_addr, end_addr, max_order, max_size;
 	struct imem_list *imem;
 
-	unsigned int *tmp = (unsigned int *)(m->buf + len);
+	unsigned int *tmp = (unsigned int *)(page + len);
 
 	start_addr = jz_imem_base;
 	end_addr = start_addr + (1 << IMEM_MAX_ORDER) * PAGE_SIZE;
@@ -360,6 +358,7 @@ static int imem_proc_show(struct seq_file *m, void *v)
 		if (max_size < (end_addr - start_addr))
 			max_size = end_addr - start_addr;
 	}
+
 	if (max_size > 0) {
 		max_order = get_order(max_size);
 		if (((1 << max_order) * PAGE_SIZE) > max_size)
@@ -375,14 +374,9 @@ static int imem_proc_show(struct seq_file *m, void *v)
 	len += 2 * sizeof(unsigned int);
 
 	return len;
-
 }
 
-static int imem_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, imem_proc_show, PDE_DATA(inode));
-}
-static int imem_write_proc(struct file *file, const char *buffer, size_t count, loff_t *data)
+static int imem_write_proc(struct file *file, const char *buffer, unsigned long count, void *data)
 {
 	unsigned int val;
 
@@ -407,14 +401,14 @@ static int imem_write_proc(struct file *file, const char *buffer, size_t count, 
 /*
  * Return the allocated buffer address and the max order of free buffer
  */
-
-static int imem1_proc_show(struct seq_file *m, void *v)
+static int imem1_read_proc(char *page, char **start, off_t off,
+			  int count, int *eof, void *data)
 {
 	int len = 0;
 	unsigned int start_addr, end_addr, max_order, max_size;
 	struct imem_list *imem;
 
-	unsigned int *tmp = (unsigned int *)(m->buf + len);
+	unsigned int *tmp = (unsigned int *)(page + len);
 
 	start_addr = jz_imem1_base;
 	end_addr = start_addr + (1 << IMEM1_MAX_ORDER) * PAGE_SIZE;
@@ -453,11 +447,7 @@ static int imem1_proc_show(struct seq_file *m, void *v)
 	return len;
 }
 
-static int imem1_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, imem1_proc_show, PDE_DATA(inode));
-}
-static int imem1_write_proc(struct file *file, const char *buffer, size_t count, loff_t *data)
+static int imem1_write_proc(struct file *file, const char *buffer, unsigned long count, void *data)
 {
 	unsigned int val;
 
@@ -482,46 +472,28 @@ static int imem1_write_proc(struct file *file, const char *buffer, size_t count,
  * /proc/jz/xxx entry
  *
  */
-
-
-
-static const struct file_operations imem_proc_fops ={
-	.read = seq_read,
-	.open = imem_open,
-	.write = imem_write_proc,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-
-static const struct file_operations imem1_proc_fops ={
-	.read = seq_read,
-	.open = imem1_open,
-	.write = imem1_write_proc,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-
-
 static int __init jz_proc_init(void)
 {
+	struct proc_dir_entry *res;
 	struct proc_dir_entry *jz_proc;
-
 	unsigned int virt_addr, i;
-
-	jz_proc = jz_proc_mkdir("imem");
-
-	if (!jz_proc) {
-		pr_warning("create_proc_entry for common gpio failed.\n");
-		return -ENODEV;
-	}
-
+#ifndef CONFIG_USE_JZ_ROOT_DIR
+	jz_proc = jz_proc_mkdir("mem");
+#else
+	jz_proc = get_jz_proc_root();
+#endif
 	/*
 	 * Reserve a 16MB memory for IPU on JZ.
 	 */
 	jz_imem_base = (unsigned int)__get_free_pages(GFP_KERNEL, IMEM_MAX_ORDER);
 	if (jz_imem_base) {
 		/* imem (IPU memory management) */
-proc_create("proc-imem",0644,jz_proc,&imem_proc_fops);
+		res = create_proc_entry("imem", 0644, jz_proc);
+		if (res) {
+			res->read_proc = imem_read_proc;
+			res->write_proc = imem_write_proc;
+			res->data = NULL;
+		}
 
 		/* Set page reserved */
 		virt_addr = jz_imem_base;
@@ -542,7 +514,12 @@ proc_create("proc-imem",0644,jz_proc,&imem_proc_fops);
         jz_imem1_base = (unsigned int)__get_free_pages(GFP_KERNEL, IMEM1_MAX_ORDER);
         if (jz_imem1_base) {
                 /* imem (IPU memory management) */
-proc_create("proc-imem1",0644,jz_proc,&imem1_proc_fops);
+                res = create_proc_entry("imem1", 0644, jz_proc);
+                if (res) {
+                        res->read_proc = imem1_read_proc;
+                        res->write_proc = imem1_write_proc;
+                        res->data = NULL;
+                }
 
                 /* Set page reserved */
                 virt_addr = jz_imem1_base;

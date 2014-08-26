@@ -417,27 +417,22 @@ static int ricoh618_power_off(void)
 	return 0;
 }
 
-static int ricoh618_register_reset_notifier(struct notifier_block *nb)
+static int ricoh618_register_reset_notifier(struct jz_notifier *nb)
 {
-	return reset_notifier_client_register(nb);
+	return jz_notifier_register(nb);
 }
 
-static int ricoh618_unregister_reset_notifier(struct notifier_block *nb)
+static int ricoh618_unregister_reset_notifier(struct jz_notifier *nb)
 {
-	return reset_notifier_client_unregister(nb);
+	return jz_notifier_unregister(nb);
 }
-
-static int ricoh618_reset_notifier_handler(struct notifier_block *this, unsigned long event, void *ptr)
+static int ricoh618_reset_notifier_handler(struct jz_notifier *nb,void *d)
 {
 	int ret;
-
-	if (event == JZ_POST_HIBERNATION) {
-		ret = ricoh618_power_off();
-		if (ret < 0)
-			printk("ricoh618_power_off failed \n");
-	} else
-		printk("\n%s event not match\n", __func__);
-
+	printk("WARNNING:system will power!\n");
+	ret = ricoh618_power_off();
+	if (ret < 0)
+		printk("ricoh618_power_off failed \n");
 	return ret;
 }
 
@@ -734,7 +729,9 @@ static int ricoh618_i2c_probe(struct i2c_client *i2c,
 	mutex_init(&ricoh618->io_lock);
 
 	ricoh618->bank_num = 0;
-	ricoh618->ricoh618_notifier.notifier_call = ricoh618_reset_notifier_handler;
+	ricoh618->ricoh618_notifier.jz_notify = ricoh618_reset_notifier_handler;
+	ricoh618->ricoh618_notifier.level = NOTEFY_PROI_NORMAL;
+	ricoh618->ricoh618_notifier.msg = JZ_POST_HIBERNATION;
 
 	ricoh618_read_pwroff_on(ricoh618->dev);
 

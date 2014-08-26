@@ -356,6 +356,16 @@ config BATTERY_RICOH619
 	  Say Y to enable support for the battery control of the Ricoh R5T619
 	  Power Management device.
 
+config LARGE_CAPACITY_BATTERY
+	  bool "Large capacity battery for 2000mA 4000mA"
+	  help
+	  Say "Y" to enable large capacity battery.
+
+config SMALL_CAPACITY_BATTERY
+	  bool "Small capacity battery for 260mA 500mA"
+	  help
+	  Say "Y" to enable small capacity battery.
+
 config CHARGER_TPS65090
 	tristate "TPS65090 battery charger driver"
 	depends on MFD_TPS65090
