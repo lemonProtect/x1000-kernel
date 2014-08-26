@@ -875,7 +875,7 @@ struct platform_device ovisp_device_camera = {
 	.resource = ovisp_resource_camera,
 };
 #endif
-#ifdef CONFIG_RTC_DRV_JZ4775
+#ifdef CONFIG_RTC_DRV_JZ
 static struct resource jz_rtc_resource[] = {
 	[0] = {
 		.start = RTC_IOBASE,
