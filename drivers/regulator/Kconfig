@@ -515,19 +515,6 @@ config REGULATOR_RICOH619
 	  This driver supports regulator driver for the Ricoh R5T619
 	  Power Management device.
 
-config REGULATOR_RICOH618
-	depends on MFD_RICOH618
-	tristate "RICOH618 PMU voltage regulator"
-	help
-	  This driver controls PMU RICOH618. It's a mfd cell driver of
-	  ricoh618-core.c
-
-config RICOH618_LONGPRESS_PWOFF
-	int "setup ricoh618 longpress power-off (0~12/s)"
-	range 0 12
-	default 4
-	depends on MFD_RICOH618
-
 config REGULATOR_AS3711
 	tristate "AS3711 PMIC"
 	depends on MFD_AS3711
