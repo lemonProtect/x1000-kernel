@@ -201,6 +201,9 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_SPI1_V12_JZ
        DEF_DEVICE(&jz_spi1_device, &spi1_info_cfg, sizeof(struct jz_spi_info));
 #endif
+#ifdef CONFIG_JZ_PWM
+       DEF_DEVICE(&jz_pwm_device, 0, 0),
+#endif
 };
 
 static int __init board_base_init(void)
