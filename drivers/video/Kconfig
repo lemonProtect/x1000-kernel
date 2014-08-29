@@ -2512,6 +2512,7 @@ config FB_SSD1307
 	help
 	  This driver implements support for the Solomon SSD1307
 	  OLED controller over I2C.
+
 source "drivers/video/jz_fb_v12/Kconfig"
 config FB_VSYNC_SKIP
         int "Vsync skip ratio[0..9]"
@@ -2540,4 +2541,6 @@ config THREE_FRAME_BUFFERS
        help
 	treble frame buffer
 endchoice
+
+source "drivers/video/jz_vpu/Kconfig"
 endmenu
