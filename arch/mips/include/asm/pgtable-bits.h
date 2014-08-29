@@ -32,7 +32,32 @@
  * unpredictable things.  The code (when it is written) to deal with
  * this problem will be in the update_mmu_cache() code for the r4k.
  */
-#if defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
+
+#if defined(CONFIG_JZRISC_PEP) && defined(CONFIG_CPU_MIPS32)
+#define _PAGE_PRESENT_SHIFT	0
+#define _PAGE_PRESENT		(1 << _PAGE_PRESENT_SHIFT)
+#define _PAGE_READ_SHIFT	1
+#define _PAGE_READ 		(1 << _PAGE_READ_SHIFT)
+#define _PAGE_WRITE_SHIFT	2
+#define _PAGE_WRITE		(1 << _PAGE_WRITE_SHIFT)
+#define _PAGE_ACCESSED_SHIFT	3
+#define _PAGE_ACCESSED		(1 << _PAGE_ACCESSED_SHIFT)
+#define _PAGE_MODIFIED_SHIFT	4
+#define _PAGE_MODIFIED		(1 << _PAGE_MODIFIED_SHIFT)
+#define _PAGE_FILE		(1 << 4)
+#define _PAGE_NO_EXEC		(1 << 5)
+#define _PAGE_GLOBAL		(1 << 6)
+#define _PAGE_VALID_SHIFT	7
+#define _PAGE_VALID		(1 << _PAGE_VALID_SHIFT)
+#define _PAGE_SILENT_READ	(1 << 7)
+#define _PAGE_DIRTY_SHIFT	8
+#define _PAGE_DIRTY		(1 << _PAGE_DIRTY_SHIFT)
+#define _PAGE_SILENT_WRITE	(1 << 8)
+#define _CACHE_SHIFT		(9)
+#define _CACHE_MASK		(7 << _CACHE_SHIFT)
+#define _PFN_SHIFT		(PAGE_SHIFT - 12 + _CACHE_SHIFT + 3)
+
+#elif defined(CONFIG_64BIT_PHYS_ADDR) && defined(CONFIG_CPU_MIPS32)
 
 /*
  * The following bits are directly used by the TLB hardware

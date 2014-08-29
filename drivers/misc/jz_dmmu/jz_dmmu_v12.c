@@ -27,7 +27,6 @@
 #include <asm/cacheflush.h>
 #include <asm/tlbflush.h>
 #include <linux/vmalloc.h>
-#include <asm/rjzcache.h>
 
 #include "jz_dmmu_v12.h"
 #include <mach/jz_libdmmu.h>
