@@ -24,6 +24,9 @@ source "drivers/gpu/drm/Kconfig"
 source "drivers/gpu/host1x/Kconfig"
 
 source "drivers/gpu/vivante/Kconfig"
+
+source "drivers/video/jz_ipu/Kconfig"
+
 config VGASTATE
        tristate
        default n

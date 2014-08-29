@@ -170,6 +170,7 @@ obj-$(CONFIG_FB_SSD1307)	  += ssd1307fb.o
 obj-$(CONFIG_FB_SIMPLE)           += simplefb.o
 obj-$(CONFIG_FB_JZ_V12)     	  += jz_fb_v12/
 obj-$(CONFIG_JZ_VPU)             += jz_vpu/
+obj-$(CONFIG_JZ_IPU_V12)		  += jz_ipu/
 
 # the test framebuffer is last
 obj-$(CONFIG_FB_VIRTUAL)          += vfb.o
