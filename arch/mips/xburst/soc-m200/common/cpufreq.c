@@ -28,39 +28,22 @@
 #include <linux/kthread.h>
 #include <linux/slab.h>
 
-#define debug(...) do{}while(0)
 
 static struct jz_cpufreq {
 	struct clk *cpu_clk;
 	struct cpufreq_frequency_table *freq_table;
-	//for suspend
-	unsigned long suspend_rate;
-	unsigned long suspend_save_rate;
 } *jz_cpufreq;
 /*
  *  unit: kHz
  */
 static unsigned long set_cpu_freqs[] = {
-	120000,
-	200000,
-	300000,
-	600000,
-	792000,
-	1008000,
-	1200000,
-	1250000,
-	1300000,
-	1325000,
-	1350000,
-	1375000,
-	1400000,
-	1425000,
-	1450000,
-	1475000,
-	1500000,
+	12000,
+	24000  ,60000 ,120000,
+	200000 ,300000 ,600000,
+	792000,1008000,1200000,
 	CPUFREQ_TABLE_END
 };
-#define SUSPEMD_FREQ_INDEX 3
+#define SUSPEMD_FREQ_INDEX 0
 static int m200_verify_speed(struct cpufreq_policy *policy)
 {
 	return cpufreq_frequency_table_verify(policy, jz_cpufreq->freq_table);
@@ -82,13 +65,13 @@ static int m200_target(struct cpufreq_policy *policy,
 	struct cpufreq_freqs freqs;
 	ret = cpufreq_frequency_table_target(policy, jz_cpufreq->freq_table, target_freq, relation, &index);
 	if (ret) {
-		debug("%s: cpu%d: no freq match for %d(ret=%d)\n",
+		printk("%s: cpu%d: no freq match for %d(ret=%d)\n",
 		       __func__, policy->cpu, target_freq, ret);
 		return ret;
 	}
 	freqs.new = jz_cpufreq->freq_table[index].frequency;
 	if (!freqs.new) {
-		debug("%s: cpu%d: no match for freq %d\n", __func__,
+		printk("%s: cpu%d: no match for freq %d\n", __func__,
 		       policy->cpu, target_freq);
 		return -EINVAL;
 	}
@@ -99,8 +82,8 @@ static int m200_target(struct cpufreq_policy *policy,
 	if (freqs.old == freqs.new && policy->cur == freqs.new)
 		return ret;
 
-	cpufreq_notify_transition(policy,&freqs, CPUFREQ_PRECHANGE);
-	debug("set speed = %d\n",freqs.new);
+	cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
+	//printk("set speed = %d\n",freqs.new);
 	ret = clk_set_rate(jz_cpufreq->cpu_clk, freqs.new * 1000);
 
 	freqs.new = m200_getspeed(policy->cpu);
@@ -115,7 +98,7 @@ static int m200_target(struct cpufreq_policy *policy,
 
 	loops_per_jiffy = cpufreq_scale(loops_per_jiffy,freqs.old, freqs.new);
 	/* notifiers */
-	cpufreq_notify_transition(policy,&freqs, CPUFREQ_POSTCHANGE);
+	cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
 	return ret;
 }
 static void init_freq_table(struct cpufreq_frequency_table *table)
@@ -144,10 +127,10 @@ static int __cpuinit m200_cpu_init(struct cpufreq_policy *policy)
 	if(cpufreq_frequency_table_cpuinfo(policy, jz_cpufreq->freq_table))
 		goto freq_table_err;
 	cpufreq_frequency_table_get_attr(jz_cpufreq->freq_table, policy->cpu);
-#ifdef SUSPEMD_FREQ_INDEX
-	if(SUSPEMD_FREQ_INDEX < ARRAY_SIZE(set_cpu_freqs))
-		jz_cpufreq->suspend_rate = set_cpu_freqs[SUSPEMD_FREQ_INDEX];
-#endif
+/* #ifdef SUSPEMD_FREQ_INDEX */
+/* 	if(SUSPEMD_FREQ_INDEX < ARRAY_SIZE(set_cpu_freqs)) */
+/* 		jz_cpufreq->suspend_rate = set_cpu_freqs[SUSPEMD_FREQ_INDEX]; */
+/* #endif */
 	policy->min = policy->cpuinfo.min_freq;
 	policy->max = policy->cpuinfo.max_freq;
 	policy->cur = m200_getspeed(policy->cpu);
@@ -161,33 +144,33 @@ static int __cpuinit m200_cpu_init(struct cpufreq_policy *policy)
 	cpumask_setall(policy->cpus);
 	/* 300us for latency. FIXME: what's the actual transition time? */
 	policy->cpuinfo.transition_latency = 500 * 1000;
-	debug("cpu freq init ok!\n");
+	printk("cpu freq init ok!\n");
 	return 0;
 freq_table_err:
-	debug("init freq_table_err fail!\n");
+	printk("init freq_table_err fail!\n");
 	clk_put(jz_cpufreq->cpu_clk);
 cpu_clk_err:
-	debug("init cpu_clk_err fail!\n");
+	printk("init cpu_clk_err fail!\n");
 	kfree(jz_cpufreq);
 	return -1;
 }
 
-static int m200_cpu_suspend(struct cpufreq_policy *policy)
-{
-	if(jz_cpufreq->cpu_clk && jz_cpufreq->suspend_rate) {
-		jz_cpufreq->suspend_save_rate = clk_get_rate(jz_cpufreq->cpu_clk);
-		clk_set_rate(jz_cpufreq->cpu_clk,jz_cpufreq->suspend_rate * 1000);
-	}
-	return 0;
-}
+/* static int m200_cpu_suspend(struct cpufreq_policy *policy) */
+/* { */
+/* 	if(jz_cpufreq->cpu_clk && jz_cpufreq->suspend_rate) { */
+/* 		jz_cpufreq->suspend_save_rate = clk_get_rate(jz_cpufreq->cpu_clk); */
+/* 		clk_set_rate(jz_cpufreq->cpu_clk,jz_cpufreq->suspend_rate * 1000); */
+/* 	} */
+/* 	return 0; */
+/* } */
 
-int m200_cpu_resume(struct cpufreq_policy *policy)
-{
-	if(jz_cpufreq->cpu_clk && jz_cpufreq->suspend_save_rate) {
-		clk_set_rate(jz_cpufreq->cpu_clk, jz_cpufreq->suspend_save_rate);
-	}
-	return 0;
-}
+/* int m200_cpu_resume(struct cpufreq_policy *policy) */
+/* { */
+/* 	if(jz_cpufreq->cpu_clk && jz_cpufreq->suspend_save_rate) { */
+/* 		clk_set_rate(jz_cpufreq->cpu_clk, jz_cpufreq->suspend_save_rate); */
+/* 	} */
+/* 	return 0; */
+/* } */
 
 static struct freq_attr *m200_cpufreq_attr[] = {
 	&cpufreq_freq_attr_scaling_available_freqs,
@@ -201,8 +184,8 @@ static struct cpufreq_driver m200_driver = {
 	.target		= m200_target,
 	.get		= m200_getspeed,
 	.init		= m200_cpu_init,
-	.suspend	= m200_cpu_suspend,
-	.resume		= m200_cpu_resume,
+	/* .suspend	= m200_cpu_suspend, */
+	/* .resume		= m200_cpu_resume, */
 	.attr		= m200_cpufreq_attr,
 };
 
@@ -214,4 +197,4 @@ static int __init m200_cpufreq_init(void)
 MODULE_AUTHOR("ztyan<ztyan@ingenic.cn>");
 MODULE_DESCRIPTION("cpufreq driver for JZ47XX SoCs");
 MODULE_LICENSE("GPL");
-module_init(m200_cpufreq_init);
+arch_initcall(m200_cpufreq_init);

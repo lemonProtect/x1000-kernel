@@ -9,11 +9,9 @@
 #include <soc/cache.h>
 #include <soc/base.h>
 #include <soc/extal.h>
+#include <jz_notifier.h>
 #include "clk.h"
 #define USE_PLL
-extern void prepare_switch_core(void *handle,unsigned int cur_rate,unsigned long target_rate);
-extern void switch_core(void *handle);
-extern void* __init create_switch_core(void);
 static DEFINE_SPINLOCK(cpm_cpccr_lock);
 struct cpccr_clk {
 	short off,sel,ce;
@@ -29,8 +27,7 @@ static struct cpccr_clk cpccr_clks[] = {
 	CPCCR_CLK(SCLKA,-1, -1,30),
 #undef CPCCR_CLK
 };
-static void *switch_core_handle;
-#define l2div_policy(rate,div) (rate > 200 * 1000 * 1000 ? div * 4 - 1 : div - 1)
+#define l2div_policy(rate,div) (rate > 200 * 1000 * 1000 ? div * 3 - 1 : div - 1)
 static int cclk_set_rate_nopll(struct clk *clk,unsigned long rate,struct clk *parentclk,unsigned int cpccr) {
 	unsigned int parent_rate;
 	unsigned int target_rate;
@@ -80,8 +77,14 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 	struct clk *parentclk = NULL;
 	unsigned long flags;
 	unsigned long prate = clk_get_rate(get_clk_from_id(CLK_ID_EXT1));
+	if(clkid == CDIV)
+	{
+		struct clk_notify_data dn;
+		dn.current_rate = clk->rate;
+		dn.target_rate = rate;
+		jz_notifier_call(JZ_CLK_PRECHANGE,&dn);
+	}
 	spin_lock_irqsave(&cpm_cpccr_lock,flags);
-
 	switch(clkid) {
 	case SCLKA:
 	{
@@ -158,12 +161,15 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 			//cpm_inl(CPM_CPCCR);
 
 			spin_unlock_irqrestore(&cpm_cpccr_lock,flags);
-			if(switch_core_handle)
-				prepare_switch_core(switch_core_handle,clk->rate,rate);
+			{
+				struct clk_notify_data dn;
+				dn.current_rate = clk->rate;
+				dn.target_rate = rate;
+				jz_notifier_call(JZ_CLK_CHANGING,&dn);
+			}
 			// 2. set pll freq
 			ret = clk_set_rate(parentclk,rate);
-			if(switch_core_handle)
-				switch_core(switch_core_handle);
+			jz_notifier_call(JZ_CLK_CHANGED,NULL);
 			spin_lock_irqsave(&cpm_cpccr_lock,flags);
 
 			if(ret != 0) {
@@ -205,12 +211,15 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 #else
 		{
 			unsigned int prev_rate = clk->rate;
+			struct clk_notify_data dn;
+			dn.current_rate = prev_rate;
+			dn.target_rate = rate;
 			ret = cclk_set_rate_nopll(clk,rate,parentclk,cpccr);
 			spin_unlock_irqrestore(&cpm_cpccr_lock,flags);
-			if(switch_core_handle) {
-				prepare_switch_core(switch_core_handle,prev_rate,rate);
-				switch_core(switch_core_handle);
-			}
+
+			jz_notifier_call(JZ_CLK_CHANGING,&dn);
+			jz_notifier_call(JZ_CLK_CHANGED,NULL);
+
 			spin_lock_irqsave(&cpm_cpccr_lock,flags);
 		}
 #endif
@@ -272,13 +281,3 @@ void __init init_cpccr_clk(struct clk *clk)
 	clk->rate = cpccr_get_rate(clk);
 	clk->ops = &clk_cpccr_ops;
 }
-static int __init init_switch_core(void)
-{
-	switch_core_handle = create_switch_core();
-	if(switch_core_handle == NULL) {
-		printk("switch core init error!\n");
-		return -ENODEV;
-	}
-	return 0;
-}
-module_init(init_switch_core);

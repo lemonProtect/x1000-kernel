@@ -98,7 +98,7 @@ void inline reset_keep_power(int keep_pwr)
 
 #define HWFCR_WAIT_TIME(x) ((x > 0x7fff ? 0x7fff: (0x7ff*(x)) / 2000) << 5)
 
-void jz_hibernate (void)
+void jz_hibernate(void)
 {
 	local_irq_disable();
 	/* Set minimum wakeup_n pin low-level assertion time for wakeup: 1000ms */
@@ -115,7 +115,7 @@ void jz_hibernate (void)
 	/* Put CPU to hibernate mode */
 	rtc_write_reg(RTC_HCR, 0x1);
 
-//	reset_notifier_call_chain(JZ_POST_HIBERNATION, NULL);
+	jz_notifier_call(JZ_POST_HIBERNATION, NULL);
 
 	mdelay(200);
 

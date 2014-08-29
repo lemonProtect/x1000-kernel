@@ -25,18 +25,17 @@
 #include <jz_proc.h>
 
 #include "clk.h"
-
-int clk_suspend(void)
+static int clk_suspend(void)
 {
 	printk("clk suspend!\n");
 	return 0;
 }
 
-void clk_resume(void)
+static void clk_resume(void)
 {
 	printk("clk resume!\n");
 }
-int clk_sleep_pm_callback(struct notifier_block *nfb,unsigned long action,void *ignored)
+static int clk_sleep_pm_callback(struct notifier_block *nfb,unsigned long action,void *ignored)
 {
 	switch (action) {
 	case PM_SUSPEND_PREPARE:
@@ -103,7 +102,7 @@ void __init init_all_clk(void)
 		if(clk_srcs[i].flags & CLK_FLG_PWC) {
 			init_pwc_clk(&clk_srcs[i]);
 		}
-
+		clk_srcs[i].CLK_ID = i;
 	}
 	for(i = 0; i < clk_srcs_size; i++) {
 		if(clk_srcs[i].parent && clk_srcs[i].init_state)
@@ -158,7 +157,6 @@ int clk_enable(struct clk *clk)
 		if(clk->init_state) {
 			clk->count = 1;
 			clk->init_state = 0;
-		clk->flags |= CLK_FLG_ENABLE;
 			return 0;
 		}
 	}
@@ -272,6 +270,7 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 	return err;
 }
 EXPORT_SYMBOL(clk_set_parent);
+
 struct clk *clk_get_parent(struct clk *clk)
 {
 	if (!clk)

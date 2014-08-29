@@ -79,7 +79,7 @@
 #define I2C2_PORTE							\
 	{ .name = "i2c2-pe", .port = GPIO_PORT_E, .func = GPIO_FUNC_1, .pins = 0x9, }
 #define I2C3_PORTB							\
-	{ .name = "i2c3-pb", .port = GPIO_PORT_B, .func = GPIO_FUNC_1, .pins = 0x3 << 6, }
+	{ .name = "i2c3-pb", .port = GPIO_PORT_B, .func = GPIO_FUNC_1, .pins = 0x3 << 7, }
 #define I2C3_PORTC							\
 	{ .name = "i2c3-pc", .port = GPIO_PORT_C, .func = GPIO_FUNC_1, .pins = 0x3 << 22, }
 

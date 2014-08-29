@@ -14,7 +14,7 @@
 #include <linux/seq_file.h>
 #include <asm/cpu.h>
 #include <smp_cp0.h>
-
+#include <jz_notifier.h>
 /* int _regs_stack[64]; */
 /* int _tlb_entry_regs[32 * 3 + 4]; */
 /* int _ready_flag; */
@@ -36,6 +36,8 @@ static struct cpu_core_ctrl
 	unsigned int used_sw_core;
 	struct workqueue_struct *sw_core_q;
 	struct work_struct work;
+	struct jz_notifier clk_changing;
+	struct jz_notifier clk_changed;
 } sw_core = {
 	.up_limit = 300*1000*1000,
 	.down_limit = 150*1000*1000,
@@ -62,7 +64,7 @@ static int reset_core(int cpuid)
 	 */
 	ctrl = get_smp_ctrl();
 	ctrl |= (1 << cpuid);
-	printk("ctrl0 = %x\n",ctrl);
+	//printk("ctrl0 = %x\n",ctrl);
 	set_smp_ctrl(ctrl);
 
 	/*
@@ -71,9 +73,9 @@ static int reset_core(int cpuid)
 	 */
 	ctrl = get_smp_ctrl();
 	ctrl &= ~(1 << cpuid);
-	printk("ctrl0 = %x\n",ctrl);
+	//printk("ctrl0 = %x\n",ctrl);
 	set_smp_ctrl(ctrl);
-	printk("status 0x%08x\n",get_smp_status());
+	//printk("status 0x%08x\n",get_smp_status());
 	return 0;
 }
 
@@ -93,32 +95,8 @@ static void core_interrupt(int cpuid,int mask)
 	else
 		tmp |= 1 << (cpuid + 8);
 	set_smp_reim(tmp);
-	printk("reim = %x\n",get_smp_reim());
+	//printk("reim = %x\n",get_smp_reim());
 
-}
-void prepare_switch_core(void *handle,unsigned int cur_rate,unsigned long target_rate)
-{
-	struct cpu_core_ctrl *core = (struct cpu_core_ctrl *)handle;
-	core->target_coreid = -1;
-	printk("cur_coreid = %d\n", core->coreid);
-	if(core->used_sw_core){
-		if(core->coreid == 1){
-			if(target_rate > core->up_limit && cur_rate <= core->up_limit) {
-				core_interrupt(0,1);
-				core_clk_enable(core->clk,0);
-				reset_core(0);
-				core->target_coreid = 0;
-			}
-
-		}else{
-			if(target_rate < core->down_limit && cur_rate >= core->down_limit) {
-				core_interrupt(1,1);
-				core_clk_enable(core->clk,1);
-				reset_core(1);
-				core->target_coreid = 1;
-			}
-		}
-	}
 }
 static void switch_core_work(struct work_struct *work)
 {
@@ -140,19 +118,47 @@ static void switch_core_work(struct work_struct *work)
 		core_clk_disable(core->clk,core->coreid);
 		core_interrupt(core->target_coreid,0);
 		core->coreid = core->target_coreid;
-		printk("convert to id %d\n",core->target_coreid);
+		//printk("convert to id %d\n",core->target_coreid);
 	}else {
 		printk("convert core fail!\n");
 		BUG_ON(1);
 	}
-	printk("after:current epc = 0x%x\n", (unsigned int)read_c0_epc());
-	printk("after:current lcr1 = 0x%x\n", *(unsigned int*)(0xb0000004));
+	//printk("after:current epc = 0x%x\n", (unsigned int)read_c0_epc());
+	//printk("after:current lcr1 = 0x%x\n", *(unsigned int*)(0xb0000004));
 
 }
 
-void switch_core(void *handle)
+static int clk_changing_notify(struct jz_notifier *notify,void *v)
 {
-	struct cpu_core_ctrl *core = (struct cpu_core_ctrl *)handle;
+	struct cpu_core_ctrl *core = container_of(notify,struct cpu_core_ctrl,clk_changing);
+	struct clk_notify_data *clk_data = (struct clk_notify_data *)v;
+	unsigned long target_rate = clk_data->target_rate;
+	unsigned long cur_rate = clk_data->current_rate;
+	core->target_coreid = -1;
+	//printk("cur_coreid = %d\n", core->coreid);
+	if(core->used_sw_core){
+		if(core->coreid == 1){
+			if(target_rate > core->up_limit && cur_rate <= core->up_limit) {
+				core_interrupt(0,1);
+				core_clk_enable(core->clk,0);
+				reset_core(0);
+				core->target_coreid = 0;
+			}
+
+		}else{
+			if(target_rate < core->down_limit && cur_rate >= core->down_limit) {
+				core_interrupt(1,1);
+				core_clk_enable(core->clk,1);
+				reset_core(1);
+				core->target_coreid = 1;
+			}
+		}
+	}
+        return 0;
+}
+static int clk_changed_notify(struct jz_notifier *notify,void *v)
+{
+	struct cpu_core_ctrl *core = container_of(notify,struct cpu_core_ctrl,clk_changed);
 	if(core->target_coreid != -1) {
 		if(!(current->flags & PF_KTHREAD)) {
 			printk("queue_work\n");
@@ -162,6 +168,7 @@ void switch_core(void *handle)
 			switch_core_work(&core->work);
 		}
 	}
+	return 0;
 }
 extern unsigned int _wait_flag;
 extern unsigned int _ready_flag;
@@ -221,6 +228,16 @@ static int __init switch_cpu_init(struct cpu_core_ctrl *pcore)
 	set_smp_reim((scpu_start_addr & 0xffff0000) | 0x1ff);
 	spin_lock_init(&pcore->switch_lock);
 	pcore->coreid = read_c0_ebase() & 1;
+
+	pcore->clk_changing.jz_notify = clk_changing_notify;
+	pcore->clk_changing.level = NOTEFY_PROI_HIGH;
+	pcore->clk_changing.msg = JZ_CLK_CHANGING;
+	jz_notifier_register(&pcore->clk_changing);
+
+	pcore->clk_changed.jz_notify = clk_changed_notify;
+	pcore->clk_changed.level = NOTEFY_PROI_HIGH;
+	pcore->clk_changed.msg = JZ_CLK_CHANGED;
+	jz_notifier_register(&pcore->clk_changed);
 
 	return 0;
 }

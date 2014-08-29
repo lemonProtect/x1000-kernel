@@ -667,6 +667,9 @@ void gpio_suspend_set(struct jzgpio_chip *jz)
 
 	//printk("aa grp:%d pxint:0x%08x,pxmsk:0x%08x,pxpat1:0x%08x,pxpat0:0x%08x,pxpen:0x%08x\n",
 	//       grp,pxint,pxmsk,pxpat1,pxpat0,pxpen);
+	/* printk("grp:%d pxint:0x%08x,pxmsk:0x%08x,pxpat1:0x%08x,pxpat0:0x%08x,pxpen:0x%08x,d:0x%08x\n", */
+	/*       grp,jz->sleep_state.pxint,jz->sleep_state.pxmsk,jz->sleep_state.pxpat1,jz->sleep_state.pxpat0, */
+	/*        jz->sleep_state.pxpen,d); */
 
 	pxint |= (jz->sleep_state.pxint & (~d));
 	pxmsk |= (jz->sleep_state.pxmsk & (~d));
@@ -715,7 +718,6 @@ int gpio_suspend(void)
 	}
 	return 0;
 }
-
 void gpio_resume(void)
 {
 	int i;
