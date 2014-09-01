@@ -511,6 +511,21 @@ config USB_SWITCH_FSA9480
 	  stereo and mono audio, video, microphone and UART data to use
 	  a common connector port.
 
+config BROADCOM_RFKILL
+	tristate "Bluetooth power control driver "
+	depends on RFKILL
+	default n
+	---help---
+	Creates an rfkill entry in sysfs for power control of Bluetooth
+	bcm4330 chips.
+
+config BT_BLUEDROID_SUPPORT
+	tristate "BLUEDROID power consumption sleep mode support"
+	depends on BROADCOM_RFKILL
+	default n
+	---help---
+	Add a policy for BT bluedroid stack about power consumption
+
 config BCM_PM_CORE
 	tristate "BCM module power control core driver"
 	default n
