@@ -4566,19 +4566,19 @@ static int ricoh61x_battery_suspend(struct device *dev)
 		dev_err(info->dev, "Error in writing the control register\n");
 	}
 
-	flush_delayed_work(&info->monitor_work);
-	flush_delayed_work(&info->displayed_work);
-	flush_delayed_work(&info->charge_stable_work);
-	flush_delayed_work(&info->charge_monitor_work);
-	flush_delayed_work(&info->get_charge_work);
-	flush_delayed_work(&info->changed_work);
+	cancel_delayed_work_sync(&info->monitor_work);
+	cancel_delayed_work_sync(&info->displayed_work);
+	cancel_delayed_work_sync(&info->charge_stable_work);
+	cancel_delayed_work_sync(&info->charge_monitor_work);
+	cancel_delayed_work_sync(&info->get_charge_work);
+	cancel_delayed_work_sync(&info->changed_work);
 #ifdef ENABLE_LOW_BATTERY_DETECTION
-	flush_delayed_work(&info->low_battery_work);
+	cancel_delayed_work_sync(&info->low_battery_work);
 #endif
 #ifdef ENABLE_FACTORY_MODE
-	flush_delayed_work(&info->factory_mode_work);
+	cancel_delayed_work_sync(&info->factory_mode_work);
 #endif
-	flush_delayed_work(&info->jeita_work);
+	cancel_delayed_work_sync(&info->jeita_work);
 /*	flush_work(&info->irq_work); */
 
 
