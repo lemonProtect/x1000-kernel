@@ -163,6 +163,26 @@ extern int jzmmc_clk_ctrl(int index, int on);
 extern int bcm_power_on(void);
 extern int bcm_power_down(void);
 
+#ifdef CONFIG_BCM43341
+static struct resource wlan_resources[] = {
+	[0] = {
+		.start = WL_WAKE_HOST,
+		.end = WL_WAKE_HOST,
+		.name = "bcmdhd_wlan_irq",
+		.flags  = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL | IORESOURCE_IRQ_SHAREABLE,
+	},
+};
+struct platform_device wlan_device = {
+	.name   = "bcmdhd_wlan",
+	.id     = 1,
+	.dev    = {
+		.platform_data = NULL,
+	},
+	.resource       = wlan_resources,
+	.num_resources  = ARRAY_SIZE(wlan_resources),
+};
+#endif /* CONFIG_BCM43341 */
+
 struct wifi_data {
 	struct wake_lock                wifi_wake_lock;
 	int                             wifi_reset;
@@ -253,6 +273,10 @@ start:
 
 	switch(flag) {
 		case RESET:
+#ifdef WL_REG_EN
+			gpio_direction_output(wl_reg_on, 1);
+			msleep(200);
+#endif
 			jzmmc_clk_ctrl(1, 1);
 #ifdef WL_RST_EN
 			gpio_direction_output(reset, 0);
@@ -277,7 +301,9 @@ start:
 
 			break;
 	}
+
 	//	wake_lock(wifi_wake_lock);
+
 	return 0;
 }
 EXPORT_SYMBOL(bcm_wlan_power_on);
@@ -307,6 +333,10 @@ start:
 		case RESET:
 #ifdef WL_RST_EN
 			gpio_direction_output(reset, 0);
+#endif
+#ifdef WL_REG_EN
+			udelay(65);
+			gpio_direction_output(wl_reg_on,0);
 #endif
 			jzmmc_clk_ctrl(1, 0);
 			break;
