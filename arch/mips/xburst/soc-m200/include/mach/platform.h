@@ -188,6 +188,8 @@ extern struct platform_device jz_dsi_device;
 extern struct platform_device jz_ipu_device;
 extern struct platform_device jz_pdma_device;
 
+extern struct platform_device jz_nand_device;
+
 extern struct platform_device jz_dwc_otg_device;
 /* ovisp */
 extern struct platform_device ovisp_device_camera;

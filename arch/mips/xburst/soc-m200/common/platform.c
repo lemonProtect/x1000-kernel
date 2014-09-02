@@ -93,17 +93,13 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #endif
 #ifdef CONFIG_SERIAL_JZ47XX_UART4
 #endif
-#ifdef CONFIG_NAND_COMMON
+#ifdef CONFIG_NAND_DRIVER
 	NAND_PORTAB_COMMON,
+	NAND_PORTA_CS1,
+	NAND_PORTA_CS2,
 #endif
 #ifdef CONFIG_NAND_BUS_WIDTH_16
 	NAND_PORTA_BUS16,
-#endif
-#ifdef CONFIG_NAND_CS1
-	NAND_PORTA_CS1,
-#endif
-#ifdef CONFIG_NAND_CS2
-	NAND_PORTA_CS2,
 #endif
 #ifdef CONFIG_NAND_CS3
 	NAND_PORTA_CS3,
@@ -910,3 +906,67 @@ struct platform_device jz_pwm_device = {
 	.id   = -1,
 };
 #endif
+
+/*  nand device  */
+static struct resource jz_nand_res[] ={
+	/**  nemc resource  **/
+	[0] = {
+		.flags = IORESOURCE_MEM,
+		.start = NFI_IOBASE,
+		.end = NFI_IOBASE + 0x160 -1,
+	},
+	[1] = {
+		.flags = IORESOURCE_IRQ,
+		.start = IRQ_NFI,
+	},
+	/**  bch resource  **/
+	[2] = {
+		.flags = IORESOURCE_MEM,
+		.start = BCH_IOBASE,
+		.end = BCH_IOBASE + 0x10000 -1,
+	},
+	[3] = {
+		.flags = IORESOURCE_IRQ,
+		.start = IRQ_BCH,
+	},
+	/**  pdma resource  **/
+	[4] = {
+		.flags = IORESOURCE_MEM,
+		.start = PDMA_IOBASE,
+		.end = PDMA_IOBASE +0x10000 -1,
+	},
+	[5] = {
+		.flags = IORESOURCE_DMA,
+		.start = JZDMA_REQ_NAND3,
+	},
+	/**  csn resource  **/
+	[6] = {
+		.flags = IORESOURCE_MEM,
+		.start = NEMC_CS1_IOBASE,
+		.end = NEMC_CS1_IOBASE + 0x1000000 -1,
+	},
+	[7] = {
+		.flags = IORESOURCE_MEM,
+		.start = NEMC_CS2_IOBASE,
+		.end = NEMC_CS2_IOBASE + 0x1000000 -1,
+	},
+	/*
+	[8] = {
+		.flags = IORESOURCE_MEM,
+		.start = NEMC_CS3_IOBASE,
+		.end = NEMC_CS3_IOBASE + 0x1000000 -1,
+	},
+	[9] = {
+		.flags = IORESOURCE_MEM,
+		.start = NEMC_CS4_IOBASE,
+		.end = NEMC_CS4_IOBASE + 0x1000000 -1,
+	},*/
+};
+
+struct platform_device jz_nand_device = {
+	.name = "jz_nand",
+	.id = -1,
+	.resource = jz_nand_res,
+	.num_resources =ARRAY_SIZE(jz_nand_res),
+};
+

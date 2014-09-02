@@ -25,21 +25,15 @@
 
 #include <mach/jzdma.h>
 
-//#define MCU_TEST_INTER_DMA
-#ifdef MCU_TEST_INTER_DMA
-#ifdef CONFIG_SOC_4780
-#define MCU_TEST_DATA_DMA 0xB3424FC0	//PDMA_BANK6 - 0x40
-#endif
-
-#ifdef CONFIG_SOC_4775
-#define MCU_TEST_DATA_NAND 0xB3426FC0	//PDMA_BANK5 - 0x40
-#endif
-
-#endif	//MCU_TEST_INTER_DMA
 #ifdef CONFIG_NAND
 
 __initdata static int firmware[] = {
-#include "firmware.hex"
+#ifdef CONFIG_NAND_NEMC
+	#include "firmware_nemc.hex"
+#endif //nemc
+#ifdef CONFIG_NAND_NFI
+	#include "firmware_nfi.hex"
+#endif //nfi
 };
 
 struct s_mailbox {
@@ -54,16 +48,11 @@ union u_mailbox {
 #define REG_INTC_CLEAR_CPUMASK0	(*(volatile unsigned int *)(0xb000100c))
 #define REG_INTC_MCUMASK0		(*(volatile unsigned int *)(0xb0001038))
 
-#define MCU_TEST_INTER_DMA
-#ifdef MCU_TEST_INTER_DMA
-#define MCU_TEST_DATA_DMA 0xB34257C0 //PDMA_BANK7 - 0x40
-#endif
-
 #define DMA_MAILBOX_NAND (*(volatile unsigned int *)(0xb3422020))
 #define DMA_MAILBOX_GPIO (*(volatile unsigned int *)(0xb3422024))
 #define MAILBOX_GPIO_PEND_ADDR0 ((volatile unsigned int *)0xb3422028)
 #define MAILBOX_GPIO_PEND_ADDR5 ((volatile unsigned int *)0xb3422040)
-#endif
+#endif //endif CONFIG_NAND
 
 /* tsz for 1,2,4,8,16,32,64 bytes */
 const static char dcm_tsz[7] = { 1, 2, 0, 0, 3, 4, 5 };
@@ -307,15 +296,6 @@ static int jzdma_load_firmware(struct jzdma_master *dma)
 	for(i = 0;i <= MAILBOX_GPIO_PEND_ADDR5 - MAILBOX_GPIO_PEND_ADDR0; i++)
 		MAILBOX_GPIO_PEND_ADDR0[i] = 0;
 
-#ifdef MCU_TEST_INTER_DMA
-	(*((unsigned long long *)MCU_TEST_DATA_DMA)) = 0;
-	(*(((unsigned long long *)MCU_TEST_DATA_DMA) + 1)) = 0;
-	(*(((unsigned long long *)MCU_TEST_DATA_DMA) + 2)) = 0;
-	(*(((unsigned long long *)MCU_TEST_DATA_DMA) + 3)) = 0;
-	(*(((unsigned long long *)MCU_TEST_DATA_DMA) + 4)) = 0;
-	(*(((unsigned long long *)MCU_TEST_DATA_DMA) + 5)) = 0;
-	(*(((unsigned long long *)MCU_TEST_DATA_DMA) + 6)) = 0;
-#endif
 	return 0;
 }
 
@@ -723,9 +703,6 @@ static void jzdma_chan_tasklet(unsigned long data)
 static void pdmam_chan_tasklet(unsigned long data)
 {
 	struct jzdma_channel *dmac = (struct jzdma_channel *)data;
-#ifdef MCU_TEST_INTER_DMA
-	(*(((unsigned long long *)(MCU_TEST_DATA_DMA))+5))++;
-#endif
 	spin_lock(&dmac->lock);
 	dmac->status = STAT_STOPED;
 	dmac->last_good = dmac->tx_desc.cookie;

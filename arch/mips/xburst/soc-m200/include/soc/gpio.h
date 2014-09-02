@@ -81,4 +81,5 @@ int jz_gpio_save_reset_func(enum gpio_port port, enum gpio_function dst_func,
 			    unsigned long pins, struct gpio_reg_func *rfunc);
 int jz_gpio_restore_func(enum gpio_port port,
 			 unsigned long pins, struct gpio_reg_func *rfunc);
+int mcu_gpio_register(unsigned int reg);
 #endif
