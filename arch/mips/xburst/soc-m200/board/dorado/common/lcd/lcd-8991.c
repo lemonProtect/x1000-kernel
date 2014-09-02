@@ -69,6 +69,7 @@ struct jzfb_platform_data jzfb_pdata = {
 static int backlight_init(struct device *dev)
 {
 	int ret;
+	return 0;
 	ret = gpio_request(GPIO_LCD_PWM, "Backlight");
 	if (ret) {
 		printk(KERN_ERR "failed to request GPF for PWM-OUT1\n");

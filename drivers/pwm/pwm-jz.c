@@ -92,7 +92,7 @@ static void jz_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 
 	tcu_disable(tcu_pwm);
 
-	gpio_direction_output((GPIO_PORT_E * 32 + pwm->hwpwm), 0);
+	jzgpio_set_func(GPIO_PORT_E, GPIO_OUTPUT0, 0x1 << pwm->hwpwm);
 }
 
 static int jz_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,

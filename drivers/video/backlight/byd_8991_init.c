@@ -12,6 +12,12 @@ struct platform_byd_8991_data *byd_8991_pdata = NULL;
 #define PWM_OUT             (32*4 + 1)
 #define back_light(n)\
      gpio_direction_output(PWM_OUT, n)
+
+/*PC20 BACK_LIGHT_SELECT */
+#define BACK_LIGHT_SEL(n)\
+	 gpio_direction_output(byd_8991_pdata->gpio_lcd_back_sel, n)
+#else
+#define BACK_LIGHT_SEL(n) do{}while(0)
 #endif
 
 /*PB30  LCD_RESET   */
@@ -34,9 +40,7 @@ struct platform_byd_8991_data *byd_8991_pdata = NULL;
 #define SDI()\
 	gpio_get_value(byd_8991_pdata->gpio_lcd_sdi)
 
-/*PC20 BACK_LIGHT_SELECT */
-#define BACK_LIGHT_SEL(n)\
-	 gpio_direction_output(byd_8991_pdata->gpio_lcd_back_sel, n)
+
 
 void SPI_3W_SET_CMD(unsigned char c)
 {

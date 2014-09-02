@@ -44,14 +44,7 @@ static void byd_8991_on(struct byd_8991_data *dev) {
 #endif
 	if (dev->pdata->gpio_lcd_disp)
 		gpio_direction_output(dev->pdata->gpio_lcd_disp, 1);
-#if 0
-	if (dev->pdata->gpio_lcd_de) /* set data mode*/
-		gpio_direction_output(dev->pdata->gpio_lcd_de, 0);
-	if (dev->pdata->gpio_lcd_hsync) /*sync mode*/
-		gpio_direction_output(dev->pdata->gpio_lcd_hsync, 1);
-	if (dev->pdata->gpio_lcd_vsync)
-		gpio_direction_output(dev->pdata->gpio_lcd_vsync, 1);
-#endif
+
 	/*spi interface init*/
 	if (dev->pdata->gpio_lcd_cs)
 		gpio_direction_output(dev->pdata->gpio_lcd_cs, 1);
@@ -61,9 +54,10 @@ static void byd_8991_on(struct byd_8991_data *dev) {
 		gpio_direction_output(dev->pdata->gpio_lcd_sdo, 1);
 	if (dev->pdata->gpio_lcd_sdi)
 		gpio_direction_input(dev->pdata->gpio_lcd_sdi);
+#if 0
 	if (dev->pdata->gpio_lcd_back_sel) /*sync mode*/
 		gpio_direction_output(dev->pdata->gpio_lcd_back_sel, 1);
-
+#endif
 	Initial_IC(dev->pdata);
 }
 
@@ -142,15 +136,9 @@ static int byd_8991_probe(struct platform_device *pdev)
 		gpio_request(dev->pdata->gpio_lcd_sdo, "spi_sdo");
 	if (dev->pdata->gpio_lcd_sdi)
 		gpio_request(dev->pdata->gpio_lcd_sdi, "spi_sdi");
+#if 0
 	if (dev->pdata->gpio_lcd_back_sel)
 		gpio_request(dev->pdata->gpio_lcd_back_sel, "back_light_ctrl");
-#if 0
-	if (dev->pdata->gpio_lcd_de)
-		gpio_request(dev->pdata->gpio_lcd_de, "data enable");
-	if (dev->pdata->gpio_lcd_hsync)
-		gpio_request(dev->pdata->gpio_lcd_hsync, "hsync");
-	if (dev->pdata->gpio_lcd_vsync)
-		gpio_request(dev->pdata->gpio_lcd_vsync, "vsync");
 #endif
 	byd_8991_on(dev);
 
@@ -188,14 +176,7 @@ static int byd_8991_remove(struct platform_device *pdev)
 		gpio_free(dev->pdata->gpio_lcd_sdo);
 	if (dev->pdata->gpio_lcd_sdi)
 		gpio_free(dev->pdata->gpio_lcd_sdi);
-#if 0
-	if (dev->pdata->gpio_lcd_de)
-		gpio_free(dev->pdata->gpio_lcd_de);
-	if (dev->pdata->gpio_lcd_hsync)
-		gpio_free(dev->pdata->gpio_lcd_hsync);
-	if (dev->pdata->gpio_lcd_vsync)
-		gpio_free(dev->pdata->gpio_lcd_vsync);
-#endif
+
 	dev_set_drvdata(&pdev->dev, NULL);
 	kfree(dev);
 

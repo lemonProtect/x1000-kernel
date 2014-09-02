@@ -139,7 +139,7 @@ static uint stuckDump = 1;
 module_param(stuckDump, uint, 0644);
 MODULE_PARM_DESC(stuckDump, "Level of stuck dump content (1: Minimal, 2: Middle, 3: Maximal)");
 
-static int showArgs = 1;
+static int showArgs = 0;
 module_param(showArgs, int, 0644);
 
 static int gpu3DMinClock = 1;

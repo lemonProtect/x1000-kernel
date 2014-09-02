@@ -2302,8 +2302,9 @@ void test_pattern(struct jzfb *jzfb)
 	jzfb_set_par(jzfb->fb);
 	jzfb_display_v_color_bar(jzfb->fb);
 	jzfb_enable(jzfb->fb);
-
+#if 0
 	dump_lcdc_registers(jzfb);
+#endif
 #ifdef CONFIG_JZ_MIPI_DSI
 	dump_dsi_reg(jzfb->dsi);
 #endif
