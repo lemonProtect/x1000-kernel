@@ -152,6 +152,12 @@ config LCD_BYD_8991FTGF
 	tristate "BYD 8991FTGF panel(480x800)"
 	depends on BACKLIGHT_CLASS_DEVICE
 	default n
+config NEED_REGULATOR
+	bool "Need regulator"
+	depends on LCD_BYD_8991FTGF
+	default n
+	help
+	  If your board is needed regulator_get supply for LCD, select this option.
 endif # LCD_CLASS_DEVICE
 
 #

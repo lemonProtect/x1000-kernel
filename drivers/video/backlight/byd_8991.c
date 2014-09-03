@@ -27,7 +27,6 @@
 #include <linux/platform_device.h>
 
 #include <linux/byd_8991.h>
-#define DEBUG_LCD_VCC_ALWAYS_ON
 extern void Initial_IC(struct platform_byd_8991_data *pdata);
 
 struct byd_8991_data {
@@ -39,7 +38,7 @@ struct byd_8991_data {
 
 static void byd_8991_on(struct byd_8991_data *dev) {
 	dev->lcd_power = 1;
-#ifndef DEBUG_LCD_VCC_ALWAYS_ON
+#ifdef CONFIG_NEED_REGULATOR
 	regulator_enable(dev->lcd_vcc_reg);
 #endif
 	if (dev->pdata->gpio_lcd_disp)
@@ -69,7 +68,7 @@ static void byd_8991_off(struct byd_8991_data *dev)
 	if (dev->pdata->gpio_lcd_disp)
 		gpio_direction_output(dev->pdata->gpio_lcd_disp, 0);
 	mdelay(2);
-#ifndef DEBUG_LCD_VCC_ALWAYS_ON
+#ifdef CONFIG_NEED_REGULATOR
 	regulator_disable(dev->lcd_vcc_reg);
 #endif
 	mdelay(10);
@@ -117,8 +116,8 @@ static int byd_8991_probe(struct platform_device *pdev)
 	dev->pdata = pdev->dev.platform_data;
 
 	dev_set_drvdata(&pdev->dev, dev);
-#ifndef DEBUG_LCD_VCC_ALWAYS_ON
-	dev->lcd_vcc_reg = regulator_get(NULL, "vlcd");
+#ifdef CONFIG_NEED_REGULATOR
+	dev->lcd_vcc_reg = regulator_get(NULL, "lcd_1.8v");
 	if (IS_ERR(dev->lcd_vcc_reg)) {
 		dev_err(&pdev->dev, "failed to get regulator vlcd\n");
 		return PTR_ERR(dev->lcd_vcc_reg);
@@ -163,7 +162,7 @@ static int byd_8991_remove(struct platform_device *pdev)
 
 	lcd_device_unregister(dev->lcd);
 	byd_8991_off(dev);
-#ifndef DEBUG_LCD_VCC_ALWAYS_ON
+#ifdef CONFIG_NEED_REGULATOR
 	regulator_put(dev->lcd_vcc_reg);
 #endif
 	if (dev->pdata->gpio_lcd_disp)
