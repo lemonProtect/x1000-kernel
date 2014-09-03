@@ -950,7 +950,6 @@ static struct resource jz_nand_res[] ={
 		.start = NEMC_CS2_IOBASE,
 		.end = NEMC_CS2_IOBASE + 0x1000000 -1,
 	},
-	/*
 	[8] = {
 		.flags = IORESOURCE_MEM,
 		.start = NEMC_CS3_IOBASE,
@@ -960,7 +959,7 @@ static struct resource jz_nand_res[] ={
 		.flags = IORESOURCE_MEM,
 		.start = NEMC_CS4_IOBASE,
 		.end = NEMC_CS4_IOBASE + 0x1000000 -1,
-	},*/
+	},
 };
 
 struct platform_device jz_nand_device = {
