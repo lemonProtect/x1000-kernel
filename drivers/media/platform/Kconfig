@@ -53,6 +53,33 @@ config VIDEO_VIU
 	  Say Y here if you want to enable VIU device on MPC5121e Rev2+.
 	  In doubt, say N.
 
+config VIDEO_OVISP
+	tristate "ingenic ovisp driver"
+	depends on VIDEO_DEV && VIDEO_V4L2
+	select VIDEOBUF2_DMA_CONTIG
+	select V4L2_MEM2MEM_DEV
+	help
+	  This is a v4l2 driver for Samsung EXYNOS5 SoC G-Scaler.
+
+config OVISP_I2C
+	bool "OVISP I2C"
+	depends on VIDEO_OVISP
+	---help---
+	USE ISP internal I2C.
+
+config DVP_CAMERA0
+    bool "select DVP interface camera and portC"
+	depends on VIDEO_OVISP && !FB_JZ_V1_2 && !JZ_EPD_GPIO_FUNCTION && SOC_M200
+	---help---
+	USE a camera of dvp interface.
+
+config MIPI_CAMERA
+    bool "select MIPI interface camera"
+	depends on VIDEO_OVISP && SOC_M200
+	---help---
+	USE a camera of mipi interface.
+
+
 config VIDEO_TIMBERDALE
 	tristate "Support for timberdale Video In/LogiWIN"
 	depends on VIDEO_V4L2 && I2C && DMADEVICES

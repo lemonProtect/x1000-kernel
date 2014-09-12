@@ -18,11 +18,12 @@ struct v4l2_i2c_reg {
 struct v4l2_fmt_data {
 	unsigned short hts;
 	unsigned short vts;
-	unsigned short flags;
+	unsigned short i2cflags;
 	unsigned short sensor_vts_address1;
 	unsigned short sensor_vts_address2;
 	unsigned short mipi_clk; /* Mbps. */
 	unsigned char slave_addr;
+	unsigned char lans;
 	unsigned char reg_num;
 	unsigned char viv_section;
 	unsigned char viv_addr;
@@ -30,6 +31,37 @@ struct v4l2_fmt_data {
 	struct v4l2_i2c_reg reg[V4L2_I2C_REG_MAX];
 };
 
+struct ovisp_camera_devfmt {
+	struct v4l2_mbus_framefmt vmfmt;
+	struct v4l2_fmt_data fmt_data;
+};
+#define v4l2_get_fmt_data(fmt)		(&(container_of(fmt, struct ovisp_camera_devfmt, vmfmt))->fmt_data)
+
+#define V4L2_ACQUIRE_DELAY_PHOTO	(0x00000001)
+#define V4L2_ACQUIRE_LIVING_PHOTO	(0x00000010)
+struct v4l2_photo_buffer{
+	enum v4l2_memory memory;
+	unsigned int fourcc;
+	unsigned int lenght;
+	unsigned int addr;
+};
+
+struct v4l2_acquire_photo_parm{
+	unsigned int width;
+	unsigned int height;
+	struct v4l2_photo_buffer src;
+	struct v4l2_photo_buffer dst;
+	unsigned int flags;
+	int index;
+};
+struct v4l2_normal_capture_parm{
+	unsigned int width;
+	unsigned int height;
+	unsigned short bypass;
+	unsigned short capture_num;
+	unsigned int addr[3];
+	unsigned int ratio[2];
+};
 struct v4l2_mbus_framefmt_ext {
 	__u32			width;
 	__u32			height;
@@ -51,7 +83,7 @@ struct v4l2_flash_duration {
 	unsigned int flash_ramp_time;
 };
 
-#define v4l2_get_fmt_data(fmt)		((struct v4l2_fmt_data *)(&(fmt)->reserved[0]))
+#define V4L2_PIX_FMT_NV12YUV422	v4l2_fourcc('N', 'Y', '2', 'V') /* output 2 videos, one video is nv12, other is yuv422 */
 
 /* External control IDs. */
 #define V4L2_CID_ISO				(V4L2_CID_PRIVACY + 1)
@@ -78,6 +110,13 @@ struct v4l2_flash_duration {
 #define V4L2_CID_SET_VIV_WIN_POSITION		(V4L2_CID_PRIVACY + 22) //add by wayne 0604
 #define  V4L2_CID_SET_NIGHT_MODE  (V4L2_CID_PRIVACY + 23) //add by wayne 0604
 
+/* External flow IDs
+* IDs reserved for driver specific controls
+* the beginning is V4L2_CID_PRIVATE_BASE.
+*/
+#define V4L2_CID_FLOW_VIDEONUM		(V4L2_CID_PRIVATE_BASE + 1)
+#define V4L2_CID_FLOW_CFG_VIDEO		(V4L2_CID_PRIVATE_BASE + 2)
+#define V4L2_CID_ACQUIRE_PHOTO		(V4L2_CID_PRIVATE_BASE + 3)
 
 //capability
 struct v4l2_privacy_cap
@@ -111,7 +150,7 @@ struct v4l2_privacy_cap
 
 #define CAP_IS_BITSET(cap, bit) ((bit >= sizeof((cap).buf)* 8) ? 0 : (((cap).buf[bit >> 3] & (1 << (bit % 8))) ? 1 : 0))
 
-enum v4l2_scene_mode {
+enum jz_v4l2_scene_mode {
 	SCENE_MODE_AUTO = 0,
 	SCENE_MODE_ACTION,
 	SCENE_MODE_PORTRAIT,
