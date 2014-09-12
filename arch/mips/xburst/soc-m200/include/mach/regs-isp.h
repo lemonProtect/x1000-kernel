@@ -167,10 +167,14 @@
 #define REG_ISP_GENERAL_PURPOSE_REG3		(0x63913)
 #define REG_ISP_GENERAL_PURPOSE_REG7		(0x63917)
 
-#define REG_ISP_INT_STAT_H			(0x63928)
-#define REG_ISP_INT_STAT_L			(0x63929)
-#define REG_ISP_INT_EN_H			(0x63924)
-#define REG_ISP_INT_EN_L			(0x63925)
+#define REG_ISP_INT_STAT_C3			(0x63928)
+#define REG_ISP_INT_STAT_C2			(0x63929)
+#define REG_ISP_INT_STAT_C1			(0x6392a)
+#define REG_ISP_INT_STAT_C0			(0x6392b)
+#define REG_ISP_INT_EN_C3			(0x63924)
+#define REG_ISP_INT_EN_C2			(0x63925)
+#define REG_ISP_INT_EN_C1			(0x63926)
+#define REG_ISP_INT_EN_C0			(0x63927)
 
 #define REG_ISP_MAC_INT_STAT_H			(0x63b32)
 #define REG_ISP_MAC_INT_STAT_L			(0x63b33)
@@ -282,12 +286,16 @@
 #define I2C_SPEED_200				(0x08)
 
 /* ISP interrupts mask. */
-#define MASK_INT_MAC1_DROP			(1 << 9)
-#define MASK_INT_CMDSET				(1 << 8)
-#define MASK_INT_MAC1_DONE			(1 << 7)
-#define MASK_INT_MAC1				(1 << 6)
-#define MASK_INT_MAC				(1 << 5)
-//#define MASK_INT_GPIO				(1 << 0)
+#define MASK_INT_MAC1_DROP			(1 << 25)
+#define MASK_INT_CMDSET				(1 << 24)
+#define MASK_INT_MAC1_DONE			(1 << 23)
+#define MASK_INT_MAC1				(1 << 22)
+#define MASK_INT_MAC				(1 << 21)
+#define MASK_INT_EOF				(1 << 8)
+#define MASK_INT_VSYNC				(1 << 4)
+#define MASK_INT_CMDINTR			(1 << 2)
+#define MASK_INT_GYIO				(1 << 1)
+#define MASK_INT_GPIO				(1 << 0)
 
 /* ISP mac interrupts mask. */
 /* Low mask. */
@@ -321,6 +329,11 @@
 #define IFORMAT_RAW10				(1 << 0)
 #define IFORMAT_RAW8				(0 << 0)
 
+/* input sequence */
+#define IFORMAT_GRBG				(0 << 0)
+#define IFORMAT_RGGB				(1 << 0)
+#define IFORMAT_BGGR				(2 << 0)
+#define IFORMAT_GBRG				(3 << 0)
 /*IDI control*/
 #define IDI_SCALE_ENABLE			(1 << 3)
 #define IDI_SCALE_RATIO_0			(0 << 0)
@@ -342,7 +355,7 @@
 #define OFORMAT_RAW10				(1 << 0)
 #define OFORMAT_RAW8				(0 << 0)
 
-
+#define ovisp_output_fmt_is_raw(fmt)		(fmt < 4)
 
 /* offline output format type */
 #define OFFLINE_OFORMAT_YUV420				(1 << 0)
