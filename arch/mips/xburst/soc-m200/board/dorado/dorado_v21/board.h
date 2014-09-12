@@ -122,12 +122,22 @@
 #define GPIO_PMU_IRQ		GPIO_PA(3)
 /* ****************************GPIO PMU END********************************** */
 
+/******************************GPIO PCA9539 START***********************************/
+/*GPIO PCA9593*/
+#ifdef CONFIG_GPIO_PCA953X
+#define PCA9539_IRQ_N       GPIO_PD(19)
+#define PCA9539_RST_N       GPIO_PA(14)
+#define PCA9539_GPIO_BASE   177
+#define PCA9539_EXT_GPIO(x)   (PCA9539_GPIO_BASE + (x))
+#endif /* CONFIG_PCA9539 */
+/* ****************************GPIO PCA9539 END********************************** */
+
 /* ****************************GPIO GSENSOR START**************************** */
 #define GPIO_GSENSOR_INT     GPIO_PA(15)
 /* ****************************GPIO GSENSOR END****************************** */
 
 /* ****************************GPIO EFUSE START****************************** */
-#define GPIO_EFUSE_VDDQ      GPIO_PA(12)
+#define GPIO_EFUSE_VDDQ      PCA9539_EXT_GPIO(6)
 /* ****************************GPIO EFUSE END******************************** */
 
 /* ****************************GPIO LI ION START***************************** */
@@ -137,17 +147,17 @@
 /* ****************************GPIO LI ION END******************************* */
 
 /* ****************************GPIO USB START******************************** */
-#define GPIO_USB_ID			GPIO_PA(13)
+#define GPIO_USB_ID     PCA9539_EXT_GPIO(7)/*GPIO_PA(13)*/
 #define GPIO_USB_ID_LEVEL		LOW_ENABLE
-#define GPIO_USB_DETE			GPIO_PA(14)
+#define GPIO_USB_DETE                   PCA9539_EXT_GPIO(8) /*GPIO_PA(14)*/
 #define GPIO_USB_DETE_LEVEL		HIGH_ENABLE
 #define GPIO_USB_DRVVBUS		GPIO_PE(10)
 #define GPIO_USB_DRVVBUS_LEVEL		HIGH_ENABLE
 /* ****************************GPIO USB END********************************** */
 
 /* ****************************GPIO CAMERA START***************************** */
-#define CAMERA_RST		GPIO_PD(27)
-#define CAMERA_PWDN_N           GPIO_PA(13) /* pin conflict with USB_ID */
+#define CAMERA_RST                     PCA9539_EXT_GPIO(4)
+#define CAMERA_PWDN_N           PCA9539_EXT_GPIO(3)//GPIO_PA(13) /* pin conflict with USB_ID */
 #define CAMERA_MCLK		GPIO_PE(2) /* no use */
 #ifdef CONFIG_DVP_OV9712
 #define OV9712_POWER	 	GPIO_PC(2) //the power of camera board
@@ -195,9 +205,9 @@
 /*
  * For BCM2079X NFC
  */
-#define NFC_REQ		GPIO_PC(26)
-#define NFC_REG_PU	GPIO_PC(27)
-#define HOST_WAKE_NFC   GPIO_PA(11)
+#define NFC_REQ         PCA9539_EXT_GPIO(1)//GPIO_PC(26)
+#define NFC_REG_PU      PCA9539_EXT_GPIO(0)//GPIO_PC(27)
+#define HOST_WAKE_NFC   PCA9539_EXT_GPIO(2)//GPIO_PA(11)
 /* ****************************GPIO NFC END********************************** */
 
 /* ****************************GPIO BLUETOOTH START************************** */

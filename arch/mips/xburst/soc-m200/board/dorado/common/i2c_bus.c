@@ -2,6 +2,7 @@
 #include <linux/i2c.h>
 #include <linux/i2c-gpio.h>
 #include <linux/interrupt.h>
+#include <linux/i2c/pca953x.h>
 #include "board_base.h"
 
 /* *****************************touchscreen******************************* */
@@ -109,8 +110,24 @@ struct i2c_board_info jz_i2c0_devs[] __initdata = {
 #endif /*CONFIG_INV_MPU_IIO*/
 };
 #endif
+
+#ifdef CONFIG_GPIO_PCA953X
+static struct pca953x_platform_data dorado_pca953x_pdata = {
+	.gpio_base  = PCA9539_GPIO_BASE,
+        .irq_base  = IRQ_RESERVED_BASE + 101,
+        .reset_n  = PCA9539_RST_N,
+	.irq_n  = PCA9539_IRQ_N,
+ };
+#endif
+
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_V12_JZ))
 struct i2c_board_info jz_i2c1_devs[] __initdata = {
+#ifdef CONFIG_GPIO_PCA953X
+	{
+		I2C_BOARD_INFO("pca9539",0x74),
+		.platform_data  = &dorado_pca953x_pdata,
+	},
+#endif
 };
 #endif  /*I2C1*/
 
