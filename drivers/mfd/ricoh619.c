@@ -37,6 +37,13 @@
 #include <linux/delay.h>
 #include <jz_notifier.h>
 
+#ifndef CONFIG_BATTERY_RICOH619
+/*
+ * Really ugly when CONFIG_BATTERY_RICOH619 is not selected.
+ */
+int g_soc;
+int g_fg_on_mode;
+#endif
 #if 0
 struct sleep_control_data {
 	u8 reg_add;
@@ -725,13 +732,53 @@ static void ricoh61x_noe_init(struct ricoh61x *ricoh)
 	__ricoh61x_write(client, RICOH61x_PWR_REP_CNT, 0x1);
 }
 
+static void ricoh61x_set_dcdc_ldo_in_psm_eco(struct i2c_client *client)
+{
+	uint8_t reg_val, ret;
+//	uint8_t read_back;
+	reg_val = 0;
+	ret = __ricoh61x_read(client, RICOH61x_DC1_CTL, &reg_val);
+	reg_val &= 0xbf;
+	reg_val |= 0x1 << 7;
+	__ricoh61x_write(client, RICOH61x_DC1_CTL, reg_val);
+//	ret = ricoh61x_read(client, RICOH61x_DC1_CTL, &read_back);
+
+	ret = __ricoh61x_read(client, RICOH61x_DC2_CTL, &reg_val);
+	reg_val &= 0xbf;
+	reg_val |= 0x1 << 7;
+	__ricoh61x_write(client, RICOH61x_DC2_CTL, reg_val);
+//	ret = ricoh61x_read(client, RICOH61x_DC2_CTL, &read_back);
+
+	ret = __ricoh61x_read(client, RICOH61x_DC3_CTL, &reg_val);
+	reg_val &= 0xbf;
+	reg_val |= 0x1 << 7;
+	__ricoh61x_write(client, RICOH61x_DC3_CTL, reg_val);
+//	ret = ricoh61x_read(client, RICOH61x_DC3_CTL, &read_back);
+
+	ret = __ricoh61x_read(client, RICOH61x_DC4_CTL, &reg_val);
+	reg_val &= 0xbf;
+	reg_val |= 0x1 << 7;
+	__ricoh61x_write(client, RICOH61x_DC4_CTL, reg_val);
+//	ret = ricoh61x_read(client, RICOH61x_DC4_CTL, &read_back);
+
+	ret = __ricoh61x_read(client, RICOH61x_DC5_CTL, &reg_val);
+	reg_val &= 0xbf;
+	reg_val |= 0x1 << 7;
+	__ricoh61x_write(client, RICOH61x_DC5_CTL, reg_val);
+//	ret = ricoh61x_read(client, RICOH61x_DC4_CTL, &read_back);
+
+	ret = __ricoh61x_read(client, RICOH61x_LDOECO_SLP, &reg_val);
+	reg_val = 0x3f;
+	__ricoh61x_write(client, RICOH61x_LDOECO_SLP, reg_val);
+//	ret = ricoh61x_read(client, RICOH61x_LDOECO_SLP, &read_back);
+
+}
 static int ricoh61x_i2c_probe(struct i2c_client *client,
 			      const struct i2c_device_id *id)
 {
 	struct ricoh61x *ricoh61x;
 	struct ricoh619_platform_data *pdata = client->dev.platform_data;
 	int ret;
-	printk(KERN_INFO "PMU: %s:\n", __func__);
 
 	ricoh61x = kzalloc(sizeof(struct ricoh61x), GFP_KERNEL);
 	if (ricoh61x == NULL)
@@ -777,6 +824,9 @@ static int ricoh61x_i2c_probe(struct i2c_client *client,
 	ricoh61x_debuginit(ricoh61x);
 
 	ricoh61x_i2c_client = client;
+
+	ricoh61x_set_dcdc_ldo_in_psm_eco(client);
+
 	return 0;
 
 err_add_notifier:
@@ -871,8 +921,6 @@ static struct i2c_driver ricoh61x_i2c_driver = {
 static int __init ricoh61x_i2c_init(void)
 {
 	int ret = -ENODEV;
-
-	printk(KERN_INFO "PMU: %s:\n", __func__);
 
 	ret = i2c_add_driver(&ricoh61x_i2c_driver);
 	if (ret != 0)

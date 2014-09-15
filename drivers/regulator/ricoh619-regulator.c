@@ -192,7 +192,10 @@ static int ricoh61x_set_voltage(struct regulator_dev *rdev,
 	if (ricoh61x_suspend_status)
 		return -EBUSY;
 
-	return __ricoh61x_set_voltage(parent, ri, min_uV, max_uV, selector);
+	if(ri->id != RICOH619_ID_DC1_SLP)
+		return __ricoh61x_set_voltage(parent, ri, min_uV, max_uV, selector);
+	else
+		return __ricoh61x_set_s_voltage(parent, ri, min_uV, max_uV);
 }
 
 static int ricoh61x_get_voltage(struct regulator_dev *rdev)
@@ -307,6 +310,10 @@ static struct regulator_ops ricoh61x_ops = {
 
 static struct ricoh61x_regulator ricoh61x_regulator[] = {
 	RICOH61x_REG(DC1, 0x2C, 0, 0x2C, 1, 0x36, 0xFF, 0x3B,
+			600, 3500, 12500, 0xE8, ricoh61x_ops, 500,
+			0x00, 0, 0x00, 0),
+
+	RICOH61x_REG(DC1_SLP, 0x2C, 0, 0x2C, 1, 0x36, 0xFF, 0x3B,
 			600, 3500, 12500, 0xE8, ricoh61x_ops, 500,
 			0x00, 0, 0x00, 0),
 
@@ -439,7 +446,6 @@ static int ricoh61x_regulator_probe(struct platform_device *pdev)
 	int id = pdev->id;
 	int err;
 
-	printk(KERN_INFO "PMU: %s\n", __func__);
 	ri = find_regulator_info(id);
 	if (ri == NULL) {
 		dev_err(&pdev->dev, "invalid regulator ID specified\n");
@@ -500,7 +506,6 @@ static struct platform_driver ricoh61x_regulator_driver = {
 
 static int __init ricoh61x_regulator_init(void)
 {
-	printk(KERN_INFO "PMU: %s\n", __func__);
 	return platform_driver_register(&ricoh61x_regulator_driver);
 }
 subsys_initcall(ricoh61x_regulator_init);

@@ -4009,7 +4009,7 @@ static int ricoh61x_batt_get_prop(struct power_supply *psy,
 
 	/* this setting is same as battery driver of 584 */
 	case POWER_SUPPLY_PROP_PRESENT:
-		val->intval = info->present;
+		val->intval = 1;/*info->present;*/
 		break;
 
 	/* current voltage is got from fuel gauge */

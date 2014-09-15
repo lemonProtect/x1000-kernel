@@ -48,6 +48,19 @@
 #define RICOH61x_PWR_NOE_TIMSET		0x11
 #define RICOH61x_PWR_IRSEL		0x15
 
+/* DC/LDO control register */
+#define RICOH61x_DC1_CTL		0x2C
+#define RICOH61x_DC1_CTL2		0x2D
+#define RICOH61x_DC2_CTL		0x2E
+#define RICOH61x_DC2_CTL2		0x2F
+#define RICOH61x_DC3_CTL		0x30
+#define RICOH61x_DC3_CTL2		0x31
+#define RICOH61x_DC4_CTL		0x32
+#define RICOH61x_DC4_CTL2		0x33
+#define RICOH61x_DC5_CTL		0x34
+#define RICOH61x_DC5_CTL2		0x35
+#define RICOH61x_LDOECO_SLP		0x4a
+
 /* Interrupt enable register */
 #define RICOH61x_INT_EN_SYS		0x12
 #define RICOH61x_INT_EN_DCDC		0x40
@@ -229,6 +242,7 @@ enum {
 
 enum ricoh61x_sleep_control_id {
 	RICOH619_DS_DC1,
+	RICOH619_DS_DC1_SLP,
 	RICOH619_DS_DC2,
 	RICOH619_DS_DC3,
 	RICOH619_DS_DC4,
