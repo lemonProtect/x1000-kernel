@@ -86,17 +86,6 @@ static int m200_target(struct cpufreq_policy *policy,
 	//printk("set speed = %d\n",freqs.new);
 	ret = clk_set_rate(jz_cpufreq->cpu_clk, freqs.new * 1000);
 
-	freqs.new = m200_getspeed(policy->cpu);
-
-	/*
-	 * Note that loops_per_jiffy is not updated on SMP systems in
-	 * cpufreq driver. So, update the per-CPU loops_per_jiffy value
-	 * on frequency transition. We need to update all dependent CPUs.
-	 */
-
-	cpu_data[freqs.cpu].udelay_val = cpufreq_scale(cpu_data[freqs.cpu].udelay_val,freqs.old, freqs.new);
-
-	loops_per_jiffy = cpufreq_scale(loops_per_jiffy,freqs.old, freqs.new);
 	/* notifiers */
 	cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
 	return ret;

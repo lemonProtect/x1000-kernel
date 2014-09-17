@@ -39,13 +39,14 @@
 #include <asm/r4kcache.h>
 #include <soc/base.h>
 #include <soc/cpm.h>
+#include <soc/gpio.h>
 #include <soc/ddr.h>
 #include <tcsm.h>
 #include <smp_cp0.h>
 
 extern long long save_goto(unsigned int);
 extern int restore_goto(void);
-
+extern unsigned int get_pmu_slp_gpio_info(void);
 #define get_cp0_ebase()	__read_32bit_c0_register($15, 1)
 
 #define OFF_TDR         (0x00)
@@ -180,25 +181,27 @@ static inline void config_powerdown_core(unsigned int *resume_pc) {
 	blast_icache32();
 	blast_scache32();
 }
-/* void set_gpio_func(int port,int pin,int type) { */
-/* 	int i; */
-/* 	int addr = 0xb0010010 + port * 0x100; */
-/* 	for(i = 0;i < 4;i++){ */
-/* 		REG32(addr + 0x10 * i) &= ~(1 << pin); */
-/* 		REG32(addr + 0x10 * i) |= (((type >> (3 - i)) & 1) << pin); */
-/* 	} */
-/* } */
+/*int get_gpio_func(int port,int pin) {*/
+/*	int i;*/
+/*	int ret = 0;*/
+/*	int addr = 0xb0010010 + port * 0x100;*/
+/*	for(i = 0;i < 4;i++){*/
+/*		ret |= ((REG32(addr + 0x10 * i) >> pin) & 1)  << (3 - i);*/
+/*	}*/
+/*	return ret;*/
+/*}*/
 
-int get_gpio_func(int port,int pin) {
+static inline void set_gpio_func(int gpio, int type) {
 	int i;
-	int ret = 0;
+	int port = gpio / 32;
+	int pin = BIT(gpio & 0x1f);
 	int addr = 0xb0010010 + port * 0x100;
-	for(i = 0;i < 4;i++){
-		ret |= ((REG32(addr + 0x10 * i) >> pin) & 1)  << (3 - i);
-	}
-	return ret;
-}
 
+	for(i = 0;i < 4;i++){
+		REG32(addr + 0x10 * i) &= ~(1 << pin);
+		REG32(addr + 0x10 * i) |= (((type >> (3 - i)) & 1) << pin);
+	}
+}
 #define SLEEP_TSCM_SPACE    0xb3423000
 #define SLEEP_TSCM_DATA_LEN 0x20
 #define SLEEP_TSCM_TEXT     (SLEEP_TSCM_SPACE+SLEEP_TSCM_DATA_LEN)
@@ -207,6 +210,25 @@ int get_gpio_func(int port,int pin) {
 static noinline void cpu_sleep(void)
 {
 	register unsigned int val;
+	register unsigned int pmu_slp_gpio_info = -1;
+	unsigned int save_slp = -1, func;
+
+	pmu_slp_gpio_info = get_pmu_slp_gpio_info();
+	if(pmu_slp_gpio_info != -1) {
+		save_slp = pmu_slp_gpio_info & 0xffff;
+		func = pmu_slp_gpio_info >> 16;
+		if(func == GPIO_OUTPUT1) {
+			save_slp |= GPIO_OUTPUT0 << 16;
+		} else if(func == GPIO_OUTPUT0) {
+			save_slp |= GPIO_OUTPUT1 << 16;
+		} else {
+			printk("regulator sleep gpio set output type error!\n");
+			return;
+		}
+		REG32(SLEEP_TSCM_DATA + 8) = save_slp;
+	} else {
+		REG32(SLEEP_TSCM_DATA + 8) = pmu_slp_gpio_info;
+	}
 	config_powerdown_core((unsigned int *)SLEEP_TSCM_TEXT);
 	__asm__ volatile(".set mips32\n\t"
 			 "sync\n\t"
@@ -244,6 +266,10 @@ LABLE1:
 	val |= (1 << 17);   // enter to hold ddr state
 	ddr_writel(val,DDRC_CTRL);
 
+	if(pmu_slp_gpio_info != -1) {
+		set_gpio_func(pmu_slp_gpio_info & 0xffff,
+			      pmu_slp_gpio_info >> 16);
+	}
 	__asm__ volatile(".set mips32\n\t"
 			 "wait\n\t"
 			 "nop\n\t"
@@ -264,7 +290,11 @@ static noinline void cpu_resume(void)
 {
 	register int val = 0;
 	register int bypassmode = 0;
+	register unsigned int save_slp;
 	TCSM_PCHAR('o');
+	save_slp = REG32(SLEEP_TSCM_DATA + 8);
+	if(save_slp != -1)
+		set_gpio_func(save_slp & 0xffff, save_slp >> 16);
 	bypassmode = ddr_readl(DDRP_PIR) & DDRP_PIR_DLLBYP;
 	if(!bypassmode) {
 		val = DDRP_PIR_INIT | DDRP_PIR_DLLSRST | DDRP_PIR_DLLLOCK | DDRP_PIR_ITMSRST;
@@ -404,7 +434,9 @@ const unsigned int sleep_rate_hz = 24*1000*1000;
 const unsigned int sleep_vol_uv = 1025 * 1000;
 static int m200_prepare(void)
 {
-	m200_early_sleep.core_vcc = regulator_get(NULL,"cpu_core");
+	if(m200_early_sleep.core_vcc == NULL) {
+		m200_early_sleep.core_vcc = regulator_get(NULL,"cpu_core_slp");
+	}
 	m200_early_sleep.rate_hz = clk_get_rate(m200_early_sleep.cpu_clk);
 	clk_set_rate(m200_early_sleep.cpu_clk,sleep_rate_hz);
 	if(!IS_ERR(m200_early_sleep.core_vcc))
@@ -454,7 +486,7 @@ int __init m200_pm_init(void)
         cpm_outl(opcr,CPM_OPCR);
 	m200_early_sleep.cpu_clk = clk_get(NULL, "cclk");
 	if (IS_ERR(m200_early_sleep.cpu_clk)) {
-		printk("ERROR:cclk request fail!");
+		printk("ERROR:cclk request fail!\n");
 		suspend_set_ops(NULL);
 		return -1;
 	}

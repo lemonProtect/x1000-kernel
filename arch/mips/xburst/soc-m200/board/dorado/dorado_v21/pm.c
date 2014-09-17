@@ -24,7 +24,7 @@ __initdata int gpio_ss_table[][2] = {
 	{32*0+23,	GSS_INPUT_NOPULL	},	/* MSC0_D3 */
 	{32*0+29,	GSS_INPUT_NOPULL	},	/* MSC_RST_N */
 	{32*1+0,	GSS_INPUT_NOPULL	},	/* LCD_INT */
-	{32*1+1,	GSS_INPUT_NOPULL	},	/* SLEEP */
+	{32*1+1,	GSS_IGNORE	},	/* SLEEP */
 	{32*1+7,	GSS_INPUT_NOPULL	},	/* ISP_SDA */
 	{32*1+8,	GSS_INPUT_NOPULL	},	/* ISP_SCK */
 	{32*2+2,	GSS_INPUT_PULL		},	/* LCD_B2 */

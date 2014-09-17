@@ -6,6 +6,11 @@
 
 #include "pmu.h"
 
+/* ****************************GPIO SLEEP START******************************* */
+#define GPIO_REGULATOR_SLP	GPIO_PB(1)
+#define GPIO_OUTPUT_TYPE	GPIO_OUTPUT1
+/* ****************************GPIO SLEEP END******************************** */
+
 /* ****************************GPIO LCD START******************************** */
 #ifdef CONFIG_LCD_BYD_8991FTGF
 #define GPIO_LCD_DISP		GPIO_PE(10)

@@ -11,7 +11,7 @@
 #include "board_base.h"
 
 #ifdef CONFIG_JZ_EFUSE_V12
-static struct jz_efuse_platform_data jz_efuse_pdata = {
+struct jz_efuse_platform_data jz_efuse_pdata = {
 	/* supply 2.5V to VDDQ */
 	.gpio_vddq_en_n = GPIO_EFUSE_VDDQ,
 };

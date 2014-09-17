@@ -21,8 +21,8 @@
 #include <mach/jzmmc.h>
 #include <mach/camera.h>
 #include <gpio.h>
-#include "board_base.h"
 #include <mach/jz_dsim.h>
+#include "board_base.h"
 
 struct jz_platform_device
 {
@@ -213,6 +213,16 @@ static int __init board_base_init(void)
 {
 	int pdevices_array_size, i;
 
+#ifdef CONFIG_LCD_LH155
+	mipi_dsi_register_lcd_device(&lh155_device);
+#endif
+#ifdef CONFIG_LCD_BYD_9177AA
+	mipi_dsi_register_lcd_device(&byd_9177aa_device);
+#endif
+#ifdef CONFIG_LCD_TRULY_TDO_HD0499K
+	mipi_dsi_register_lcd_device(&truly_tdo_hd0499k_device);
+#endif
+
 	pdevices_array_size = ARRAY_SIZE(platform_devices_array);
 	for(i = 0; i < pdevices_array_size; i++) {
 		if(platform_devices_array[i].size)
@@ -257,6 +267,22 @@ static int __init board_base_init(void)
 const char *get_board_type(void)
 {
 	return CONFIG_PRODUCT_NAME;
+}
+/*
+ * Called by arch/mips/xburst/$SOC/common/pm_p0.c when deep sleep.
+ * high 16bit = gpio output type
+ * low  16bit = regulator sleep gpio pin
+ */
+unsigned int get_pmu_slp_gpio_info(void)
+{
+	unsigned int pmu_slp_gpio_info = -1;
+#ifdef GPIO_REGULATOR_SLP
+	pmu_slp_gpio_info = GPIO_REGULATOR_SLP;
+#endif
+#ifdef GPIO_OUTPUT_TYPE
+	pmu_slp_gpio_info |= GPIO_OUTPUT_TYPE << 16;
+#endif
+	return pmu_slp_gpio_info;
 }
 
 arch_initcall(board_base_init);
