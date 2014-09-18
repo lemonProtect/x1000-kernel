@@ -60,7 +60,7 @@ static struct regulator_consumer_supply d2041_consumer_supply[D2041_NUMBER_OF_RE
 	[D2041_BUCK_3] = REGULATOR_SUPPLY("cpu_mem12",NULL),
 	[D2041_BUCK_4] = REGULATOR_SUPPLY("cpu_vddio",NULL),
 	[D2041_LDO_2 ] = REGULATOR_SUPPLY("cpu_vddio2",NULL),
-	[D2041_LDO_3 ] = REGULATOR_SUPPLY("cpu_2.5v",NULL),
+	[D2041_LDO_3 ] = REGULATOR_SUPPLY("cpu_2v5",NULL),
 	[D2041_LDO_4 ] = REGULATOR_SUPPLY("cpu_avdd",NULL),
 	[D2041_LDO_8 ] = REGULATOR_SUPPLY("cpu_pllv25",NULL),
 	[D2041_LDO_9 ] = REGULATOR_SUPPLY("dsi_avdd",NULL),
