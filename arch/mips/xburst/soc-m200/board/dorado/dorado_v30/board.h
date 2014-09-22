@@ -60,19 +60,19 @@
 /* ****************************GPIO LCD END********************************** */
 
 /* ****************************GPIO I2C START******************************** */
-#ifndef CONFIG_I2C0_V12_JZ
+#ifndef CONFIG_SOFT_I2C0_GPIO_V12_JZ
 #define GPIO_I2C0_SDA GPIO_PD(30)
 #define GPIO_I2C0_SCK GPIO_PD(31)
 #endif
-#ifndef CONFIG_I2C1_V12_JZ
+#ifndef CONFIG_SOFT_I2C1_GPIO_V12_JZ
 #define GPIO_I2C1_SDA GPIO_PE(30)
 #define GPIO_I2C1_SCK GPIO_PE(31)
 #endif
-#ifndef CONFIG_I2C2_V12_JZ
+#ifndef CONFIG_SOFT_I2C2_GPIO_V12_JZ
 #define GPIO_I2C2_SDA GPIO_PF(16)
 #define GPIO_I2C2_SCK GPIO_PF(17)
 #endif
-#ifndef CONFIG_I2C3_V12_JZ
+#ifndef CONFIG_SOFT_I2C3_GPIO_V12_JZ
 #define GPIO_I2C3_SDA GPIO_PC(23)
 #define GPIO_I2C3_SCK GPIO_PC(22)
 #endif

@@ -39,16 +39,16 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&jz_button_device, 0, 0),
 #endif
 #ifdef CONFIG_I2C_GPIO
-#ifndef CONFIG_I2C0_V12_JZ
+#ifdef CONFIG_SOFT_I2C0_GPIO_V12_JZ
 	DEF_DEVICE(&i2c0_gpio_device, 0, 0),
 #endif
-#ifndef CONFIG_I2C1_V12_JZ
+#ifdef CONFIG_SOFT_I2C1_GPIO_V12_JZ
 	DEF_DEVICE(&i2c1_gpio_device, 0, 0),
 #endif
-#ifndef CONFIG_I2C2_V12_JZ
+#ifdef CONFIG_SOFT_I2C2_GPIO_V12_JZ
 	DEF_DEVICE(&i2c2_gpio_device, 0, 0),
 #endif
-#ifndef CONFIG_I2C3_V12_JZ
+#ifdef CONFIG_SOFT_I2C3_GPIO_V12_JZ
 	DEF_DEVICE(&i2c3_gpio_device, 0, 0),
 #endif
 #endif	/* CONFIG_I2C_GPIO */

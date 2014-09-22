@@ -1338,7 +1338,23 @@ CONFIG_I2C_GPIO=y
 # CONFIG_I2C_PXA_PCI is not set
 # CONFIG_I2C_SIMTEC is not set
 # CONFIG_I2C_XILINX is not set
-# CONFIG_I2C_V12_JZ is not set
+CONFIG_I2C0_SPEED=400
+CONFIG_I2C1_SPEED=400
+CONFIG_I2C2_SPEED=100
+
+#
+# Xburst soc M200 internal i2c controller
+#
+CONFIG_I2C_V12_JZ=y
+CONFIG_I2C_FIFO_LEN=64
+# CONFIG_I2C_DEBUG_INFO is not set
+# CONFIG_SOFT_I2C0_GPIO_V12_JZ is not set
+CONFIG_I2C0_V12_JZ=y
+CONFIG_SOFT_I2C1_GPIO_V12_JZ=y
+CONFIG_SOFT_I2C2_GPIO_V12_JZ=y
+# CONFIG_SOFT_I2C3_GPIO_V12_JZ is not set
+# CONFIG_I2C3_V12_JZ is not set
+CONFIG_I2C_JZV10_WAIT_MS=1000
 
 #
 # External I2C/SMBus adapter drivers
@@ -1352,6 +1368,13 @@ CONFIG_I2C_GPIO=y
 # Other I2C/SMBus bus drivers
 #
 # CONFIG_I2C_STUB is not set
+
+#
+# Miscellaneous I2C Chip support
+#
+# CONFIG_SENSORS_NEW is not set
+# CONFIG_GSENSOR is not set
+# CONFIG_LSENSOR is not set
 # CONFIG_I2C_DEBUG_CORE is not set
 # CONFIG_I2C_DEBUG_ALGO is not set
 # CONFIG_I2C_DEBUG_BUS is not set

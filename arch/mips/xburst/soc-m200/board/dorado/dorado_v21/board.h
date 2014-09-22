@@ -55,19 +55,44 @@
 /* ****************************GPIO LCD END********************************** */
 
 /* ****************************GPIO I2C START******************************** */
-#ifndef CONFIG_I2C0_V12_JZ
+/*
+#ifdef CONFIG_SOFT_I2C0_GPIO_V12_JZ
 #define GPIO_I2C0_SDA GPIO_PD(30)
 #define GPIO_I2C0_SCK GPIO_PD(31)
 #endif
-#ifndef CONFIG_I2C1_V12_JZ
+#ifdef CONFIG_SOFT_I2C1_GPIO_V12_JZ
 #define GPIO_I2C1_SDA GPIO_PA(12)
 #define GPIO_I2C1_SCK GPIO_PA(13)
 #endif
-#ifndef CONFIG_I2C2_V12_JZ
+#ifdef CONFIG_SOFT_I2C2_GPIO_V12_JZ
 #define GPIO_I2C2_SDA GPIO_PE(00)
 #define GPIO_I2C2_SCK GPIO_PE(03)
 #endif
-#ifndef CONFIG_I2C3_V12_JZ
+*/
+#ifdef CONFIG_SOFT_I2C0_GPIO_V12_JZ
+#define GPIO_I2C0_SDA GPIO_PD(30)
+#define GPIO_I2C0_SCK GPIO_PD(31)
+#endif
+#ifdef CONFIG_SOFT_I2C1_GPIO_V12_JZ
+#define GPIO_I2C1_SDA GPIO_PE(30)
+#define GPIO_I2C1_SCK GPIO_PE(31)
+#endif
+#ifdef CONFIG_SOFT_I2C2_GPIO_V12_JZ
+#define GPIO_I2C2_SDA GPIO_PA(12)
+#define GPIO_I2C2_SCK GPIO_PA(13)
+//#define GPIO_I2C2_SDA GPIO_PE(00)
+//#define GPIO_I2C2_SCK GPIO_PE(03)
+#endif
+#ifdef CONFIG_SOFT_I2C3_GPIO_V12_JZ
+#define GPIO_I2C3_SDA GPIO_PB(7)
+#define GPIO_I2C3_SCK GPIO_PB(8)
+#endif
+/* ****************************GPIO SLEEP START******************************* */
+#define GPIO_REGULATOR_SLP	GPIO_PB(1)
+#define GPIO_OUTPUT_TYPE	GPIO_OUTPUT1
+/* ****************************GPIO SLEEP END******************************** */
+
+#ifdef CONFIG_SOFT_I2C3_GPIO_V12_JZ
 #define GPIO_I2C3_SDA GPIO_PB(7)
 #define GPIO_I2C3_SCK GPIO_PB(8)
 #endif
