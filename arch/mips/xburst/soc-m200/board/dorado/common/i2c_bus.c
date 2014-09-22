@@ -137,11 +137,11 @@ struct i2c_board_info jz_i2c1_devs[] __initdata = {
 };
 #endif  /*I2C1*/
 
-#if     (defined(CONFIG_SOFT_I2C0_GPIO_V12_JZ) || defined(CONFIG_I2C0_V12_JZ))
+#if     defined(CONFIG_SOFT_I2C0_GPIO_V12_JZ) || defined(CONFIG_I2C0_V12_JZ)
 int jz_i2c0_devs_size = ARRAY_SIZE(jz_i2c0_devs);
 #endif
 
-#if     (defined(CONFIG_SOFT_I2C1_GPIO_V12_JZ) || defined(CONFIG_I2C1_V12_JZ))
+#if     defined(CONFIG_SOFT_I2C1_GPIO_V12_JZ) || defined(CONFIG_I2C1_V12_JZ)
 int jz_i2c1_devs_size = ARRAY_SIZE(jz_i2c1_devs);
 #endif
 
