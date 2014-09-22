@@ -117,7 +117,7 @@ static int byd_8991_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(&pdev->dev, dev);
 #ifdef CONFIG_NEED_REGULATOR
-	dev->lcd_vcc_reg = regulator_get(NULL, "lcd_1.8v");
+	dev->lcd_vcc_reg = regulator_get(NULL, "lcd_1v8");
 	if (IS_ERR(dev->lcd_vcc_reg)) {
 		dev_err(&pdev->dev, "failed to get regulator vlcd\n");
 		return PTR_ERR(dev->lcd_vcc_reg);

@@ -10,7 +10,7 @@
 #define DC3_NAME "cpu_mem12"
 #define DC4_NAME "cpu_vddio"
 #define DC5_NAME "dc5"
-#define LDO1_NAME "wifi_vddio_1v8"
+#define LDO1_NAME "wifi_vddio_18"
 #define LDO2_NAME "emmc_vcc"
 #define LDO3_NAME "cpu_avdd"
 #define LDO4_NAME "cpu_vddio2"
