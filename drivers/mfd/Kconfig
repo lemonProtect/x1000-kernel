@@ -251,6 +251,14 @@ config MFD_JZ4740_ADC
 	  Say yes here if you want support for the ADC unit in the JZ4740 SoC.
 	  This driver is necessary for jz4740-battery and jz4740-hwmon driver.
 
+config MFD_JZ_SADC_V12
+	tristate "Support for the M200 SADC core"
+	select MFD_CORE
+	depends on SOC_M200
+	help
+	  Say yes here if you want support for the SADC unit in the M200 SoC.
+	  This driver is necessary for jz_battery driver.
+
 config MFD_88PM800
 	tristate "Marvell 88PM800"
 	depends on I2C=y && GENERIC_HARDIRQS
