@@ -694,7 +694,7 @@ static int pca953x_probe(struct i2c_client *client,
 	gpio_direction_output(pdata->reset_n, 0);
 	udelay(1000);
 	gpio_direction_output(pdata->reset_n, 1);
-	printk(" the pca9539 reset over\n")
+	printk(" the pca9539 reset over\n");
 	chip->client = client;
 
 	chip->gpio_start = pdata->gpio_base;
