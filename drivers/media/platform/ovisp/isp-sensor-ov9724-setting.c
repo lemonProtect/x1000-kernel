@@ -1,7 +1,7 @@
 #include "ovisp-base.h"
 
 
-#define ALL_SETTING_PATH "/data/All_Setting.txt"
+#define ALL_SETTING_PATH "/etc/All_Setting.txt"
 // Read register by file
 #define READ_REG_FILE "/home/ov9724/read_reg_file.txt"
 void isp_setting_init(struct isp_device *isp)

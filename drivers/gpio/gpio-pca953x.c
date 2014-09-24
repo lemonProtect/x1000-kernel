@@ -13,6 +13,7 @@
 
 #include <linux/module.h>
 #include <linux/init.h>
+#include <linux/delay.h>
 #include <linux/gpio.h>
 #include <linux/interrupt.h>
 #include <linux/irq.h>
@@ -43,6 +44,7 @@
 #define PCA953X_TYPE		0x1000
 #define PCA957X_TYPE		0x2000
 
+static int irq_pc = -1;
 static const struct i2c_device_id pca953x_id[] = {
 	{ "pca9534", 8  | PCA953X_TYPE | PCA_INT, },
 	{ "pca9535", 16 | PCA953X_TYPE | PCA_INT, },
@@ -293,7 +295,7 @@ static void pca953x_setup_gpio(struct pca953x_chip *chip, int gpios)
 	gc->direction_output = pca953x_gpio_direction_output;
 	gc->get = pca953x_gpio_get_value;
 	gc->set = pca953x_gpio_set_value;
-	gc->can_sleep = 1;
+//	gc->can_sleep = 1;
 
 	gc->base = chip->gpio_start;
 	gc->ngpio = gpios;
@@ -377,6 +379,11 @@ static int pca953x_irq_set_type(struct irq_data *d, unsigned int type)
 	return 0;
 }
 
+static int pca953x_irq_set_wake(struct irq_data *d, unsigned int type)
+{
+	return 0;
+}
+
 static struct irq_chip pca953x_irq_chip = {
 	.name			= "pca953x",
 	.irq_mask		= pca953x_irq_mask,
@@ -384,6 +391,7 @@ static struct irq_chip pca953x_irq_chip = {
 	.irq_bus_lock		= pca953x_irq_bus_lock,
 	.irq_bus_sync_unlock	= pca953x_irq_bus_sync_unlock,
 	.irq_set_type		= pca953x_irq_set_type,
+	.irq_set_wake      = pca953x_irq_set_wake,
 };
 
 static uint16_t pca953x_irq_pending(struct pca953x_chip *chip)
@@ -490,16 +498,20 @@ static int pca953x_irq_setup(struct pca953x_chip *chip,
 #endif
 		}
 
-		ret = request_threaded_irq(client->irq,
-					   NULL,
-					   pca953x_irq_handler,
-					   IRQF_TRIGGER_RISING |
-					   IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
-					   dev_name(&client->dev), chip);
-		if (ret) {
-			dev_err(&client->dev, "failed to request irq %d\n",
-				client->irq);
-			goto out_failed;
+		if(irq_pc >= 0){
+			ret = request_threaded_irq(irq_pc,
+					NULL,
+					pca953x_irq_handler,
+					IRQF_TRIGGER_RISING |
+					IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+					dev_name(&client->dev), chip);
+			if (ret) {
+				dev_err(&client->dev, "failed to request irq %d\n",
+						client->irq);
+				goto out_failed;
+			}
+		}else{
+				dev_err(&client->dev, " the pca9539 request irq fail!\n");
 		}
 
 		chip->gpio_chip.to_irq = pca953x_gpio_to_irq;
@@ -663,6 +675,26 @@ static int pca953x_probe(struct i2c_client *client,
 		goto out_failed;
 	}
 
+	/*request irq*/
+	if (gpio_request_one(pdata->irq_n,
+				GPIOF_DIR_OUT, "pca9539_irq")) {
+		pr_err("The GPIO %d is requested by other driver,"
+				" not available for pca9539\n", pdata->irq_n);
+		irq_pc = -1;
+	} else {
+		irq_pc = gpio_to_irq(pdata->irq_n);
+	}
+
+	/*reset first*/
+	if (gpio_request_one(pdata->reset_n,
+				GPIOF_DIR_OUT, "pca9539_rst")) {
+		pr_err("The GPIO %d is requested by other driver,"
+				" not available for pca9539\n", pdata->reset_n);
+	}
+	gpio_direction_output(pdata->reset_n, 0);
+	udelay(1000);
+	gpio_direction_output(pdata->reset_n, 1);
+	printk(" the pca9539 reset over\n")
 	chip->client = client;
 
 	chip->gpio_start = pdata->gpio_base;
@@ -700,6 +732,7 @@ static int pca953x_probe(struct i2c_client *client,
 	}
 
 	i2c_set_clientdata(client, chip);
+	dev_info(&chip->client->dev, " pca9539 init ok\n");
 	return 0;
 
 out_failed_irq:
