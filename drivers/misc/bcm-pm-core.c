@@ -97,7 +97,6 @@ static int _bcm_power_on(void)
 	}
 
 	if (bcm_power->use_count == 0) {
-	printk("===============now power on bcm43341 realy===========\n");
 		clk_32k_on();
 		msleep(200);
 		ret = wlan_power_on();
@@ -125,7 +124,6 @@ static int _bcm_power_down(void)
 	bcm_power->use_count--;
 
 	if (bcm_power->use_count == 0) {
-	printk("===============now power down bcm43341====realy=======\n");
 		ret = wlan_power_down();
 		if (ret < 0) {
 			pr_err("%s, wlan power on failure\n", __func__);
@@ -141,7 +139,6 @@ static int _bcm_power_down(void)
 int bcm_power_on(void)
 {
 	int ret = 0;
-	printk("===============now power on bcm43341===========\n");
 
 	if (!bcm_power)
 		return -EIO;
@@ -161,7 +158,6 @@ int bcm_power_down(void)
 {
 	int ret = 0;
 
-	printk("===============now power down bcm43341===========\n");
 	if (!bcm_power)
 		return -EIO;
 
@@ -196,8 +192,6 @@ static int bcm_power_probe(struct platform_device *pdev)
 	if (-1 != bcm_power->power_en){
 		ret = gpio_request(bcm_power->power_en, "bcm_power");
 		if (ret) {
-			printk(KERN_ERR "%s: gpio %d request fail\n",
-					__FUNCTION__, bcm_power->power_en);
 			kfree(bcm_power);
 			bcm_power = NULL;
 			return -ENODEV;
@@ -208,7 +202,7 @@ static int bcm_power_probe(struct platform_device *pdev)
 
 	mutex_init(&bcm_power->mutex);
 
-	bcm_power->regulator = regulator_get(NULL, "wifi_vddio_18");
+	bcm_power->regulator = regulator_get(NULL, "wifi_vddio_1v8");
 	if (IS_ERR(bcm_power->regulator)) {
 		pr_err("wifi regulator missing\n");
 		ret = -EINVAL;
@@ -216,7 +210,6 @@ static int bcm_power_probe(struct platform_device *pdev)
 	}
 
 	bcm_power->probe_success = true;
-	printk("bcm power manager core is probe successfull!\n");
 	return 0;
 ERR1:
 	if (-1 != bcm_power->power_en){
