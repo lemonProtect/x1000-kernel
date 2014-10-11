@@ -2,6 +2,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/err.h>
 #include <linux/inv_mpu.h>
+#include <linux/delay.h>
 #include "board_base.h"
 
 static struct regulator *inv_mpu_power_vdd = NULL;
@@ -74,7 +75,10 @@ static int inv_mpu_power_on(void)
 	int res;
 	if (!atomic_read(&inv_mpu_powered)) {
 		if (!IS_ERR(inv_mpu_power_vdd)) {
-			regulator_enable(inv_mpu_power_vdd);
+			res = regulator_enable(inv_mpu_power_vdd);
+#ifdef CONFIG_BOARD_DORADO_V21
+			udelay(10000);//Forbidding imitating add like this,because v21 Using GPIO extended chip simulation i2c
+#endif
 		} else {
 			pr_err("inv mpu VDD power unavailable!\n");
 			res = -ENODEV;
@@ -82,7 +86,7 @@ static int inv_mpu_power_on(void)
 		}
 
 		if (inv_mpu_power_vio && !IS_ERR(inv_mpu_power_vio)) {
-			regulator_enable(inv_mpu_power_vio);
+			res = regulator_enable(inv_mpu_power_vio);
 		} else if(USE_INV_MPU_POWE_VIO_CTRL){
 			pr_err("inv mpu VIO power unavailable!\n");
 			res = -ENODEV;
