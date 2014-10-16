@@ -90,11 +90,10 @@ struct smart_lcd_data_table {
 	uint32_t value;
 };
 
-struct jzdsi_platform_data {
+struct jzdsi_data {
 	struct fb_videomode *modes;
 	struct video_config video_config;
 	struct dsi_config dsi_config;
-	unsigned int *dsi_state;
 };
 
 /**
@@ -136,7 +135,7 @@ struct jzdsi_platform_data {
 struct jzfb_platform_data {
 	size_t num_modes;
 	struct fb_videomode *modes;
-	struct jzdsi_platform_data *dsi_pdata;
+	struct jzdsi_data *dsi_pdata;
 
 	enum jzfb_lcd_type lcd_type;
 	unsigned int bpp;

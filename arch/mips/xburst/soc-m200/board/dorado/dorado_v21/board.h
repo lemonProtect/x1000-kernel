@@ -120,8 +120,8 @@
 #define GPIO_TP_RESET		GPIO_PD(27)
 #endif
 #ifdef CONFIG_TOUCHSCREEN_FT5336
-#define GPIO_TP_INT		GPIO_PB(0)
-#define GPIO_TP_RESET		GPIO_PA(12)
+#define GPIO_TP_INT		GPIO_PD(17)
+#define GPIO_TP_RESET		GPIO_PD(27)
 #endif
 /* ****************************GPIO TOUCHSCREEN END************************** */
 
@@ -209,6 +209,9 @@
 #define GPIO_MIC_INSERT_LEVEL   -1
 #define GPIO_MIC_DETECT_EN	-1  /*mic detect enable gpio*/
 #define GPIO_MIC_DETECT_EN_LEVEL -1 /*mic detect enable gpio*/
+
+#define HP_SENSE_ACTIVE_LEVEL	1
+#define HOOK_ACTIVE_LEVEL		-1
 /* ****************************GPIO AUDIO END******************************** */
 
 /* ****************************GPIO WIFI START******************************* */

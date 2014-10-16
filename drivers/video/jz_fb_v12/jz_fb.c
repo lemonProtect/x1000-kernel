@@ -40,13 +40,13 @@
 #ifdef CONFIG_JZ_MIPI_DSI
 #include "./jz_mipi_dsi/jz_mipi_dsih_hal.h"
 #include "./jz_mipi_dsi/jz_mipi_dsi_regs.h"
+extern struct dsi_device * jzdsi_init(struct jzdsi_data *pdata);
+extern void jzdsi_remove(struct dsi_device *dsi);
+extern void dump_dsi_reg(struct dsi_device *dsi);
 #endif
 
 #include "jz_fb.h"
 #include "regs.h"
-
-extern void dump_dsi_reg(struct dsi_device *dsi);
-extern struct platform_driver jz_dsi_driver;
 
 static void dump_lcdc_registers(struct jzfb *jzfb);
 static void jzfb_enable(struct fb_info *info);
@@ -578,15 +578,6 @@ static void slcd_send_mcu_data(struct jzfb *jzfb, unsigned long data)
 	reg_write(jzfb, SLCDC_DATA, SLCDC_DATA_RS_DATA | data);
 }
 
-#if 0
-static void
-slcd_set_mcu_register(struct jzfb *jzfb, unsigned long cmd, unsigned long data)
-{
-	slcd_send_mcu_command(jzfb, cmd);
-	slcd_send_mcu_data(jzfb, data);
-}
-#endif
-
 static void jzfb_slcd_mcu_init(struct fb_info *info)
 {
 	unsigned int is_lcd_en, i;
@@ -1042,55 +1033,60 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 	struct jzfb *jzfb = info->par;
 
 	switch (blank_mode) {
-	case FB_BLANK_UNBLANK:
-#ifdef CONFIG_JZ_MIPI_DSI
-		jzfb->dsi->master_ops->set_blank_mode(jzfb->dsi, FB_BLANK_UNBLANK);
-#endif
-		reg_write(jzfb, LCDC_STATE, 0);
-		reg_write(jzfb, LCDC_OSDS, 0);
-		ctrl = reg_read(jzfb, LCDC_CTRL);
-		ctrl |= LCDC_CTRL_ENA;
-		ctrl &= ~LCDC_CTRL_DIS;
-		reg_write(jzfb, LCDC_CTRL, ctrl);
-
-		mutex_lock(&jzfb->suspend_lock);
-		if (jzfb->is_suspend) {
-			jzfb->is_suspend = 0;
-			mutex_unlock(&jzfb->suspend_lock);
-		} else {
-			mutex_unlock(&jzfb->suspend_lock);
-		}
-		jzfb->is_lcd_en = 1;
-		break;
-	default:
-#ifdef CONFIG_JZ_MIPI_DSI
-		jzfb->dsi->master_ops->set_blank_mode(jzfb->dsi, FB_BLANK_POWERDOWN);
-#endif
-		if (jzfb->pdata->lcd_type != LCD_TYPE_SLCD) {
+		case FB_BLANK_UNBLANK:
+			reg_write(jzfb, LCDC_STATE, 0);
+			reg_write(jzfb, LCDC_OSDS, 0);
 			ctrl = reg_read(jzfb, LCDC_CTRL);
-			ctrl |= LCDC_CTRL_DIS;
+			ctrl |= LCDC_CTRL_ENA;
+			ctrl &= ~LCDC_CTRL_DIS;
 			reg_write(jzfb, LCDC_CTRL, ctrl);
-			while (!(reg_read(jzfb, LCDC_STATE) & LCDC_STATE_LDD)
-			       && count--) {
-				udelay(10);
-			}
-			if (count >= 0) {
-				ctrl = reg_read(jzfb, LCDC_STATE);
-				ctrl &= ~LCDC_STATE_LDD;
-				reg_write(jzfb, LCDC_STATE, ctrl);
+
+
+			mutex_lock(&jzfb->suspend_lock);
+			if (jzfb->is_suspend) {
+				jzfb->is_suspend = 0;
+				mutex_unlock(&jzfb->suspend_lock);
 			} else {
-				dev_err(jzfb->dev, "LCDC disable state wrong\n");
+				mutex_unlock(&jzfb->suspend_lock);
 			}
-		} else {
-			ctrl = reg_read(jzfb, LCDC_CTRL);
-			ctrl &= ~LCDC_CTRL_ENA;
-			reg_write(jzfb, LCDC_CTRL, ctrl);
+			jzfb->is_lcd_en = 1;
 
-			ctrl = reg_read(jzfb, SLCDC_CTRL);
-			ctrl &= ~SLCDC_CTRL_DMA_EN;
-			reg_write(jzfb, SLCDC_CTRL, ctrl);
-		}
-		jzfb->is_lcd_en = 0;
+#ifdef CONFIG_JZ_MIPI_DSI
+			jzfb->dsi->master_ops->set_blank(jzfb->dsi, DSI_BLANK_UNBLANK);
+#endif
+			break;
+		default:
+			if (jzfb->pdata->lcd_type != LCD_TYPE_SLCD) {
+				/* dsi blank */
+
+				ctrl = reg_read(jzfb, LCDC_CTRL);
+				ctrl |= LCDC_CTRL_DIS;
+				reg_write(jzfb, LCDC_CTRL, ctrl);
+				while (!(reg_read(jzfb, LCDC_STATE) & LCDC_STATE_LDD)
+						&& count--) {
+					udelay(10);
+				}
+				if (count >= 0) {
+					ctrl = reg_read(jzfb, LCDC_STATE);
+					ctrl &= ~LCDC_STATE_LDD;
+					reg_write(jzfb, LCDC_STATE, ctrl);
+				} else {
+					dev_err(jzfb->dev, "LCDC disable state wrong\n");
+				}
+#ifdef CONFIG_JZ_MIPI_DSI
+				jzfb->dsi->master_ops->set_blank(jzfb->dsi, DSI_BLANK_NORMAL);
+#endif
+
+			} else {
+				ctrl = reg_read(jzfb, LCDC_CTRL);
+				ctrl &= ~LCDC_CTRL_ENA;
+				reg_write(jzfb, LCDC_CTRL, ctrl);
+
+				ctrl = reg_read(jzfb, SLCDC_CTRL);
+				ctrl &= ~SLCDC_CTRL_DMA_EN;
+				reg_write(jzfb, SLCDC_CTRL, ctrl);
+			}
+			jzfb->is_lcd_en = 0;
 	}
 
 	return 0;
@@ -1831,16 +1827,16 @@ static int jzfb_copy_logo(struct fb_info *info)
 	int i = 0, j = 0;
 	struct jzfb *jzfb = info->par;
 
-	return -1;
-
 	/* get buffer physical address */
 	src_addr = (unsigned long)reg_read(jzfb, LCDC_SA0);
 	if (!(reg_read(jzfb, LCDC_CTRL) & LCDC_CTRL_ENA)) {
 		/* u-boot is not display logo */
+		printk("uboot lcd is not enabled!!!\n");
 		return -ENOMEM;
 	}
 
-	/* jzfb->is_lcd_en = 1; */
+	printk("uboot lcd is enabled!!\n");
+	jzfb->is_lcd_en = 1;
 
 	if (src_addr) {
 		src_addr = (unsigned long)phys_to_virt(src_addr);
@@ -2023,7 +2019,6 @@ static void jzfb_display_h_color_bar(struct fb_info *info)
 		}
 	}
 }
-
 static void dump_lcdc_registers(struct jzfb *jzfb)
 {
     int i,is_clk_en;
@@ -2369,16 +2364,6 @@ static int jzfb_probe(struct platform_device *pdev)
 	jzfb->dev = &pdev->dev;
 	jzfb->pdata = pdata;
 	jzfb->mem = mem;
-#ifdef CONFIG_JZ_MIPI_DSI
-	jzfb->jz_dsi_driver = &jz_dsi_driver;
-	jzfb->jz_dsi_device = &jz_dsi_device;
-	if(jzfb->jz_dsi_driver->probe)
-		jzfb->jz_dsi_driver->probe(jzfb->jz_dsi_device);
-	jzfb->dsi = container_of(pdata->dsi_pdata->dsi_state, struct dsi_device, state);
-	if (!jzfb->dsi) {
-		goto err_get_dsi;
-	}
-#endif
 
 	if (pdata->lcd_type != LCD_TYPE_INTERLACED_TV &&
 	    pdata->lcd_type != LCD_TYPE_SLCD) {
@@ -2412,6 +2397,13 @@ static int jzfb_probe(struct platform_device *pdev)
 		ret = -EBUSY;
 		goto err_put_clk;
 	}
+
+#ifdef CONFIG_JZ_MIPI_DSI
+	jzfb->dsi = jzdsi_init(pdata->dsi_pdata);
+	if (!jzfb->dsi) {
+		goto err_iounmap;
+	}
+#endif
 
 	platform_set_drvdata(pdev, jzfb);
 
@@ -2491,12 +2483,13 @@ static int jzfb_probe(struct platform_device *pdev)
 	}
 
 	if (jzfb->vidmem_phys) {
-#ifdef CONFIG_FB_JZ_DEBUG
-		test_pattern(jzfb);
-#endif
 		if (!jzfb_copy_logo(jzfb->fb)) {
 			jzfb_change_dma_desc(jzfb->fb);
 		}
+#ifdef CONFIG_FB_JZ_DEBUG
+		test_pattern(jzfb);
+#endif
+
 	}else{
 		clk_disable(jzfb->pclk);
 		jzfb_clk_disable(jzfb);
@@ -2523,10 +2516,6 @@ err_put_clk:
 		clk_put(jzfb->pwcl);
 err_framebuffer_release:
 	framebuffer_release(fb);
-#ifdef CONFIG_JZ_MIPI_DSI
-err_get_dsi:
-	dev_err(&pdev->dev, "get dsi device error\n");
-#endif
 err_release_mem_region:
 	release_mem_region(mem->start, resource_size(mem));
 	return ret;
@@ -2539,7 +2528,9 @@ static int jzfb_remove(struct platform_device *pdev)
 	kthread_stop(jzfb->vsync_thread);
 	jzfb_free_devmem(jzfb);
 	platform_set_drvdata(pdev, NULL);
-
+#ifdef CONFIG_JZ_MIPI_DSI
+	jzdsi_remove(jzfb->dsi);
+#endif
 	clk_put(jzfb->pclk);
 	clk_put(jzfb->clk);
 	clk_put(jzfb->pwcl);
@@ -2587,6 +2578,9 @@ static int jzfb_suspend(struct device *dev)
 	mutex_lock(&jzfb->suspend_lock);
 	jzfb->is_suspend = 1;
 	mutex_unlock(&jzfb->suspend_lock);
+#ifdef CONFIG_JZ_MIPI_DSI
+	jzfb->dsi->master_ops->set_blank(jzfb->dsi, DSI_BLANK_POWERDOWN);
+#endif
 
 	/*disable clock*/
 	jzfb_clk_disable(jzfb);
@@ -2605,6 +2599,10 @@ static int jzfb_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct jzfb *jzfb = platform_get_drvdata(pdev);
+
+#ifdef CONFIG_JZ_MIPI_DSI
+	jzfb->dsi->master_ops->set_blank(jzfb->dsi, DSI_BLANK_POWERUP);
+#endif
 
 	clk_enable(jzfb->pwcl);
 	jzfb_clk_enable(jzfb);

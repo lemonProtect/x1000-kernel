@@ -81,7 +81,7 @@
 #define LDO6_BOOT_ON    1
 #define LDO7_BOOT_ON    1
 #define LDO8_BOOT_ON    0
-#define LDO9_BOOT_ON    0
+#define LDO9_BOOT_ON    1
 #define LDO10_BOOT_ON   0
 #define LDORTC1_BOOT_ON 1
 #define LDORTC2_BOOT_ON 1

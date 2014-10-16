@@ -145,9 +145,6 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_FB_JZ_V12
 	DEF_DEVICE(&jz_fb_device, &jzfb_pdata, sizeof(struct jzfb_platform_data)),
 #endif
-#ifdef CONFIG_JZ_MIPI_DSI
-	DEF_DEVICE(&jz_dsi_device, &jzdsi_pdata, sizeof(struct jzdsi_platform_data));
-#endif
 #ifdef CONFIG_JZ_EPD_V12
 	DEF_DEVICE(&jz_epd_device, &jz_epd_pdata, sizeof(struct jz_epd_platform_data));
 #endif
@@ -248,15 +245,6 @@ static int __init board_base_init(void)
 #endif
 #endif
 
-#ifdef CONFIG_LCD_BYD_9177AA
-	mipi_dsi_register_lcd_device(&byd_9177aa_device);
-#endif
-#ifdef CONFIG_LCD_TRULY_TDO_HD0499K
-	mipi_dsi_register_lcd_device(&truly_tdo_hd0499k_device);
-#endif
-#ifdef CONFIG_LCD_LH155
-	mipi_dsi_register_lcd_device(&lh155_device);
-#endif
 	return 0;
 }
 

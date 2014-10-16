@@ -152,6 +152,11 @@ config LCD_BYD_8991FTGF
 	tristate "BYD 8991FTGF panel(480x800)"
 	depends on BACKLIGHT_CLASS_DEVICE
 	default n
+config LCD_BYD_9177AA
+	tristate "byd 9177aa  mipi-dsi panel(540x960)"
+	depends on FB && JZ_MIPI_DSI
+	help
+	   jz mipi dsi.dpi TFT display panel  support
 config NEED_REGULATOR
 	bool "Need regulator"
 	depends on LCD_BYD_8991FTGF

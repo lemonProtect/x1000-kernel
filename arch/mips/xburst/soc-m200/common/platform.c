@@ -391,26 +391,6 @@ struct platform_device jz_vpu_device = {
 	.resource         = jz_vpu_resource,
 };
 
-
-/*MIPI-DSI (dsi host controller)*/
-#ifdef CONFIG_JZ_MIPI_DSI
-#include <mach/jz_dsim.h>
-static struct resource jz_dsi_resources[] = {
-	[0] = {
-	       .start = DSI_IOBASE,
-	       .end = DSI_IOBASE + 0x190,
-	       .flags = IORESOURCE_MEM,
-	       },
-};
-
-struct platform_device jz_dsi_device = {
-	.name = "jz-dsi",
-	.id = -1,
-	.num_resources = ARRAY_SIZE(jz_dsi_resources),
-	.resource = jz_dsi_resources,
-};
-#endif
-
 /* ipu */
 static u64 jz_ipu_dmamask = ~(u64) 0;
 static struct resource jz_ipu_resources[] = {

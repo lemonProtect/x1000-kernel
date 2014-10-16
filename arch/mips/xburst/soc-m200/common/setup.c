@@ -47,8 +47,9 @@ void __init cpm_reset(void)
 	unsigned int cpm_clkgr;
 
 	cpm_clkgr = cpm_inl(CPM_CLKGR);
-	cpm_clkgr |= 0x5ed83fff;
+	cpm_clkgr |= 0x5ad83fff;
 	cpm_clkgr &= (~(1 << 21));
+
 	cpm_outl(cpm_clkgr, CPM_CLKGR);
 
 	cpm_outl(0x29ff, CPM_CLKGR1);

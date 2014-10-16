@@ -27,15 +27,14 @@
 #include <linux/notifier.h>
 #include <linux/regulator/consumer.h>
 #include <linux/pm_runtime.h>
-
 #include <linux/gpio.h>
-
 
 #include <mach/jzfb.h>
 #include "jz_mipi_dsi_lowlevel.h"
 #include "jz_mipi_dsih_hal.h"
 #include "jz_mipi_dsi_regs.h"
 
+#define DSI_IOBASE      0x13014000
 struct mipi_dsim_ddi {
 	int				bus_id;
 	struct list_head		list;
@@ -49,11 +48,6 @@ static DEFINE_MUTEX(mipi_dsim_lock);
 
 void dump_dsi_reg(struct dsi_device *dsi);
 static DEFINE_MUTEX(dsi_lock);
-static struct jzdsi_platform_data *to_dsi_plat(struct platform_device
-					       *pdev)
-{
-	return pdev->dev.platform_data;
-}
 
 int jz_dsi_video_cfg(struct dsi_device *dsi)
 {
@@ -75,6 +69,11 @@ int jz_dsi_video_cfg(struct dsi_device *dsi)
 	/* check DSI controller dsi */
 	if ((dsi == NULL) || (video_config == NULL)) {
 		return ERR_DSI_INVALID_INSTANCE;
+	}
+	if(dsi->state == UBOOT_INITIALIZED) {
+		/*no need to reconfig, just return*/
+		printk("dsi has already been initialized by uboot!!\n");
+		return OK;
 	}
 	if (dsi->state != INITIALIZED) {
 		return ERR_DSI_INVALID_INSTANCE;
@@ -129,12 +128,12 @@ int jz_dsi_video_cfg(struct dsi_device *dsi)
 #ifdef CONFIG_DSI_DPI_DEBUG
 		/*      D E B U G               */
 		{
-			printk("burst video");
-			printk("h line time %d ,",
+			pr_info("burst video");
+			pr_info("h line time %d ,",
 			       (unsigned
 				short)((video_config->h_total_pixels *
 					ratio_clock_xPF) / PRECISION_FACTOR));
-			printk("video_size %d ,", video_size);
+			pr_info("video_size %d ,", video_size);
 		}
 #endif
 	} else {		/* non burst transmission */
@@ -149,7 +148,7 @@ int jz_dsi_video_cfg(struct dsi_device *dsi)
 		     (video_config->h_total_pixels -
 		      video_config->h_back_porch_pixels -
 		      video_config->h_sync_pixels)) / PRECISION_FACTOR;
-		printk("---->total_bytes:%d, bytes_per_chunk:%d\n", total_bytes,
+		pr_debug("---->total_bytes:%d, bytes_per_chunk:%d\n", total_bytes,
 		       bytes_per_chunk);
 		/* check if the in pixels actually fit on the DSI link */
 		if (total_bytes >= bytes_per_chunk) {
@@ -196,14 +195,14 @@ int jz_dsi_video_cfg(struct dsi_device *dsi)
 #ifdef CONFIG_DSI_DPI_DEBUG
 				/*      D E B U G               */
 				{
-					printk("no multi no null video");
-					printk("h line time %d",
+					pr_info("no multi no null video");
+					pr_info("h line time %d",
 					       (unsigned
 						short)((video_config->
 							h_total_pixels *
 							ratio_clock_xPF) /
 						       PRECISION_FACTOR));
-					printk("video_size %d", video_size);
+					pr_info("video_size %d", video_size);
 				}
 #endif
 				/* video size must be a multiple of 4 when not 18 loosely */
@@ -214,7 +213,7 @@ int jz_dsi_video_cfg(struct dsi_device *dsi)
 				}
 			}
 		} else {
-			printk
+			pr_err
 			    ("resolution cannot be sent to display through current settings");
 			err_code = ERR_DSI_OVERFLOW;
 
@@ -235,19 +234,20 @@ int jz_dsi_video_cfg(struct dsi_device *dsi)
 #ifdef  CONFIG_DSI_DPI_DEBUG
 	/*      D E B U G               */
 	{
-		printk("total_bytes %d ,", total_bytes);
-		printk("bytes_per_chunk %d ,", bytes_per_chunk);
-		printk("bytes left %d ,", bytes_left);
-		printk("null packets %d ,", null_packet_size);
-		printk("chunks %d ,", no_of_chunks);
-		printk("video_size %d ", video_size);
+		pr_info("total_bytes %d ,", total_bytes);
+		pr_info("bytes_per_chunk %d ,", bytes_per_chunk);
+		pr_info("bytes left %d ,", bytes_left);
+		pr_info("null packets %d ,", null_packet_size);
+		pr_info("chunks %d ,", no_of_chunks);
+		pr_info("video_size %d ", video_size);
 	}
 #endif
 	mipi_dsih_hal_dpi_video_vc(dsi, video_config->virtual_channel);
 	jz_dsih_dphy_no_of_lanes(dsi, video_config->no_of_lanes);
 	/* enable high speed clock */
 	mipi_dsih_dphy_enable_hs_clk(dsi, 1);
-	printk("video configure is ok!\n");
+	pr_info("video configure is ok!\n");
+
 	return err_code;
 
 }
@@ -272,12 +272,7 @@ int jz_dsi_phy_open(struct dsi_device *dsi)
 	struct video_config *video_config;
 	video_config = dsi->video_config;
 
-	pr_info("entry %s()\n", __func__);
-#if 0
-	if (dsi->dsi_phy->status == INITIALIZED) {
-		return ERR_DSI_PHY_INVALID;
-	}
-#endif
+	pr_debug("entry %s()\n", __func__);
 
 	jz_dsih_dphy_reset(dsi, 0);
 	jz_dsih_dphy_stop_wait_time(dsi, 0x1c);	/* 0x1c: */
@@ -298,142 +293,142 @@ int jz_dsi_phy_open(struct dsi_device *dsi)
 
 void dump_dsi_reg(struct dsi_device *dsi)
 {
-	dev_info(dsi->dev, "===========>dump dsi reg\n");
-	dev_info(dsi->dev, "VERSION------------:%08x\n",
+	pr_info("dsi->dev: ===========>dump dsi reg\n");
+	pr_info("dsi->dev: VERSION------------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VERSION));
-	dev_info(dsi->dev, "PWR_UP:------------:%08x\n",
+	pr_info("dsi->dev: PWR_UP:------------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_PWR_UP));
-	dev_info(dsi->dev, "CLKMGR_CFG---------:%08x\n",
+	pr_info("dsi->dev: CLKMGR_CFG---------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_CLKMGR_CFG));
-	dev_info(dsi->dev, "DPI_VCID-----------:%08x\n",
+	pr_info("dsi->dev: DPI_VCID-----------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_DPI_VCID));
-	dev_info(dsi->dev, "DPI_COLOR_CODING---:%08x\n",
+	pr_info("dsi->dev: DPI_COLOR_CODING---:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_DPI_COLOR_CODING));
-	dev_info(dsi->dev, "DPI_CFG_POL--------:%08x\n",
+	pr_info("dsi->dev: DPI_CFG_POL--------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_DPI_CFG_POL));
-	dev_info(dsi->dev, "DPI_LP_CMD_TIM-----:%08x\n",
+	pr_info("dsi->dev: DPI_LP_CMD_TIM-----:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_DPI_LP_CMD_TIM));
-	dev_info(dsi->dev, "DBI_VCID-----------:%08x\n",
+	pr_info("dsi->dev: DBI_VCID-----------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_DBI_VCID));
-	dev_info(dsi->dev, "DBI_CFG------------:%08x\n",
+	pr_info("dsi->dev: DBI_CFG------------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_DBI_CFG));
-	dev_info(dsi->dev, "DBI_PARTITIONING_EN:%08x\n",
+	pr_info("dsi->dev: DBI_PARTITIONING_EN:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_DBI_PARTITIONING_EN));
-	dev_info(dsi->dev, "DBI_CMDSIZE--------:%08x\n",
+	pr_info("dsi->dev: DBI_CMDSIZE--------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_DBI_CMDSIZE));
-	dev_info(dsi->dev, "PCKHDL_CFG---------:%08x\n",
+	pr_info("dsi->dev: PCKHDL_CFG---------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_PCKHDL_CFG));
-	dev_info(dsi->dev, "GEN_VCID-----------:%08x\n",
+	pr_info("dsi->dev: GEN_VCID-----------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_GEN_VCID));
-	dev_info(dsi->dev, "MODE_CFG-----------:%08x\n",
+	pr_info("dsi->dev: MODE_CFG-----------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_MODE_CFG));
-	dev_info(dsi->dev, "VID_MODE_CFG-------:%08x\n",
+	pr_info("dsi->dev: VID_MODE_CFG-------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_MODE_CFG));
-	dev_info(dsi->dev, "VID_PKT_SIZE-------:%08x\n",
+	pr_info("dsi->dev: VID_PKT_SIZE-------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_PKT_SIZE));
-	dev_info(dsi->dev, "VID_NUM_CHUNKS-----:%08x\n",
+	pr_info("dsi->dev: VID_NUM_CHUNKS-----:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_NUM_CHUNKS));
-	dev_info(dsi->dev, "VID_NULL_SIZE------:%08x\n",
+	pr_info("dsi->dev: VID_NULL_SIZE------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_NULL_SIZE));
-	dev_info(dsi->dev, "VID_HSA_TIME-------:%08x\n",
+	pr_info("dsi->dev: VID_HSA_TIME-------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_HSA_TIME));
-	dev_info(dsi->dev, "VID_HBP_TIME-------:%08x\n",
+	pr_info("dsi->dev: VID_HBP_TIME-------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_HBP_TIME));
-	dev_info(dsi->dev, "VID_HLINE_TIME-----:%08x\n",
+	pr_info("dsi->dev: VID_HLINE_TIME-----:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_HLINE_TIME));
-	dev_info(dsi->dev, "VID_VSA_LINES------:%08x\n",
+	pr_info("dsi->dev: VID_VSA_LINES------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_VSA_LINES));
-	dev_info(dsi->dev, "VID_VBP_LINES------:%08x\n",
+	pr_info("dsi->dev: VID_VBP_LINES------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_VBP_LINES));
-	dev_info(dsi->dev, "VID_VFP_LINES------:%08x\n",
+	pr_info("dsi->dev: VID_VFP_LINES------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_VFP_LINES));
-	dev_info(dsi->dev, "VID_VACTIVE_LINES--:%08x\n",
+	pr_info("dsi->dev: VID_VACTIVE_LINES--:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_VACTIVE_LINES));
-	dev_info(dsi->dev, "EDPI_CMD_SIZE------:%08x\n",
+	pr_info("dsi->dev: EDPI_CMD_SIZE------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_EDPI_CMD_SIZE));
-	dev_info(dsi->dev, "CMD_MODE_CFG-------:%08x\n",
+	pr_info("dsi->dev: CMD_MODE_CFG-------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_CMD_MODE_CFG));
-	dev_info(dsi->dev, "GEN_HDR------------:%08x\n",
+	pr_info("dsi->dev: GEN_HDR------------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_GEN_HDR));
-	dev_info(dsi->dev, "GEN_PLD_DATA-------:%08x\n",
+	pr_info("dsi->dev: GEN_PLD_DATA-------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_GEN_PLD_DATA));
-	dev_info(dsi->dev, "CMD_PKT_STATUS-----:%08x\n",
+	pr_info("dsi->dev: CMD_PKT_STATUS-----:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_CMD_PKT_STATUS));
-	dev_info(dsi->dev, "TO_CNT_CFG---------:%08x\n",
+	pr_info("dsi->dev: TO_CNT_CFG---------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_TO_CNT_CFG));
-	dev_info(dsi->dev, "HS_RD_TO_CNT-------:%08x\n",
+	pr_info("dsi->dev: HS_RD_TO_CNT-------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_HS_RD_TO_CNT));
-	dev_info(dsi->dev, "LP_RD_TO_CNT-------:%08x\n",
+	pr_info("dsi->dev: LP_RD_TO_CNT-------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_LP_RD_TO_CNT));
-	dev_info(dsi->dev, "HS_WR_TO_CNT-------:%08x\n",
+	pr_info("dsi->dev: HS_WR_TO_CNT-------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_HS_WR_TO_CNT));
-	dev_info(dsi->dev, "LP_WR_TO_CNT_CFG---:%08x\n",
+	pr_info("dsi->dev: LP_WR_TO_CNT_CFG---:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_LP_WR_TO_CNT));
-	dev_info(dsi->dev, "BTA_TO_CNT---------:%08x\n",
+	pr_info("dsi->dev: BTA_TO_CNT---------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_BTA_TO_CNT));
-	dev_info(dsi->dev, "SDF_3D-------------:%08x\n",
+	pr_info("dsi->dev: SDF_3D-------------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_SDF_3D));
-	dev_info(dsi->dev, "LPCLK_CTRL---------:%08x\n",
+	pr_info("dsi->dev: LPCLK_CTRL---------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_LPCLK_CTRL));
-	dev_info(dsi->dev, "PHY_TMR_LPCLK_CFG--:%08x\n",
+	pr_info("dsi->dev: PHY_TMR_LPCLK_CFG--:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_TMR_LPCLK_CFG));
-	dev_info(dsi->dev, "PHY_TMR_CFG--------:%08x\n",
+	pr_info("dsi->dev: PHY_TMR_CFG--------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_TMR_CFG));
-	dev_info(dsi->dev, "PHY_RSTZ-----------:%08x\n",
+	pr_info("dsi->dev: PHY_RSTZ-----------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_RSTZ));
-	dev_info(dsi->dev, "PHY_IF_CFG---------:%08x\n",
+	pr_info("dsi->dev: PHY_IF_CFG---------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_IF_CFG));
-	dev_info(dsi->dev, "PHY_ULPS_CTRL------:%08x\n",
+	pr_info("dsi->dev: PHY_ULPS_CTRL------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_ULPS_CTRL));
-	dev_info(dsi->dev, "PHY_TX_TRIGGERS----:%08x\n",
+	pr_info("dsi->dev: PHY_TX_TRIGGERS----:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_TX_TRIGGERS));
-	dev_info(dsi->dev, "PHY_STATUS---------:%08x\n",
+	pr_info("dsi->dev: PHY_STATUS---------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS));
-	dev_info(dsi->dev, "PHY_TST_CTRL0------:%08x\n",
+	pr_info("dsi->dev: PHY_TST_CTRL0------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_TST_CTRL0));
-	dev_info(dsi->dev, "PHY_TST_CTRL1------:%08x\n",
+	pr_info("dsi->dev: PHY_TST_CTRL1------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_TST_CTRL1));
-	dev_info(dsi->dev, "INT_ST0------------:%08x\n",
+	pr_info("dsi->dev: INT_ST0------------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_INT_ST0));
-	dev_info(dsi->dev, "INT_ST1------------:%08x\n",
+	pr_info("dsi->dev: INT_ST1------------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_INT_ST1));
-	dev_info(dsi->dev, "INT_MSK0-----------:%08x\n",
+	pr_info("dsi->dev: INT_MSK0-----------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_INT_MSK0));
-	dev_info(dsi->dev, "INT_MSK1-----------:%08x\n",
+	pr_info("dsi->dev: INT_MSK1-----------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_INT_MSK1));
-	dev_info(dsi->dev, "INT_FORCE0---------:%08x\n",
+	pr_info("dsi->dev: INT_FORCE0---------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_INT_FORCE0));
-	dev_info(dsi->dev, "INT_FORCE1---------:%08x\n",
+	pr_info("dsi->dev: INT_FORCE1---------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_INT_FORCE1));
-	dev_info(dsi->dev, "VID_SHADOW_CTRL----:%08x\n",
+	pr_info("dsi->dev: VID_SHADOW_CTRL----:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_SHADOW_CTRL));
-	dev_info(dsi->dev, "DPI_VCID_ACT-------:%08x\n",
+	pr_info("dsi->dev: DPI_VCID_ACT-------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_DPI_VCID_ACT));
-	dev_info(dsi->dev, "DPI_COLOR_CODING_AC:%08x\n",
+	pr_info("dsi->dev: DPI_COLOR_CODING_AC:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_DPI_COLOR_CODING_ACT));
-	dev_info(dsi->dev, "DPI_LP_CMD_TIM_ACT-:%08x\n",
+	pr_info("dsi->dev: DPI_LP_CMD_TIM_ACT-:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_DPI_LP_CMD_TIM_ACT));
-	dev_info(dsi->dev, "VID_MODE_CFG_ACT---:%08x\n",
+	pr_info("dsi->dev: VID_MODE_CFG_ACT---:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_MODE_CFG_ACT));
-	dev_info(dsi->dev, "VID_PKT_SIZE_ACT---:%08x\n",
+	pr_info("dsi->dev: VID_PKT_SIZE_ACT---:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_PKT_SIZE_ACT));
-	dev_info(dsi->dev, "VID_NUM_CHUNKS_ACT-:%08x\n",
+	pr_info("dsi->dev: VID_NUM_CHUNKS_ACT-:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_NUM_CHUNKS_ACT));
-	dev_info(dsi->dev, "VID_HSA_TIME_ACT---:%08x\n",
+	pr_info("dsi->dev: VID_HSA_TIME_ACT---:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_HSA_TIME_ACT));
-	dev_info(dsi->dev, "VID_HBP_TIME_ACT---:%08x\n",
+	pr_info("dsi->dev: VID_HBP_TIME_ACT---:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_HBP_TIME_ACT));
-	dev_info(dsi->dev, "VID_HLINE_TIME_ACT-:%08x\n",
+	pr_info("dsi->dev: VID_HLINE_TIME_ACT-:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_HLINE_TIME_ACT));
-	dev_info(dsi->dev, "VID_VSA_LINES_ACT--:%08x\n",
+	pr_info("dsi->dev: VID_VSA_LINES_ACT--:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_VSA_LINES_ACT));
-	dev_info(dsi->dev, "VID_VBP_LINES_ACT--:%08x\n",
+	pr_info("dsi->dev: VID_VBP_LINES_ACT--:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_VBP_LINES_ACT));
-	dev_info(dsi->dev, "VID_VFP_LINES_ACT--:%08x\n",
+	pr_info("dsi->dev: VID_VFP_LINES_ACT--:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_VFP_LINES_ACT));
-	dev_info(dsi->dev, "VID_VACTIVE_LINES_ACT:%08x\n",
+	pr_info("dsi->dev: VID_VACTIVE_LINES_ACT:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_VID_VACTIVE_LINES_ACT));
-	dev_info(dsi->dev, "SDF_3D_ACT---------:%08x\n",
+	pr_info("dsi->dev: SDF_3D_ACT---------:%08x\n",
 		 mipi_dsih_read_word(dsi, R_DSI_HOST_SDF_3D_ACT));
 
 }
@@ -455,7 +450,7 @@ void set_base_dir_tx(struct dsi_device *dsi, void *param)
 						   (sizeof(phy_direction) /
 						    sizeof(register_config_t)));
 	if (i != (sizeof(phy_direction) / sizeof(register_config_t))) {
-		printk("ERROR setting up testchip %d", i);
+		pr_err("ERROR setting up testchip %d", i);
 	}
 }
 
@@ -467,7 +462,7 @@ static void jz_mipi_update_cfg(struct dsi_device *dsi)
 	dsi->state = NOT_INITIALIZED;
 	ret = jz_dsi_phy_open(dsi);
 	if (ret) {
-		printk("open the phy failed!\n");
+		pr_err("open the phy failed!\n");
 	}
 
 	/*set command mode */
@@ -481,10 +476,10 @@ static void jz_mipi_update_cfg(struct dsi_device *dsi)
 	 * */
 	ret = jz_dsi_phy_cfg(dsi);
 	if (ret) {
-		printk("phy configigure failed!\n");
+		pr_err("phy configigure failed!\n");
 	}
 
-	pr_info("wait for phy config ready\n");
+	pr_debug("wait for phy config ready\n");
 	if (dsi->video_config->no_of_lanes == 2)
 		st_mask = 0x95;
 	else
@@ -493,11 +488,11 @@ static void jz_mipi_update_cfg(struct dsi_device *dsi)
 	/*checkout phy clk lock and  clklane, datalane stopstate  */
 	while ((mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS) & st_mask) !=
 	       st_mask && retry--) {
-			printk("phy status = %08x\n", mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS));
+			pr_info("phy status = %08x\n", mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS));
 	}
 
 	if (!retry){
-		printk("wait for phy config failed!\n");
+		pr_err("wait for phy config failed!\n");
 	}
 
 	dsi->state = INITIALIZED;
@@ -520,13 +515,13 @@ static int jz_mipi_dsi_early_blank_mode(struct dsi_device *dsi,
 		if (client_drv && client_drv->suspend)
 			client_drv->suspend(client_dev);
 
+
 		jz_dsih_dphy_clock_en(dsi, 0);
 		jz_dsih_dphy_shutdown(dsi, 0);
-		clk_disable(dsi->clock);
 		mipi_dsih_hal_power(dsi, 0);
+		clk_disable(dsi->clk);
 
 		dsi->suspended = true;
-
 		break;
 	default:
 		break;
@@ -544,14 +539,14 @@ static int jz_mipi_dsi_blank_mode(struct dsi_device *dsi, int power)
 	case FB_BLANK_UNBLANK:
 		if (!dsi->suspended)
 			return 0;
+		clk_enable(dsi->clk);
 
-		/* enable MIPI-DSI PHY. */
-		clk_enable(dsi->clock);
-
-		jz_mipi_update_cfg(dsi);
+		//dump_dsi_reg(dsi);
 		/* lcd panel power on. */
 		if (client_drv && client_drv->power_on)
 			client_drv->power_on(client_dev, 1);
+
+		jz_mipi_update_cfg(dsi);
 
 		/* set lcd panel sequence commands. */
 		if (client_drv && client_drv->set_sequence)
@@ -564,6 +559,8 @@ static int jz_mipi_dsi_blank_mode(struct dsi_device *dsi, int power)
 		mipi_dsih_hal_power(dsi, 1);
 		dsi->suspended = false;
 
+		//dump_dsi_reg(dsi);
+
 		break;
 	case FB_BLANK_NORMAL:
 		/* TODO. */
@@ -575,8 +572,67 @@ static int jz_mipi_dsi_blank_mode(struct dsi_device *dsi, int power)
 	return 0;
 }
 
+static int jz_mipi_dsi_set_blank(struct dsi_device *dsi, int blank_mode)
+{
+	struct mipi_dsim_lcd_driver *client_drv = dsi->dsim_lcd_drv;
+	struct mipi_dsim_lcd_device *client_dev = dsi->dsim_lcd_dev;
+	switch (blank_mode) {
+	case DSI_BLANK_UNBLANK:
+		if(!clk_is_enabled(dsi->clk)) {
+			clk_enable(dsi->clk);
+		}
+		break;
+	case DSI_BLANK_NORMAL:
+		if(clk_is_enabled(dsi->clk)) {
+			clk_disable(dsi->clk);
+		}
+		break;
+	case DSI_BLANK_POWERDOWN:
+		//if (dsi->suspended)
+		//return 0;
+
+		if (client_drv && client_drv->suspend)
+			client_drv->suspend(client_dev);
 
 
+		jz_dsih_dphy_clock_en(dsi, 0);
+		jz_dsih_dphy_shutdown(dsi, 0);
+		mipi_dsih_hal_power(dsi, 0);
+		clk_disable(dsi->clk);
+
+		dsi->suspended = true;
+
+		break;
+	case DSI_BLANK_POWERUP:
+		//if (!dsi->suspended)
+			    //return 0;
+		if(!clk_is_enabled(dsi->clk)) {
+			clk_enable(dsi->clk);
+		}
+
+		//dump_dsi_reg(dsi);
+		/* lcd panel power on. */
+		if (client_drv && client_drv->power_on)
+			client_drv->power_on(client_dev, 1);
+
+		jz_mipi_update_cfg(dsi);
+
+		/* set lcd panel sequence commands. */
+		if (client_drv && client_drv->set_sequence)
+			client_drv->set_sequence(client_dev);
+
+		mipi_dsih_dphy_enable_hs_clk(dsi, 1);
+		mipi_dsih_dphy_auto_clklane_ctrl(dsi, 1);
+
+		mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG, 1);
+		mipi_dsih_hal_power(dsi, 1);
+
+		break;
+	default:
+		break;
+	}
+
+}
 /* define MIPI-DSI Master operations. */
 static struct dsi_master_ops jz_master_ops = {
 	.video_cfg = jz_dsi_video_cfg,
@@ -584,9 +640,8 @@ static struct dsi_master_ops jz_master_ops = {
 	.cmd_read = NULL,	/*jz_dsi_rd_data, */
 	.set_early_blank_mode   = jz_mipi_dsi_early_blank_mode,
 	.set_blank_mode         = jz_mipi_dsi_blank_mode,
+	.set_blank				= jz_mipi_dsi_set_blank,
 };
-
-
 
 int mipi_dsi_register_lcd_device(struct mipi_dsim_lcd_device *lcd_dev)
 {
@@ -687,30 +742,19 @@ static struct mipi_dsim_ddi *mipi_dsi_bind_lcd_ddi(
 	list_for_each_entry_safe(dsim_ddi, next, &dsim_ddi_list, list) {
 		lcd_drv = dsim_ddi->dsim_lcd_drv;
 		lcd_dev = dsim_ddi->dsim_lcd_dev;
-#if 0
-		if (!lcd_drv || !lcd_dev ||
-			(dsim->id != dsim_ddi->bus_id))
-				continue;
-#endif
 
-		dev_info(dsim->dev, "lcd_drv->id = %d, lcd_dev->id = %d\n",
-				lcd_drv->id, lcd_dev->id);
-		dev_info(dsim->dev, "lcd_dev->bus_id = %d, dsim->id = %d\n",
-				lcd_dev->bus_id, dsim->id);
-
+		pr_debug("dsi->dev: lcd_drv->name  = %s, name = %s\n",
+				lcd_drv->name, name);
 		if ((strcmp(lcd_drv->name, name) == 0)) {
 			lcd_dev->master = dsim;
 
-			lcd_dev->dev.parent = dsim->dev;
 			dev_set_name(&lcd_dev->dev, "%s", lcd_drv->name);
 
 			ret = device_register(&lcd_dev->dev);
 			if (ret < 0) {
-				dev_err(dsim->dev,
-					"can't register %s, status %d\n",
+				pr_err("can't register %s, status %d\n",
 					dev_name(&lcd_dev->dev), ret);
 				mutex_unlock(&dsim->lock);
-
 				return NULL;
 			}
 
@@ -720,6 +764,8 @@ static struct mipi_dsim_ddi *mipi_dsi_bind_lcd_ddi(
 			mutex_unlock(&dsim->lock);
 
 			return dsim_ddi;
+		}else{
+			pr_err("dsi->dev: lcd_drv->name is different with fb name\n");
 		}
 	}
 
@@ -728,37 +774,31 @@ static struct mipi_dsim_ddi *mipi_dsi_bind_lcd_ddi(
 	return NULL;
 }
 
-
-static int jz_dsi_probe(struct platform_device *pdev)
+struct dsi_device * jzdsi_init(struct jzdsi_data *pdata)
 {
-	struct resource *res;
 	struct dsi_device *dsi;
 	struct dsi_phy *dsi_phy;
-	struct jzdsi_platform_data *pdata = to_dsi_plat(pdev);
 	struct mipi_dsim_ddi *dsim_ddi;
 	int retry = 5;
 	int st_mask = 0;
 	int ret = -EINVAL;
-	pr_info("entry %s()\n", __func__);
+	pr_debug("entry %s()\n", __func__);
 
-	dsi =
-	    (struct dsi_device *)kzalloc(sizeof(struct dsi_device), GFP_KERNEL);
+	dsi = (struct dsi_device *)kzalloc(sizeof(struct dsi_device), GFP_KERNEL);
 	if (!dsi) {
-		dev_err(&pdev->dev, "failed to allocate dsi object.\n");
+		pr_err("dsi->dev: failed to allocate dsi object.\n");
 		ret = -ENOMEM;
 		goto err_dsi;
 	}
 
 	dsi_phy = (struct dsi_phy *)kzalloc(sizeof(struct dsi_phy), GFP_KERNEL);
 	if (!dsi_phy) {
-		dev_err(&pdev->dev, "failed to allocate dsi phy  object.\n");
+		pr_err("dsi->dev: failed to allocate dsi phy  object.\n");
 		ret = -ENOMEM;
 		goto err_dsi_phy;
 	}
 	dsi->state = NOT_INITIALIZED;
 	dsi->dsi_config = &(pdata->dsi_config);
-	dsi->dev = &pdev->dev;
-	dsi->id = pdev->id;
 
 	dsi_phy->status = NOT_INITIALIZED;
 	dsi_phy->reference_freq = REFERENCE_FREQ;
@@ -778,110 +818,95 @@ static int jz_dsi_probe(struct platform_device *pdev)
 	dsi->video_config->v_total_lines = pdata->modes->yres + pdata->modes->upper_margin + pdata->modes->lower_margin + pdata->modes->vsync_len;
 	dsi->master_ops = &jz_master_ops;
 
-	dsi->clock = clk_get(&pdev->dev, "dsi");
-	if (IS_ERR(dsi->clock)) {
-		dev_err(&pdev->dev, "failed to get dsi clock source\n");
-		ret = -ENODEV;
-		goto err_clock_get;
+	dsi->clk = clk_get(NULL, "dsi");
+	if (IS_ERR(dsi->clk)) {
+		pr_err("failed to get dsi clock source\n");
+		goto err_put_clk;
 	}
+	clk_enable(dsi->clk);
 
-	clk_enable(dsi->clock);
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		dev_err(&pdev->dev, "failed to get io memory region\n");
-		ret = -ENODEV;
-		goto err_platform_get;
-	}
-	dev_dbg(dsi->dev,
-		"res->start:0x%x, resource_size(res):%d,dev_name(&pdev->dev):%s\n",
-		res->start, resource_size(res), dev_name(&pdev->dev));
-	dsi->res =
-	    request_mem_region(res->start, resource_size(res),
-			       dev_name(&pdev->dev));
-	if (!dsi->res) {
-		dev_err(&pdev->dev, "failed to request io memory region\n");
-		ret = -ENOMEM;
-		goto err_mem_region;
-	}
-	dsi->address = (unsigned int)ioremap(res->start, resource_size(res));
+	dsi->address = (unsigned int)ioremap(DSI_IOBASE, 0x190);
 	if (!dsi->address) {
-		dev_err(&pdev->dev, "failed to remap io region\n");
-		ret = -ENOMEM;
-		goto err_ioremap;
+		pr_err("Failed to ioremap register dsi memory region\n");
+		goto err_iounmap;
 	}
-	dsi->dsi_phy->address = dsi->address;
 
 	mutex_init(&dsi->lock);
-
 	dsim_ddi = mipi_dsi_bind_lcd_ddi(dsi, pdata->modes->name);
 	if (!dsim_ddi) {
-		dev_err(&pdev->dev, "mipi_dsim_ddi object not found.\n");
+		pr_err("dsi->dev: mipi_dsim_ddi object not found.\n");
 		ret = -EINVAL;
 		goto err_bind_lcd;
 	}
 
 	if (dsim_ddi->dsim_lcd_drv && dsim_ddi->dsim_lcd_drv->probe)
 		dsim_ddi->dsim_lcd_drv->probe(dsim_ddi->dsim_lcd_dev);
-
-	if (dsim_ddi->dsim_lcd_drv && dsim_ddi->dsim_lcd_drv->power_on)
-		dsim_ddi->dsim_lcd_drv->power_on(dsim_ddi->dsim_lcd_dev, 1);
-
-	/*select mipi dsi */
-	*((volatile unsigned int *)0xb30500a4) = 1 << 7;	//MCTRL
-
-	ret = jz_dsi_phy_open(dsi);
-	if (ret) {
-		goto err_phy_open;
+	if (mipi_dsih_read_word(dsi, R_DSI_HOST_PWR_UP) & 0x1) {
+		dsi->state = UBOOT_INITIALIZED;
 	}
 
-	/*set command mode */
-	mipi_dsih_write_word(dsi, R_DSI_HOST_MODE_CFG, 0x1);
-	/*set this register for cmd size, default 0x6 */
-	mipi_dsih_write_word(dsi, R_DSI_HOST_EDPI_CMD_SIZE, 0x6);
+	if(dsi->state == UBOOT_INITIALIZED) {
 
-	/*
-	 * jz_dsi_phy_cfg:
-	 * PLL programming, config the output freq to DEFAULT_DATALANE_BPS.
-	 * */
-	ret = jz_dsi_phy_cfg(dsi);
-	if (ret) {
-		goto err_phy_cfg;
+		dsi->dsi_phy->status = INITIALIZED;
+		//dsi->state = INITIALIZED; /*must be here for set_sequence function*/
+	} else {
+
+		if (dsim_ddi->dsim_lcd_drv && dsim_ddi->dsim_lcd_drv->power_on)
+			dsim_ddi->dsim_lcd_drv->power_on(dsim_ddi->dsim_lcd_dev, 1);
+
+		ret = jz_dsi_phy_open(dsi);
+		if (ret) {
+			goto err_phy_open;
+		}
+
+		/*set command mode */
+		mipi_dsih_write_word(dsi, R_DSI_HOST_MODE_CFG, 0x1);
+		/*set this register for cmd size, default 0x6 */
+		mipi_dsih_write_word(dsi, R_DSI_HOST_EDPI_CMD_SIZE, 0x6);
+
+		/*
+		 * jz_dsi_phy_cfg:
+		 * PLL programming, config the output freq to DEFAULT_DATALANE_BPS.
+		 * */
+		ret = jz_dsi_phy_cfg(dsi);
+		if (ret) {
+			goto err_phy_cfg;
+		}
+
+		pr_debug("wait for phy config ready\n");
+		if (dsi->video_config->no_of_lanes == 2)
+			st_mask = 0x95;
+		else
+			st_mask = 0x15;
+
+		/*checkout phy clk lock and  clklane, datalane stopstate  */
+		while ((mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS) & st_mask) !=
+				st_mask && retry--) {
+			pr_info("phy status = %08x\n", mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS));
+		}
+
+		if (!retry)
+			goto err_phy_state;
+
+		dsi->state = INITIALIZED; /*must be here for set_sequence function*/
+
+		mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG,
+				0xffffff0);
+
+		if (dsim_ddi->dsim_lcd_drv && dsim_ddi->dsim_lcd_drv->set_sequence){
+			dsim_ddi->dsim_lcd_drv->set_sequence(dsim_ddi->dsim_lcd_dev);
+		}else{
+			pr_err("lcd mipi panel init failed!\n");
+			goto err_panel_init;
+		}
+
+		mipi_dsih_dphy_enable_hs_clk(dsi, 1);
+		mipi_dsih_dphy_auto_clklane_ctrl(dsi, 1);
+
+		mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG, 1);
 	}
 
-	pr_info("wait for phy config ready\n");
-	if (dsi->video_config->no_of_lanes == 2)
-		st_mask = 0x95;
-	else
-		st_mask = 0x15;
-
-	/*checkout phy clk lock and  clklane, datalane stopstate  */
-	while ((mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS) & st_mask) !=
-	       st_mask && retry--) {
-			printk("phy status = %08x\n", mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS));
-	}
-
-	if (!retry)
-		goto err_phy_state;
-
-	dsi->state = INITIALIZED;
-	pdata->dsi_state = &dsi->state;
-
-	mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG,
-				     0xffffff0);
-
-	if (dsim_ddi->dsim_lcd_drv && dsim_ddi->dsim_lcd_drv->set_sequence){
-		dsim_ddi->dsim_lcd_drv->set_sequence(dsim_ddi->dsim_lcd_dev);
-	}else{
-		printk("lcd mipi panel init failed!\n");
-		goto err_panel_init;
-	}
-
-	mipi_dsih_dphy_enable_hs_clk(dsi, 1);
-	mipi_dsih_dphy_auto_clklane_ctrl(dsi, 1);
-
-	mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG, 1);
 	dsi->suspended = false;
-	mipi_dsih_hal_power(dsi, 1);
 
 #ifdef CONFIG_DSI_DPI_DEBUG	/*test pattern */
 	unsigned int tmp = 0;
@@ -892,120 +917,35 @@ static int jz_dsi_probe(struct platform_device *pdev)
 	mipi_dsih_write_word(dsi, R_DSI_HOST_VID_MODE_CFG, tmp);
 #endif
 
-	return 0;
+	return dsi;
 err_panel_init:
-	dev_err(dsi->dev, "lcd mipi panel init error\n");
+	pr_err("dsi->dev: lcd mipi panel init error\n");
 err_phy_state:
-	dev_err(dsi->dev, "jz dsi phy state error\n");
+	pr_err("dsi->dev: jz dsi phy state error\n");
 err_phy_cfg:
-	dev_err(dsi->dev, "jz dsi phy cfg error\n");
+	pr_err("dsi->dev: jz dsi phy cfg error\n");
 err_phy_open:
-	dev_err(dsi->dev, "jz dsi phy open error\n");
+	pr_err("dsi->dev: jz dsi phy open error\n");
 err_bind_lcd:
-	iounmap((void *)res->start);
-err_ioremap:
-	release_mem_region(dsi->res->start, resource_size(dsi->res));
-err_mem_region:
-	release_resource(dsi->res);
-err_platform_get:
-	clk_put(dsi->clock);
-err_clock_get:
+	iounmap((void __iomem *)dsi->address);
+err_iounmap:
+	clk_put(dsi->clk);
+err_put_clk:
 	kfree(dsi_phy);
 err_dsi_phy:
 	kfree(dsi);
 err_dsi:
-	return ret;
+	return NULL;
 }
 
-static int jz_dsi_remove(struct platform_device *pdev)
+void jzdsi_remove(struct dsi_device *dsi)
 {
-	struct dsi_device *dsi = platform_get_drvdata(pdev);
 	struct dsi_phy *dsi_phy;
 	dsi_phy = dsi->dsi_phy;
 
-	iounmap((unsigned int *)dsi->address);
-	clk_disable(dsi->clock);
-	clk_put(dsi->clock);
-
-
-	release_resource(dsi->res);
-	release_mem_region(dsi->res->start, resource_size(dsi->res));
-
+	iounmap((void __iomem *)dsi->address);
+	clk_disable(dsi->clk);
+	clk_put(dsi->clk);
 	kfree(dsi_phy);
 	kfree(dsi);
-	return 0;
 }
-
-#ifdef CONFIG_PM_SLEEP
-static int jz_dsi_suspend(struct device *dev)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct dsi_device *dsim = platform_get_drvdata(pdev);
-	struct mipi_dsim_lcd_driver *client_drv = dsim->dsim_lcd_drv;
-	struct mipi_dsim_lcd_device *client_dev = dsim->dsim_lcd_dev;
-
-	if (dsim->suspended)
-		return 0;
-
-	if (client_drv && client_drv->suspend)
-		client_drv->suspend(client_dev);
-
-	/* disable MIPI-DSI PHY. */
-	//phy_power_off(dsim->phy);
-
-	clk_disable(dsim->clock);
-
-	dsim->suspended = true;
-
-	return 0;
-}
-
-static int jz_dsi_resume(struct device *dev)
-{
-	struct platform_device *pdev = to_platform_device(dev);
-	struct dsi_device *dsim = platform_get_drvdata(pdev);
-	struct mipi_dsim_lcd_driver *client_drv = dsim->dsim_lcd_drv;
-	struct mipi_dsim_lcd_device *client_dev = dsim->dsim_lcd_dev;
-
-
-	if (!dsim->suspended)
-		return 0;
-
-	/* lcd panel power on. */
-	if (client_drv && client_drv->power_on)
-		client_drv->power_on(client_dev, 1);
-
-
-	/* enable MIPI-DSI PHY. */
-	//phy_power_on(dsim->phy);
-
-	clk_enable(dsim->clock);
-
-	///mipi_update_cfg(dsim);
-
-	/* set lcd panel sequence commands. */
-	if (client_drv && client_drv->set_sequence)
-		client_drv->set_sequence(client_dev);
-
-	dsim->suspended = false;
-	return 0;
-}
-#endif
-
-static const struct dev_pm_ops jz_dsi_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(jz_dsi_suspend, jz_dsi_resume)
-};
-
-struct platform_driver jz_dsi_driver = {
-	.probe = jz_dsi_probe,
-	.remove = jz_dsi_remove,
-	.driver = {
-		   .name = "jz-dsi",
-		   .owner = THIS_MODULE,
-		   .pm = &jz_dsi_pm_ops,
-		   },
-};
-
-MODULE_AUTHOR("ykliu <ykliu@ingenic.cn>");
-MODULE_DESCRIPTION("Ingenic SoC MIPI-DSI driver");
-MODULE_LICENSE("GPL");

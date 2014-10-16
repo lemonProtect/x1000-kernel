@@ -83,11 +83,18 @@ typedef enum {
 	ERR_DSI_TIMEOUT
 } dsih_error_t;
 
+enum {
+	DSI_BLANK_UNBLANK,
+	DSI_BLANK_NORMAL,
+	DSI_BLANK_POWERDOWN,
+	DSI_BLANK_POWERUP
+};
 typedef enum {
 	NOT_INITIALIZED = 0,
 	INITIALIZED,
 	ON,
-	OFF
+	OFF,
+	UBOOT_INITIALIZED
 } dsih_state_t;
 
 typedef enum {
@@ -131,14 +138,9 @@ struct video_config {
 
 
 struct dsi_device {
-	struct device *dev;
-	int id;
-	struct resource *res;
-	struct clk *clock;
-	unsigned int irq;
 	unsigned int __iomem address;
 	struct mutex lock;
-
+	struct clk *clk;
 	struct dsi_config *dsi_config;
 	struct dsi_phy *dsi_phy;
 	struct video_config *video_config;
@@ -246,9 +248,10 @@ struct dsi_master_ops {
 	int (*video_cfg) (struct dsi_device * dsi);
 	int (*set_early_blank_mode)(struct dsi_device *dsi, int power);
 	int (*set_blank_mode)(struct dsi_device *dsi, int power);
+	int (*set_blank)(struct dsi_device *dsi, int blank_mode);
 };
 
-extern struct jzdsi_platform_data jzdsi_pdata;
+extern struct jzdsi_data jzdsi_pdata;
 int mipi_dsi_register_lcd_device(struct mipi_dsim_lcd_device
 		                        *lcd_dev);
 /**
