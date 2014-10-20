@@ -6,6 +6,11 @@
 
 #include "pmu.h"
 
+/* ****************************GPIO SLEEP START******************************* */
+#define GPIO_REGULATOR_SLP	GPIO_PB(1)
+#define GPIO_OUTPUT_TYPE	GPIO_OUTPUT1
+/* ****************************GPIO SLEEP END******************************** */
+
 /* ****************************GPIO LCD START******************************** */
 #ifdef CONFIG_LCD_BYD_8991FTGF
 #define GPIO_LCD_DISP		GPIO_PB(0)
@@ -55,20 +60,6 @@
 /* ****************************GPIO LCD END********************************** */
 
 /* ****************************GPIO I2C START******************************** */
-/*
-#ifdef CONFIG_SOFT_I2C0_GPIO_V12_JZ
-#define GPIO_I2C0_SDA GPIO_PD(30)
-#define GPIO_I2C0_SCK GPIO_PD(31)
-#endif
-#ifdef CONFIG_SOFT_I2C1_GPIO_V12_JZ
-#define GPIO_I2C1_SDA GPIO_PA(12)
-#define GPIO_I2C1_SCK GPIO_PA(13)
-#endif
-#ifdef CONFIG_SOFT_I2C2_GPIO_V12_JZ
-#define GPIO_I2C2_SDA GPIO_PE(00)
-#define GPIO_I2C2_SCK GPIO_PE(03)
-#endif
-*/
 #ifdef CONFIG_SOFT_I2C0_GPIO_V12_JZ
 #define GPIO_I2C0_SDA GPIO_PD(30)
 #define GPIO_I2C0_SCK GPIO_PD(31)
@@ -83,15 +74,6 @@
 //#define GPIO_I2C2_SDA GPIO_PE(00)
 //#define GPIO_I2C2_SCK GPIO_PE(03)
 #endif
-#ifdef CONFIG_SOFT_I2C3_GPIO_V12_JZ
-#define GPIO_I2C3_SDA GPIO_PB(7)
-#define GPIO_I2C3_SCK GPIO_PB(8)
-#endif
-/* ****************************GPIO SLEEP START******************************* */
-#define GPIO_REGULATOR_SLP	GPIO_PB(1)
-#define GPIO_OUTPUT_TYPE	GPIO_OUTPUT1
-/* ****************************GPIO SLEEP END******************************** */
-
 #ifdef CONFIG_SOFT_I2C3_GPIO_V12_JZ
 #define GPIO_I2C3_SDA GPIO_PB(7)
 #define GPIO_I2C3_SCK GPIO_PB(8)
@@ -144,7 +126,9 @@
 #endif /* CONFIG_REGULATOR_RICOH619 */
 
 /* pmu d2041 or 9024 gpio def*/
+#ifdef CONFIG_REGULATOR_DA9024
 #define GPIO_PMU_IRQ		GPIO_PA(3)
+#endif
 /* ****************************GPIO PMU END********************************** */
 
 /******************************GPIO PCA9539 START***********************************/
@@ -170,6 +154,11 @@
 #define GPIO_LI_ION_AC       GPIO_PA(13)
 #define GPIO_ACTIVE_LOW      1
 /* ****************************GPIO LI ION END******************************* */
+
+/* ****************************GPIO MMC START******************************** */
+#define GPIO_MMC_RST_N			GPIO_PA(29)
+#define GPIO_MMC_RST_N_LEVEL	LOW_ENABLE
+/* ****************************GPIO MMC END******************************** */
 
 /* ****************************GPIO USB START******************************** */
 #define GPIO_USB_ID     PCA9539_EXT_GPIO(7)/*GPIO_PA(13)*/

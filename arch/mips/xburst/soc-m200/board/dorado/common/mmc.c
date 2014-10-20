@@ -11,6 +11,13 @@
 
 #ifndef CONFIG_NAND
 #ifdef CONFIG_JZMMC_V12_MMC0
+
+struct card_gpio mmc_card_gpio = {
+	.rst = {
+		.num = GPIO_MMC_RST_N,
+		.enable_level = GPIO_MMC_RST_N_LEVEL,
+	},
+};
 struct jzmmc_platform_data inand_pdata = {
 	.removal  			= DONTCARE,
 	.sdio_clk			= 0,
@@ -19,7 +26,8 @@ struct jzmmc_platform_data inand_pdata = {
 	                                  | MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE,
 	.pm_flags			= 0,
 	.max_freq			= CONFIG_MMC0_MAX_FREQ,
-	.gpio				= NULL,
+	.gpio				= &mmc_card_gpio,
+	.type               = NONREMOVABLE,
 #ifdef CONFIG_MMC0_PIO_MODE
 	.pio_mode			= 1,
 #else
@@ -36,7 +44,7 @@ struct jzmmc_platform_data sdio_pdata = {
 	.removal  			= MANUAL,
 	.sdio_clk			= 1,
 	.ocr_avail			= MMC_VDD_29_30 | MMC_VDD_30_31,
-	.capacity  			= MMC_CAP_4_BIT_DATA | MMC_CAP_SDIO_IRQ,
+	.capacity  			= MMC_CAP_4_BIT_DATA | MMC_CAP_SDIO_IRQ | MMC_CAP_NONREMOVABLE,
 	.max_freq                       = CONFIG_MMC1_MAX_FREQ,
 	.recovery_info			= NULL,
 	.gpio				= NULL,

@@ -75,19 +75,17 @@ static void set_pin_status(int bt_power_state)
 
 static void restore_pin_status(int bt_power_state)
 {
-#if 0
-	if(!bt_power_state) {
-		/*set BT_INT to interrupt rise trigger*/
-		jzgpio_set_func(GPIO_BT_INT / 32, GPIO_INT_RE,
-				1 << (GPIO_BT_INT % 32));
-	}
+	/* if(!bt_power_state) { */
+	/* 	/\*set BT_INT to interrupt rise trigger*\/ */
+	/* 	jzgpio_set_func(GPIO_BT_INT / 32, GPIO_INT_RE, */
+	/* 			1 << (GPIO_BT_INT % 32)); */
+	/* } */
 
 	/*set UART0_RXD, UART0_CTS_N, UART0_RTS_N, UART0_TXD to FUNC*/
-	jzgpio_set_func(GPIO_PORT_F, GPIO_FUNC_0, 0xF);
+	jzgpio_set_func(GPIO_PORT_F, GPIO_FUNC_2, 0xF);
 
 	/*set PCM0_DO ,PCM0_CLK, PCM0_SYN ,PCM0_DI 4 pins to FUNC*/
-	jzgpio_set_func(GPIO_PORT_F, GPIO_FUNC_1, 0xF << 12);
-#endif
+	jzgpio_set_func(GPIO_PORT_F, GPIO_FUNC_0, 0xF << 12);
 }
 
 static struct bt_rfkill_platform_data  bt_gpio_data = {

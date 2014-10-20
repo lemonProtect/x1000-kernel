@@ -56,6 +56,6 @@ struct snd_codec_data __attribute__((weak)) codec_data = {
 	.gpio_handset_en = {.gpio = GPIO_HANDSET_EN, .active_level = GPIO_HANDSET_EN_LEVEL},
 	.gpio_mic_detect_en = {.gpio = GPIO_MIC_DETECT_EN,.active_level = GPIO_MIC_DETECT_EN_LEVEL},
 
-	.hpsense_active_level = 0, /*fix for m200, error detect state*/
-	.hook_active_level = -1,
+	.hpsense_active_level = HP_SENSE_ACTIVE_LEVEL,
+	.hook_active_level = HOOK_ACTIVE_LEVEL,
 };

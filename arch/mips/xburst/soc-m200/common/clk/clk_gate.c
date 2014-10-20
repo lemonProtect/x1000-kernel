@@ -92,10 +92,11 @@ static int cpm_gate_enable(struct clk *clk,int on){
 			cpm_clear_bit(sram_pwc[bit] & 0xff,CPM_SPCR0);
 		}
 	} else {
-		cpm_set_bit(bit % 32, clkgr[bit / 32]);
 		if(bit < ARRAY_SIZE(sram_pwc) && sram_pwc[bit])  {
+			cpm_clear_bit(bit % 32, clkgr[bit / 32]);
 			cpm_set_bit(sram_pwc[bit] & 0xff,CPM_SPCR0);
 		}
+		cpm_set_bit(bit % 32, clkgr[bit / 32]);
 	}
 	spin_unlock_irqrestore(&cpm_gate_lock,flags);
 	if(!on)

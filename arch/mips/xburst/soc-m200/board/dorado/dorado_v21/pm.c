@@ -1,6 +1,6 @@
 #include <gpio.h>
 __initdata int gpio_ss_table[][2] = {
-	{32*0+0,	GSS_INPUT_PULL		},	/* BT_WAKE_HOST */
+	{32*0+0,	GSS_IGNORE		},	/* BT_WAKE_HOST */
 	{32*0+1,	GSS_INPUT_PULL		},	/* HOST_WAKE_BT */
 	{32*0+2,	GSS_INPUT_PULL		},	/* BT_REG_EN */
 	{32*0+3,	GSS_INPUT_NOPULL	},	/* PMU_IRQ_N */
@@ -8,9 +8,9 @@ __initdata int gpio_ss_table[][2] = {
 	{32*0+5,	GSS_INPUT_NOPULL	},	/* MSC0_D5 */
 	{32*0+6,	GSS_INPUT_NOPULL	},	/* MSC0_D6 */
 	{32*0+7,	GSS_INPUT_NOPULL	},	/* MSC0_D7 */
-	{32*0+8,	GSS_INPUT_PULL		},	/* WL_REG_EN */
-	{32*0+9,	GSS_INPUT_PULL		},	/* WL_WAKE_HOST */
-	{32*0+10,	GSS_INPUT_PULL		},	/* HOST_WAKE_WL */
+	{32*0+8,	GSS_IGNORE		},	/* WL_REG_EN */
+	{32*0+9,	GSS_IGNORE		},	/* WL_WAKE_HOST */
+	{32*0+10,	GSS_IGNORE		},	/* HOST_WAKE_WL */
 	{32*0+11,	GSS_INPUT_NOPULL	},	/* HOST_WAKE_NFC */
 	{32*0+12,	GSS_OUTPUT_LOW		},	/* SHUTDOWN_N */
 	{32*0+13,	GSS_INPUT_NOPULL	},	/* USB_ID */
@@ -64,12 +64,12 @@ __initdata int gpio_ss_table[][2] = {
 	{32*4+2,	GSS_INPUT_NOPULL	},	/* CIM_MCLK */
 	{32*4+3,	GSS_INPUT_NOPULL	},	/* SSI_DI */
 	{32*4+10,	GSS_OUTPUT_LOW		},	/* DRVVBUS */
-	{32*4+20,	GSS_INPUT_PULL		},	/* SDIO_D0_WIFI */
-	{32*4+21,	GSS_INPUT_PULL		},	/* SDIO_D1_WIFI */
-	{32*4+22,	GSS_INPUT_PULL		},	/* SDIO_D2_WIFI */
-	{32*4+23,	GSS_INPUT_PULL		},	/* SDIO_D3_WIFI */
-	{32*4+28,	GSS_INPUT_PULL		},	/* SDIO_CLK_WIFI */
-	{32*4+29,	GSS_INPUT_PULL		},	/* SDIO_CMD_WIFI */
+	{32*4+20,	GSS_INPUT_NOPULL		},	/* SDIO_D0_WIFI */
+	{32*4+21,	GSS_INPUT_NOPULL		},	/* SDIO_D1_WIFI */
+	{32*4+22,	GSS_INPUT_NOPULL		},	/* SDIO_D2_WIFI */
+	{32*4+23,	GSS_INPUT_NOPULL		},	/* SDIO_D3_WIFI */
+	{32*4+28,	GSS_INPUT_NOPULL		},	/* SDIO_CLK_WIFI */
+	{32*4+29,	GSS_INPUT_NOPULL		},	/* SDIO_CMD_WIFI */
 	{32*4+30,	GSS_IGNORE		},	/* SMB1_SDA */
 	{32*4+31,	GSS_IGNORE		},	/* SMB1_SCK */
 	{32*5+0,	GSS_INPUT_PULL		},	/* BT_UART0_RXD */

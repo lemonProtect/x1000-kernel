@@ -43,6 +43,8 @@ static unsigned long set_cpu_freqs[] = {
 	792000,1008000,1200000,
 	CPUFREQ_TABLE_END
 };
+
+static struct cpufreq_freqs freqs;
 #define SUSPEMD_FREQ_INDEX 0
 static int m200_verify_speed(struct cpufreq_policy *policy)
 {
@@ -62,7 +64,6 @@ static int m200_target(struct cpufreq_policy *policy,
 {
 	int index;
 	int ret = 0;
-	struct cpufreq_freqs freqs;
 	ret = cpufreq_frequency_table_target(policy, jz_cpufreq->freq_table, target_freq, relation, &index);
 	if (ret) {
 		printk("%s: cpu%d: no freq match for %d(ret=%d)\n",
@@ -82,7 +83,7 @@ static int m200_target(struct cpufreq_policy *policy,
 	if (freqs.old == freqs.new && policy->cur == freqs.new)
 		return ret;
 
-	cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
+	cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
 	//printk("set speed = %d\n",freqs.new);
 	ret = clk_set_rate(jz_cpufreq->cpu_clk, freqs.new * 1000);
 
@@ -90,17 +91,23 @@ static int m200_target(struct cpufreq_policy *policy,
 	cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
 	return ret;
 }
-static void init_freq_table(struct cpufreq_frequency_table *table)
+static void init_freq_table(struct cpufreq_frequency_table *table, unsigned int max_freq)
 {
 	int i;
 	for(i = 0;i < ARRAY_SIZE(set_cpu_freqs);i++) {
+		if(set_cpu_freqs[i] > max_freq)
+			break;
 		table[i].index = i;
 		table[i].frequency = set_cpu_freqs[i];
-
+	}
+	if(i < ARRAY_SIZE(set_cpu_freqs)) {
+		table[i].index = i;
+		table[i].frequency = CPUFREQ_TABLE_END;
 	}
 }
 static int __cpuinit m200_cpu_init(struct cpufreq_policy *policy)
 {
+	unsigned int max_freq;
 	jz_cpufreq = (struct jz_cpufreq *)kzalloc(sizeof(struct jz_cpufreq) +
 						  sizeof(struct cpufreq_frequency_table) * ARRAY_SIZE(set_cpu_freqs), GFP_KERNEL);
 	if(!jz_cpufreq) {
@@ -108,10 +115,12 @@ static int __cpuinit m200_cpu_init(struct cpufreq_policy *policy)
 		return -1;
 	}
 	jz_cpufreq->freq_table = (struct cpufreq_frequency_table *)(jz_cpufreq + 1);
-	init_freq_table(jz_cpufreq->freq_table);
 	jz_cpufreq->cpu_clk = clk_get(NULL, "cclk");
 	if (IS_ERR(jz_cpufreq->cpu_clk))
 		goto cpu_clk_err;
+
+	max_freq = clk_get_rate(jz_cpufreq->cpu_clk) / 1000;
+	init_freq_table(jz_cpufreq->freq_table, max_freq);
 
 	if(cpufreq_frequency_table_cpuinfo(policy, jz_cpufreq->freq_table))
 		goto freq_table_err;
@@ -144,22 +153,16 @@ cpu_clk_err:
 	return -1;
 }
 
-/* static int m200_cpu_suspend(struct cpufreq_policy *policy) */
-/* { */
-/* 	if(jz_cpufreq->cpu_clk && jz_cpufreq->suspend_rate) { */
-/* 		jz_cpufreq->suspend_save_rate = clk_get_rate(jz_cpufreq->cpu_clk); */
-/* 		clk_set_rate(jz_cpufreq->cpu_clk,jz_cpufreq->suspend_rate * 1000); */
-/* 	} */
-/* 	return 0; */
-/* } */
+static int m200_cpu_suspend(struct cpufreq_policy *policy)
+{
+	return 0;
+}
 
-/* int m200_cpu_resume(struct cpufreq_policy *policy) */
-/* { */
-/* 	if(jz_cpufreq->cpu_clk && jz_cpufreq->suspend_save_rate) { */
-/* 		clk_set_rate(jz_cpufreq->cpu_clk, jz_cpufreq->suspend_save_rate); */
-/* 	} */
-/* 	return 0; */
-/* } */
+static int m200_cpu_resume(struct cpufreq_policy *policy)
+{
+	printk("cpufreq not resume to adj freq!\n");
+	return -1;
+}
 
 static struct freq_attr *m200_cpufreq_attr[] = {
 	&cpufreq_freq_attr_scaling_available_freqs,
@@ -173,8 +176,8 @@ static struct cpufreq_driver m200_driver = {
 	.target		= m200_target,
 	.get		= m200_getspeed,
 	.init		= m200_cpu_init,
-	/* .suspend	= m200_cpu_suspend, */
-	/* .resume		= m200_cpu_resume, */
+	.suspend	= m200_cpu_suspend,
+	.resume		= m200_cpu_resume,
 	.attr		= m200_cpufreq_attr,
 };
 

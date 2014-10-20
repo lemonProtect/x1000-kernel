@@ -33,7 +33,10 @@
 #include <linux/syscore_ops.h>
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
-
+#include <linux/notifier.h>
+#ifdef CONFIG_CPU_FREQ
+#include <linux/cpufreq.h>
+#endif
 #include <asm/cacheops.h>
 #include <soc/cache.h>
 #include <asm/r4kcache.h>
@@ -181,20 +184,10 @@ static inline void config_powerdown_core(unsigned int *resume_pc) {
 	blast_icache32();
 	blast_scache32();
 }
-/*int get_gpio_func(int port,int pin) {*/
-/*	int i;*/
-/*	int ret = 0;*/
-/*	int addr = 0xb0010010 + port * 0x100;*/
-/*	for(i = 0;i < 4;i++){*/
-/*		ret |= ((REG32(addr + 0x10 * i) >> pin) & 1)  << (3 - i);*/
-/*	}*/
-/*	return ret;*/
-/*}*/
-
 static inline void set_gpio_func(int gpio, int type) {
 	int i;
 	int port = gpio / 32;
-	int pin = BIT(gpio & 0x1f);
+	int pin = gpio & 0x1f;
 	int addr = 0xb0010010 + port * 0x100;
 
 	for(i = 0;i < 4;i++){
@@ -202,6 +195,19 @@ static inline void set_gpio_func(int gpio, int type) {
 		REG32(addr + 0x10 * i) |= (((type >> (3 - i)) & 1) << pin);
 	}
 }
+
+/* int get_gpio_func(int gpio) { */
+/* 	int i; */
+/* 	int ret = 0; */
+/* 	int port = gpio / 32; */
+/* 	int pin = BIT(gpio & 0x1f); */
+/* 	int addr = 0xb0010010 + port * 0x100; */
+/* 	for(i = 0;i < 4;i++){ */
+/* 		ret |= ((REG32(addr + 0x10 * i) >> pin) & 1)  << (3 - i); */
+/* 	} */
+/* 	return ret; */
+/* } */
+
 #define SLEEP_TSCM_SPACE    0xb3423000
 #define SLEEP_TSCM_DATA_LEN 0x20
 #define SLEEP_TSCM_TEXT     (SLEEP_TSCM_SPACE+SLEEP_TSCM_DATA_LEN)
@@ -245,7 +251,8 @@ static noinline void cpu_sleep(void)
 	/* printk("CPM_DDRCDR:0x%08x\n",cpm_inl(CPM_DDRCDR)); */
 	/* printk("DDRC_AUTOSR_EN: %x\n",ddr_readl(DDRC_AUTOSR_EN)); */
 	/* printk("DDRC_DLP: %x\n",ddr_readl(DDRC_DLP)); */
-
+	/* printk("ddr cs %x\n",ddr_readl(DDRP_DX0GSR)); */
+	REG32(SLEEP_TSCM_DATA + 12) = ddr_readl(DDRP_DX0GSR) & 3;
 	cache_prefetch(LABLE1,200);
 LABLE1:
 	val = ddr_readl(DDRC_AUTOSR_EN);
@@ -300,7 +307,9 @@ static noinline void cpu_resume(void)
 		val = DDRP_PIR_INIT | DDRP_PIR_DLLSRST | DDRP_PIR_DLLLOCK | DDRP_PIR_ITMSRST;
 	RETRY_LABLE:
 		ddr_writel(val, DDRP_PIR);
-		while((ddr_readl(DDRP_DX0GSR) & 0x3) != 3);
+		val = REG32(SLEEP_TSCM_DATA + 12);
+		while((ddr_readl(DDRP_DX0GSR) & val) != val);
+
 		while (ddr_readl(DDRP_PGSR) != (DDRP_PGSR_IDONE | DDRP_PGSR_DLDONE | DDRP_PGSR_ZCDONE
 						| DDRP_PGSR_DIDONE | DDRP_PGSR_DTDONE)) {
 
@@ -427,34 +436,57 @@ static struct m200_early_sleep_t {
 	struct regulator*  core_vcc;
 	struct clk *cpu_clk;
 	unsigned int rate_hz;
+	unsigned int real_hz;
 	unsigned int vol_uv;
 
 }m200_early_sleep;
-const unsigned int sleep_rate_hz = 24*1000*1000;
-const unsigned int sleep_vol_uv = 1025 * 1000;
+const unsigned int sleep_rate_hz = 30*1000*1000;
+const unsigned int sleep_vol_uv = 975 * 1000;
 static int m200_prepare(void)
 {
+#ifdef CONFIG_CPU_FREQ
+	struct cpufreq_policy *policy;
+
+	policy = cpufreq_cpu_get(0);
+	if(policy) {
+		policy->governor->governor(policy, CPUFREQ_GOV_STOP);
+		cpufreq_cpu_put(policy);
+	}
+#endif
 	if(m200_early_sleep.core_vcc == NULL) {
 		m200_early_sleep.core_vcc = regulator_get(NULL,"cpu_core_slp");
 	}
 	m200_early_sleep.rate_hz = clk_get_rate(m200_early_sleep.cpu_clk);
 	clk_set_rate(m200_early_sleep.cpu_clk,sleep_rate_hz);
-	if(!IS_ERR(m200_early_sleep.core_vcc))
-	{
+	m200_early_sleep.real_hz = clk_get_rate(m200_early_sleep.cpu_clk);
+	if(!IS_ERR(m200_early_sleep.core_vcc)) {
 		m200_early_sleep.vol_uv = regulator_get_voltage(m200_early_sleep.core_vcc);
-		printk("save vol_uv = %d\n",m200_early_sleep.vol_uv);
 		regulator_set_voltage(m200_early_sleep.core_vcc,sleep_vol_uv,sleep_vol_uv);
 	}
 	return 0;
 }
 static void m200_finish(void)
 {
-	if(!IS_ERR(m200_early_sleep.core_vcc))
-	{
+#ifdef CONFIG_CPU_FREQ
+	struct cpufreq_policy *policy;
+#endif
+	unsigned int rate;
+	rate = clk_get_rate(m200_early_sleep.cpu_clk);
+	if(rate != m200_early_sleep.real_hz) {
+		printk("warn! current cpu clk %d is not deep sleep set cpu clk %d!\n",
+		       rate, m200_early_sleep.real_hz);
+	}
+	if(!IS_ERR(m200_early_sleep.core_vcc)) {
 		regulator_set_voltage(m200_early_sleep.core_vcc,m200_early_sleep.vol_uv,m200_early_sleep.vol_uv);
-		regulator_put(m200_early_sleep.core_vcc);
 	}
 	clk_set_rate(m200_early_sleep.cpu_clk,m200_early_sleep.rate_hz);
+#ifdef CONFIG_CPU_FREQ
+	policy = cpufreq_cpu_get(0);
+	if(policy) {
+		policy->governor->governor(policy, CPUFREQ_GOV_START);
+		cpufreq_cpu_put(policy);
+	}
+#endif
 }
 /*
  * Initialize power interface
@@ -462,8 +494,8 @@ static void m200_finish(void)
 struct platform_suspend_ops pm_ops = {
 	.valid = suspend_valid_only_mem,
 	.enter = m200_pm_enter,
-	.prepare = m200_prepare,
-	.finish = m200_finish,
+	.prepare_late = m200_prepare,
+	.wake = m200_finish,
 };
 //extern void ddr_retention_exit(void);
 //extern void ddr_retention_entry(void);

@@ -663,7 +663,7 @@ void gpio_suspend_set(struct jzgpio_chip *jz)
 	pxmsk = jz->save[1] & d;
 	pxpat1 = jz->save[2] & d;
 	pxpat0 = jz->save[3] & d;
-	pxpen = jz->save[4] & d;
+	pxpen = (~jz->save[4]) & d;
 
 	//printk("aa grp:%d pxint:0x%08x,pxmsk:0x%08x,pxpat1:0x%08x,pxpat0:0x%08x,pxpen:0x%08x\n",
 	//       grp,pxint,pxmsk,pxpat1,pxpat0,pxpen);
@@ -684,7 +684,7 @@ void gpio_suspend_set(struct jzgpio_chip *jz)
 	writel(pxmsk,jz->reg + PXMSK);
 	writel(pxpat1,jz->reg + PXPAT1);
 	writel(pxpat0,jz->reg + PXPAT0);
-	writel(pxpen,jz->reg + PXPEN);
+	writel(~pxpen,jz->reg + PXPEN);
 
 /* #define output_str(x) \ */
 /* 	printk("\t " #x " 0x%08x\n",readl(jz->reg + x)); */
@@ -742,7 +742,7 @@ int __init gpio_ss_check(void)
 {
 	unsigned int i,state,group,index;
 	unsigned int panic_flags[GPIO_NR_PORTS] = {0};
-	const unsigned int default_type = GPIO_INPUT;
+	const unsigned int default_type = GPIO_INPUT_PULL;
 	enum gpio_function gpio_type = default_type;
 	for (i = 0; i < GPIO_NR_PORTS; i++) {
 		jz_gpio_chips[i].sleep_state.pxpen = default_type & 0x10 ? 0xffffffff : 0;

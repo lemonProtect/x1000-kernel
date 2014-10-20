@@ -357,22 +357,22 @@ static const struct file_operations cpu_wait_proc_fops ={
 	.llseek = seq_lseek,
 	.release = single_release,
 };
-void* __init create_switch_core(void)
+static int __init create_switch_core(void)
 {
 	struct proc_dir_entry *p;
 
 	p = jz_proc_mkdir("cpu_switch");
 	if (!p) {
 		pr_warning("create_proc_entry for common cpu switch failed.\n");
-		return NULL;
+		return -1;
 	}
 	if(switch_cpu_init(&sw_core) != 0){
-		return NULL;
+		return -1;
 	}
 
 	proc_create("cpu_proc_switch", 0600,p,&cpu_switch_proc_fops);
 	proc_create("cpu_proc_wait", 0600,p,&cpu_wait_proc_fops);
-	return (void *)&sw_core;
 
+	return 0;
 }
-
+module_init(create_switch_core);

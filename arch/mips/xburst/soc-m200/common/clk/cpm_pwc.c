@@ -64,6 +64,10 @@ static void cpm_pwc_poweroff(unsigned long data)
 	int t;
 	unsigned long flags;
 	struct cpm_pwc *pwc = (struct cpm_pwc *)data;
+
+	if(strcmp(pwc->name, "pwc_lcd") == 0)
+		return;
+
 	spin_lock_irqsave(&cpm_pwc_ctrl.spin_lock,flags);
 	t = cpm_test_bit(pwc->ctrl_bit,pwc->reg_offset); //t == 0 is power on
 	if(!t) {

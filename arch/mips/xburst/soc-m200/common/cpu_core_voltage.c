@@ -23,6 +23,7 @@ static struct cpu_core_voltage{
 	unsigned int current_rate;
 	unsigned int gpu_adj;
 	unsigned int vpu_adj;
+	unsigned int msc_adj;
 	int is_suspend;
 	struct mutex mutex;
 }cpu_core_vol;
@@ -37,7 +38,7 @@ struct vol_freq
 	{1100000,  300000},
 	{1100000,  600000},
 	{1100000,  800000},
-	{1100000,  1200000},
+	{1125000,  1200000},
 };
 static unsigned int get_vol_from_freq(struct cpu_core_voltage *pcore,unsigned int k_freq)
 {
@@ -55,7 +56,7 @@ static unsigned int get_vol_from_freq(struct cpu_core_voltage *pcore,unsigned in
 				u_vol = vol_freq[i + 1].u_vol;
 		}
 	}
-	u_vol += pcore->gpu_adj + pcore->vpu_adj;
+	u_vol += pcore->gpu_adj + pcore->vpu_adj + pcore->msc_adj;
 	if(u_vol > max)
 		u_vol = max;
 	if(u_vol < min)
@@ -120,14 +121,11 @@ static int clkgate_change_notify(struct jz_notifier *notify,void *v)
 	unsigned int on = val & 0x80000000;
 	unsigned int clk_id = val & (~0x80000000);
 	unsigned int target_vol;
-	if((clk_id == CLK_ID_VPU) || (clk_id == CLK_ID_GPU))
-	{
-		mutex_lock(&pcore->mutex);
-		if(clk_id == CLK_ID_GPU)
-			pcore->gpu_adj = on ? 100000:0;
-		if(clk_id == CLK_ID_VPU)
-			pcore->vpu_adj = on ? 50000:0;
 
+	switch(clk_id) {
+	case CLK_ID_GPU:
+		mutex_lock(&pcore->mutex);
+		pcore->gpu_adj = on ? 100000:0;
 		target_vol = get_vol_from_freq(pcore,pcore->current_rate / 1000);
 		/* printk(KERN_DEBUG"u target_vol %d current_vol %d clk_data->target_rate = %d \n", */
 		/*        target_vol,pcore->current_vol,pcore->current_rate); */
@@ -136,6 +134,31 @@ static int clkgate_change_notify(struct jz_notifier *notify,void *v)
 			cpu_core_change(pcore,target_vol);
 		}
 		mutex_unlock(&pcore->mutex);
+		break;
+	case CLK_ID_VPU:
+		mutex_lock(&pcore->mutex);
+		pcore->vpu_adj = on ? 50000:0;
+		target_vol = get_vol_from_freq(pcore,pcore->current_rate / 1000);
+		/* printk(KERN_DEBUG"u target_vol %d current_vol %d clk_data->target_rate = %d \n", */
+		/*        target_vol,pcore->current_vol,pcore->current_rate); */
+		if(target_vol != pcore->target_vol) {
+			//printk("dddddddddddddddddddddddddddddddddddddddd cpu dvfs init\n");
+			cpu_core_change(pcore,target_vol);
+		}
+		mutex_unlock(&pcore->mutex);
+		break;
+	case CLK_ID_CGU_MSC_MUX:
+		mutex_lock(&pcore->mutex);
+		pcore->msc_adj = on ? 100000:0;
+		target_vol = get_vol_from_freq(pcore,pcore->current_rate / 1000);
+		/* printk(KERN_DEBUG"u target_vol %d current_vol %d clk_data->target_rate = %d \n", */
+		/*        target_vol,pcore->current_vol,pcore->current_rate); */
+		if(target_vol != pcore->target_vol) {
+			//printk("dddddddddddddddddddddddddddddddddddddddd cpu dvfs init\n");
+			cpu_core_change(pcore,target_vol);
+		}
+		mutex_unlock(&pcore->mutex);
+		break;
 	}
 	return NOTIFY_OK;
 }
