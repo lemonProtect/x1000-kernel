@@ -133,6 +133,7 @@ struct jzfb {
 #endif
 	int is_suspend;
 	unsigned int pan_display_count;
+	int blank;
 };
 
 void jzfb_clk_enable(struct jzfb *jzfb);

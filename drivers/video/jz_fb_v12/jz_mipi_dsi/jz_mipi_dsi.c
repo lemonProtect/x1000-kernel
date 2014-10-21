@@ -501,81 +501,12 @@ static void jz_mipi_update_cfg(struct dsi_device *dsi)
 				     0xffffff0);
 
 }
-static int jz_mipi_dsi_early_blank_mode(struct dsi_device *dsi,
-		int power)
-{
-	struct mipi_dsim_lcd_driver *client_drv = dsi->dsim_lcd_drv;
-	struct mipi_dsim_lcd_device *client_dev = dsi->dsim_lcd_dev;
-
-	switch (power) {
-	case FB_BLANK_POWERDOWN:
-		if (dsi->suspended)
-			return 0;
-
-		if (client_drv && client_drv->suspend)
-			client_drv->suspend(client_dev);
-
-
-		jz_dsih_dphy_clock_en(dsi, 0);
-		jz_dsih_dphy_shutdown(dsi, 0);
-		mipi_dsih_hal_power(dsi, 0);
-		clk_disable(dsi->clk);
-
-		dsi->suspended = true;
-		break;
-	default:
-		break;
-	}
-
-	return 0;
-}
-
-static int jz_mipi_dsi_blank_mode(struct dsi_device *dsi, int power)
-{
-	struct mipi_dsim_lcd_driver *client_drv = dsi->dsim_lcd_drv;
-	struct mipi_dsim_lcd_device *client_dev = dsi->dsim_lcd_dev;
-
-	switch (power) {
-	case FB_BLANK_UNBLANK:
-		if (!dsi->suspended)
-			return 0;
-		clk_enable(dsi->clk);
-
-		//dump_dsi_reg(dsi);
-		/* lcd panel power on. */
-		if (client_drv && client_drv->power_on)
-			client_drv->power_on(client_dev, 1);
-
-		jz_mipi_update_cfg(dsi);
-
-		/* set lcd panel sequence commands. */
-		if (client_drv && client_drv->set_sequence)
-			client_drv->set_sequence(client_dev);
-
-		mipi_dsih_dphy_enable_hs_clk(dsi, 1);
-		mipi_dsih_dphy_auto_clklane_ctrl(dsi, 1);
-
-		mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG, 1);
-		mipi_dsih_hal_power(dsi, 1);
-		dsi->suspended = false;
-
-		//dump_dsi_reg(dsi);
-
-		break;
-	case FB_BLANK_NORMAL:
-		/* TODO. */
-		break;
-	default:
-		break;
-	}
-
-	return 0;
-}
 
 static int jz_mipi_dsi_set_blank(struct dsi_device *dsi, int blank_mode)
 {
 	struct mipi_dsim_lcd_driver *client_drv = dsi->dsim_lcd_drv;
 	struct mipi_dsim_lcd_device *client_dev = dsi->dsim_lcd_dev;
+	dev_dbg("%s, %d :blank_mode:%x, dsi->suspended:%x\n", __func__, __LINE__, blank_mode, dsi->suspended);
 	switch (blank_mode) {
 	case DSI_BLANK_UNBLANK:
 		if(!clk_is_enabled(dsi->clk)) {
@@ -588,8 +519,10 @@ static int jz_mipi_dsi_set_blank(struct dsi_device *dsi, int blank_mode)
 		}
 		break;
 	case DSI_BLANK_POWERDOWN:
-		//if (dsi->suspended)
-		//return 0;
+		if (dsi->suspended)
+			return 0;
+
+		dsi->suspended = true;
 
 		if (client_drv && client_drv->suspend)
 			client_drv->suspend(client_dev);
@@ -600,12 +533,13 @@ static int jz_mipi_dsi_set_blank(struct dsi_device *dsi, int blank_mode)
 		mipi_dsih_hal_power(dsi, 0);
 		clk_disable(dsi->clk);
 
-		dsi->suspended = true;
 
 		break;
 	case DSI_BLANK_POWERUP:
-		//if (!dsi->suspended)
-			    //return 0;
+		if (!dsi->suspended)
+			return 0;
+
+		dsi->suspended = false;
 		if(!clk_is_enabled(dsi->clk)) {
 			clk_enable(dsi->clk);
 		}
@@ -638,8 +572,8 @@ static struct dsi_master_ops jz_master_ops = {
 	.video_cfg = jz_dsi_video_cfg,
 	.cmd_write = write_command,	/*jz_dsi_wr_data, */
 	.cmd_read = NULL,	/*jz_dsi_rd_data, */
-	.set_early_blank_mode   = jz_mipi_dsi_early_blank_mode,
-	.set_blank_mode         = jz_mipi_dsi_blank_mode,
+	.set_early_blank_mode   = NULL, /*jz_mipi_dsi_early_blank_mode,*/
+	.set_blank_mode         = NULL, /*jz_mipi_dsi_blank_mode,*/
 	.set_blank				= jz_mipi_dsi_set_blank,
 };
 
