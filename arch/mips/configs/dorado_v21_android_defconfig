@@ -834,7 +834,16 @@ CONFIG_RFKILL_PM=y
 # CONFIG_NET_9P is not set
 # CONFIG_CAIF is not set
 # CONFIG_CEPH_LIB is not set
-# CONFIG_NFC is not set
+CONFIG_NFC=y
+# CONFIG_NFC_NCI is not set
+# CONFIG_NFC_HCI is not set
+
+#
+# Near Field Communication (NFC) devices
+#
+CONFIG_BCM2079X_NFC=y
+CONFIG_BCM2079X_NFC_I2C_BUSNUM=0
+# CONFIG_NFC_PN533 is not set
 
 #
 # Device Drivers
