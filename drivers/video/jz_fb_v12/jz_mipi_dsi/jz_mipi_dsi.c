@@ -248,6 +248,7 @@ int jz_dsi_video_cfg(struct dsi_device *dsi)
 	mipi_dsih_dphy_enable_hs_clk(dsi, 1);
 	pr_info("video configure is ok!\n");
 
+
 	return err_code;
 
 }
@@ -458,12 +459,15 @@ static void jz_mipi_update_cfg(struct dsi_device *dsi)
 {
 	int ret;
 	int st_mask = 0;
-	int retry = 5;
+	int retry = 20;
 	dsi->state = NOT_INITIALIZED;
 	ret = jz_dsi_phy_open(dsi);
 	if (ret) {
 		pr_err("open the phy failed!\n");
 	}
+
+	mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG,
+				     0xffffff0);
 
 	/*set command mode */
 	mipi_dsih_write_word(dsi, R_DSI_HOST_MODE_CFG, 0x1);
@@ -495,10 +499,8 @@ static void jz_mipi_update_cfg(struct dsi_device *dsi)
 		pr_err("wait for phy config failed!\n");
 	}
 
+	mipi_dsih_dphy_enable_hs_clk(dsi, 0);
 	dsi->state = INITIALIZED;
-
-	mipi_dsih_write_word(dsi, R_DSI_HOST_CMD_MODE_CFG,
-				     0xffffff0);
 
 }
 
@@ -782,6 +784,12 @@ struct dsi_device * jzdsi_init(struct jzdsi_data *pdata)
 	if(dsi->state == UBOOT_INITIALIZED) {
 
 		dsi->dsi_phy->status = INITIALIZED;
+		/*
+		 * ######## BUG to be fix #######
+		 * Uboot and kernel parameters are different. if we place
+		 * dsi->state = INITIALIZED. the lcd display abnormal.
+		 *
+		 * */
 		//dsi->state = INITIALIZED; /*must be here for set_sequence function*/
 	} else {
 
@@ -843,13 +851,18 @@ struct dsi_device * jzdsi_init(struct jzdsi_data *pdata)
 	dsi->suspended = false;
 
 #ifdef CONFIG_DSI_DPI_DEBUG	/*test pattern */
+	/*
+	 * Wether the uboot dsi on or not. if kernel config test Pattern. we enable it
+	 * when LCDC driver call video config. the color bar will appear. if LCDC keep
+	 * transfering data. the suspend resume will display a different color bar.
+	 * */
 	unsigned int tmp = 0;
-	jz_dsi_video_cfg(dsi);
 
 	tmp = mipi_dsih_read_word(dsi, R_DSI_HOST_VID_MODE_CFG);
 	tmp |= 1 << 16 | 0 << 20 | 1 << 24;
 	mipi_dsih_write_word(dsi, R_DSI_HOST_VID_MODE_CFG, tmp);
 #endif
+
 
 	return dsi;
 err_panel_init:

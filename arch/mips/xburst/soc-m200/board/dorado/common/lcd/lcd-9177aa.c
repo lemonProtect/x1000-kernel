@@ -84,7 +84,7 @@ struct fb_videomode jzfb_videomode = {
 	.lower_margin = 13,
 	.hsync_len = 48,
 	.vsync_len = 2,
-	.sync = FB_SYNC_HOR_HIGH_ACT & FB_SYNC_VERT_HIGH_ACT,
+	.sync = FB_SYNC_HOR_HIGH_ACT | FB_SYNC_VERT_HIGH_ACT,
 	.vmode = FB_VMODE_NONINTERLACED,
 	.flag = 0,
 };

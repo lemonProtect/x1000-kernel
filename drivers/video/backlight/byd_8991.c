@@ -39,7 +39,9 @@ struct byd_8991_data {
 static void byd_8991_on(struct byd_8991_data *dev) {
 	dev->lcd_power = 1;
 #ifdef CONFIG_NEED_REGULATOR
-	regulator_enable(dev->lcd_vcc_reg);
+	if(!regulator_is_enabled(dev->lcd_vcc_reg)) {
+		regulator_enable(dev->lcd_vcc_reg);
+	}
 #endif
 	if (dev->pdata->gpio_lcd_disp)
 		gpio_direction_output(dev->pdata->gpio_lcd_disp, 1);
@@ -69,7 +71,9 @@ static void byd_8991_off(struct byd_8991_data *dev)
 		gpio_direction_output(dev->pdata->gpio_lcd_disp, 0);
 	mdelay(2);
 #ifdef CONFIG_NEED_REGULATOR
-	regulator_disable(dev->lcd_vcc_reg);
+	if(regulator_is_enabled(dev->lcd_vcc_reg)) {
+		regulator_disable(dev->lcd_vcc_reg);
+	}
 #endif
 	mdelay(10);
 }
