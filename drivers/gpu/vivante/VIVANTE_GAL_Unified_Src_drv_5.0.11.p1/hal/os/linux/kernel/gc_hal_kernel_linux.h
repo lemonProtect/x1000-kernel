@@ -87,11 +87,11 @@
 #endif
 
 /* Protection bit when mapping memroy to user sapce */
-#define gcmkPAGED_MEMROY_PROT(x)    pgprot_writecombine(x)
+#define gcmkPAGED_MEMROY_PROT(x)    pgprot_noncached_wa(x)
 
 #if gcdNONPAGED_MEMORY_BUFFERABLE
 #define gcmkIOREMAP                 ioremap_wc
-#define gcmkNONPAGED_MEMROY_PROT(x) pgprot_writecombine(x)
+#define gcmkNONPAGED_MEMROY_PROT(x) pgprot_noncached_wa(x)
 #elif !gcdNONPAGED_MEMORY_CACHEABLE
 #define gcmkIOREMAP                 ioremap_nocache
 #define gcmkNONPAGED_MEMROY_PROT(x) pgprot_noncached(x)

@@ -112,9 +112,8 @@ struct jzfb {
 	struct jzfb_framedesc *fg1_framedesc;	/* FG 1 dma descriptor */
 	dma_addr_t framedesc_phys;
 
-	wait_queue_head_t vsync_wq;
+	struct completion vsync_wq;
 	struct task_struct *vsync_thread;
-	ktime_t vsync_timestamp;
 	unsigned int vsync_skip_map;	/* 10 bits width */
 	int vsync_skip_ratio;
 
@@ -134,6 +133,14 @@ struct jzfb {
 	int is_suspend;
 	unsigned int pan_display_count;
 	int blank;
+
+        char eventbuf[64];
+        int is_vsync;
+
+        ktime_t timestamp_array[16];
+        int timestamp_irq_pos;
+        int timestamp_thread_pos;
+        spinlock_t vsync_lock;
 };
 
 void jzfb_clk_enable(struct jzfb *jzfb);

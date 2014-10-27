@@ -1390,6 +1390,7 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 	struct jzfb_platform_data *pdata = jzfb->pdata;
 	struct fb_videomode *mode = info->mode;
 	int *buf;
+    unsigned long flags;
 
 	union {
 		struct jzfb_fg_pos fg_pos;
@@ -1537,27 +1538,17 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 	case JZFB_SET_VSYNCINT:
 		if (copy_from_user(&value, argp, sizeof(int)))
 			return -EFAULT;
-		if (value) {
-			/* clear previous EOF flag */
-			tmp = reg_read(jzfb, LCDC_STATE);
+                spin_lock_irqsave(&jzfb->vsync_lock, flags);
+		if (value && (jzfb->is_vsync == 0)) {
+                        /* clear previous EOF flag */
+                        tmp = reg_read(jzfb, LCDC_STATE);
 			reg_write(jzfb, LCDC_STATE, tmp & ~LCDC_STATE_EOF);
 			/* enable end of frame interrupt */
 			tmp = reg_read(jzfb, LCDC_CTRL);
 			reg_write(jzfb, LCDC_CTRL, tmp | LCDC_CTRL_EOFM);
-
-			/* is lcdc already in suspend, make trigger a vsync. */
-			if (jzfb->is_suspend) {
-				dev_err(jzfb->dev,
-					"*** JZFB_SET_VSYNCINT but jzfb->is_suspend, trigger a dummy vsync end envent. ***\n");
-				jzfb->vsync_timestamp = ktime_get();
-				wmb();
-				wake_up_interruptible(&jzfb->vsync_wq);
-			}
-
-		} else {
-			tmp = reg_read(jzfb, LCDC_CTRL);
-			reg_write(jzfb, LCDC_CTRL, tmp & ~LCDC_CTRL_EOFM);
-		}
+                }
+		jzfb->is_vsync = value ? 1:2;
+                spin_unlock_irqrestore(&jzfb->vsync_lock, flags);
 		break;
 	case JZFB_SET_BACKGROUND:
 		if (copy_from_user
@@ -1652,41 +1643,44 @@ static int jzfb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 	return 0;
 }
 
-static int
-jzfb_vsync_timestamp_changed(struct jzfb *jzfb, ktime_t prev_timestamp)
-{
-	rmb();
-	return !ktime_equal(prev_timestamp, jzfb->vsync_timestamp);
-}
-
 static int jzfb_wait_for_vsync_thread(void *data)
 {
 	struct jzfb *jzfb = (struct jzfb *)data;
+        unsigned long flags;
+        unsigned int tmp;
+        char *envp[2];
+        ktime_t timestamp;
 
 	while (!kthread_should_stop()) {
-		ktime_t prev_timestamp = jzfb->vsync_timestamp;
-		int ret = wait_event_interruptible_timeout(jzfb->vsync_wq,
-				jzfb_vsync_timestamp_changed(jzfb, prev_timestamp), msecs_to_jiffies(100));
-		if (ret > 0) {
-			char *envp[2];
-			char buf[64];
-			int is_suspend;
+                wait_for_completion(&jzfb->vsync_wq);
+                mutex_lock(&jzfb->lock);
+                /* rotate right */
+                jzfb->vsync_skip_map = (jzfb->vsync_skip_map >> 1 |
+                                        jzfb->vsync_skip_map << 9) &
+                        0x3ff;
+                mutex_unlock(&jzfb->lock);
+                if (!(jzfb->vsync_skip_map & 0x1))
+                    continue;
 
-			mutex_lock(&jzfb->lock);
-			is_suspend = jzfb->is_suspend;
-			/* rotate right */
-			jzfb->vsync_skip_map = (jzfb->vsync_skip_map >> 1 | jzfb->vsync_skip_map << 9) & 0x3ff;
-			mutex_unlock(&jzfb->lock);
-			if (!is_suspend) {
-				if (!(jzfb->vsync_skip_map & 0x1))
-					continue;
-			}
-			snprintf(buf, sizeof(buf), "VSYNC=%llu",
-					ktime_to_ns(jzfb->vsync_timestamp));
-			envp[0] = buf;
-			envp[1] = NULL;
-			kobject_uevent_env(&jzfb->dev->kobj, KOBJ_CHANGE, envp);
-		}
+                spin_lock_irqsave(&jzfb->vsync_lock, flags);
+                timestamp = jzfb->timestamp_array[jzfb->timestamp_thread_pos&(0xf)];
+                spin_unlock_irqrestore(&jzfb->vsync_lock, flags);
+
+                snprintf(jzfb->eventbuf, sizeof(jzfb->eventbuf), "VSYNC=%llu", ktime_to_ns(timestamp));
+                jzfb->timestamp_thread_pos++;
+                envp[0] = jzfb->eventbuf;
+                envp[1] = NULL;
+                kobject_uevent_env(&jzfb->dev->kobj, KOBJ_CHANGE, envp);
+
+                spin_lock_irqsave(&jzfb->vsync_lock, flags);
+                if(jzfb->is_vsync == 2) {
+                    tmp = reg_read(jzfb, LCDC_CTRL);
+                    reg_write(jzfb, LCDC_CTRL, tmp & ~LCDC_CTRL_EOFM);
+                    jzfb->is_vsync = 0;
+                }
+                if(jzfb->timestamp_irq_pos == jzfb->timestamp_thread_pos)
+                    jzfb->timestamp_irq_pos = jzfb->timestamp_thread_pos = 0;
+                spin_unlock_irqrestore(&jzfb->vsync_lock, flags);
 	}
 
 	return 0;
@@ -1700,10 +1694,11 @@ static irqreturn_t jzfb_irq_handler(int irq, void *data)
 	state = reg_read(jzfb, LCDC_STATE);
 
 	if (state & LCDC_STATE_EOF) {
-		reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_EOF);
-		jzfb->vsync_timestamp = ktime_get();
-		wmb();
-		wake_up_interruptible(&jzfb->vsync_wq);
+                reg_write(jzfb, LCDC_STATE, state & ~LCDC_STATE_EOF);
+                wmb();
+                jzfb->timestamp_array[jzfb->timestamp_irq_pos&(0xf)] = ktime_get();
+                jzfb->timestamp_irq_pos++;
+                complete(&jzfb->vsync_wq);
 	}
 
 	if (state & LCDC_STATE_OFU) {
@@ -2436,7 +2431,10 @@ static int jzfb_probe(struct platform_device *pdev)
 
 	vsync_skip_set(jzfb, CONFIG_FB_VSYNC_SKIP);
 
-	init_waitqueue_head(&jzfb->vsync_wq);
+        init_completion(&jzfb->vsync_wq);
+        jzfb->timestamp_irq_pos = 0;
+        jzfb->timestamp_thread_pos = 0;
+        spin_lock_init(&jzfb->vsync_lock);
 	jzfb->vsync_thread = kthread_run(jzfb_wait_for_vsync_thread,
 					 jzfb, "jzfb-vsync");
 	if (jzfb->vsync_thread == ERR_PTR(-ENOMEM)) {

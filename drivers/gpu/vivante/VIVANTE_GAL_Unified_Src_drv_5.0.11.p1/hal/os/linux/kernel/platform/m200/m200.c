@@ -19,6 +19,7 @@
 *****************************************************************************/
 #include "gc_hal_kernel_linux.h"
 #include "gc_hal_kernel_platform.h"
+#include <soc/irq.h>
 
 extern unsigned long coreClock;
 #define DEBUG
@@ -143,7 +144,7 @@ _adjustParam(
 		printk("Error! No platform! Can't [adjustParam] \nIN %s:%d \n",__FILE__,__LINE__);
 		return gcvSTATUS_INVALID_ARGUMENT;
 	}
-	Args->irqLine         = 71;
+	Args->irqLine         = IRQ_GPU;
 	Args->registerMemBase = 0x13040000;
 	Args->contiguousSize  = (CONFIG_GPU_CONTIGUOUS_SIZE_MB) << 20;
 	Args->physSize        = 0x80000000;
