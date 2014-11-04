@@ -16,7 +16,7 @@
 #define	_PADLINE(line)	pad ## line
 #define	_XSTR(line)	_PADLINE(line)
 #define	PAD		_XSTR(__LINE__)
-#endif	
+#endif
 
 
 typedef volatile struct sbsocramregs {
@@ -27,9 +27,9 @@ typedef volatile struct sbsocramregs {
 	uint32	bankidx;
 	uint32	standbyctrl;
 
-	uint32	errlogstatus;	
-	uint32	errlogaddr;	
-	
+	uint32	errlogstatus;
+	uint32	errlogaddr;
+
 	uint32	cambankidx;
 	uint32	cambankstandbyctrl;
 	uint32	cambankpatchctrl;
@@ -38,7 +38,7 @@ typedef volatile struct sbsocramregs {
 	uint32	cambankdatareg;
 	uint32	cambankmaskreg;
 	uint32	PAD[1];
-	uint32	bankinfo;	
+	uint32	bankinfo;
 	uint32	PAD[15];
 	uint32	extmemconfig;
 	uint32	extmemparitycsr;
@@ -47,15 +47,15 @@ typedef volatile struct sbsocramregs {
 	uint32	extmemwrctrlandsize;
 	uint32	PAD[84];
 	uint32	workaround;
-	uint32	pwrctl;		
+	uint32	pwrctl;
 	uint32	PAD[133];
-	uint32  sr_control;     
-	uint32  sr_status;      
-	uint32  sr_address;     
-	uint32  sr_data;        
+	uint32  sr_control;
+	uint32  sr_status;
+	uint32  sr_address;
+	uint32  sr_data;
 } sbsocramregs_t;
 
-#endif	
+#endif
 
 
 #define	SR_COREINFO		0x00
@@ -66,7 +66,7 @@ typedef volatile struct sbsocramregs {
 #define SR_PWRCTL		0x1e8
 
 
-#define	SRCI_PT_MASK		0x00070000	
+#define	SRCI_PT_MASK		0x00070000
 #define	SRCI_PT_SHIFT		16
 
 #define SRCI_PT_OCP_OCP		0
@@ -102,11 +102,11 @@ typedef volatile struct sbsocramregs {
 #define	SRSC_SBYOVR_SHIFT	31
 #define	SRSC_SBYOVRVAL_MASK	0x60000000
 #define	SRSC_SBYOVRVAL_SHIFT	29
-#define	SRSC_SBYEN_MASK		0x01000000	
+#define	SRSC_SBYEN_MASK		0x01000000
 #define	SRSC_SBYEN_SHIFT	24
 
 
-#define SRPC_PMU_STBYDIS_MASK	0x00000010	
+#define SRPC_PMU_STBYDIS_MASK	0x00000010
 #define SRPC_PMU_STBYDIS_SHIFT	4
 #define SRPC_STBYOVRVAL_MASK	0x00000008
 #define SRPC_STBYOVRVAL_SHIFT	3
@@ -169,7 +169,7 @@ typedef volatile struct sbsocramregs {
 
 
 #define   SOCRAM_BANKINFO_SZBASE          8192
-#define SOCRAM_BANKSIZE_SHIFT         13      
+#define SOCRAM_BANKSIZE_SHIFT         13
 
 
-#endif	
+#endif

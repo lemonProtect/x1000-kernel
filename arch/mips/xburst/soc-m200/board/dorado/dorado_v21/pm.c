@@ -9,8 +9,8 @@ __initdata int gpio_ss_table[][2] = {
 	{32*0+6,	GSS_INPUT_NOPULL	},	/* MSC0_D6 */
 	{32*0+7,	GSS_INPUT_NOPULL	},	/* MSC0_D7 */
 	{32*0+8,	GSS_IGNORE		},	/* WL_REG_EN */
-	{32*0+9,	GSS_IGNORE		},	/* WL_WAKE_HOST */
-	{32*0+10,	GSS_IGNORE		},	/* HOST_WAKE_WL */
+	{32*0+9,	GSS_INPUT_PULL		},	/* WL_WAKE_HOST */
+	{32*0+10,	GSS_INPUT_PULL		},	/* HOST_WAKE_WL */
 	{32*0+11,	GSS_INPUT_NOPULL	},	/* HOST_WAKE_NFC */
 	{32*0+12,	GSS_OUTPUT_LOW		},	/* SHUTDOWN_N */
 	{32*0+13,	GSS_INPUT_NOPULL	},	/* USB_ID */
@@ -60,7 +60,7 @@ __initdata int gpio_ss_table[][2] = {
 	{32*3+30,	GSS_INPUT_NOPULL	},	/* SMB0_SDA */
 	{32*3+31,	GSS_INPUT_NOPULL	},	/* SMB0_CLK */
 	{32*4+0,	GSS_INPUT_NOPULL	},	/* SSI_DO */
-	{32*4+1,	GSS_INPUT_NOPULL	},	/* LCD_PWM */
+	{32*4+1,	GSS_IGNORE	},	/* LCD_PWM */
 	{32*4+2,	GSS_INPUT_NOPULL	},	/* CIM_MCLK */
 	{32*4+3,	GSS_INPUT_NOPULL	},	/* SSI_DI */
 	{32*4+10,	GSS_OUTPUT_LOW		},	/* DRVVBUS */
@@ -76,8 +76,8 @@ __initdata int gpio_ss_table[][2] = {
 	{32*5+1,	GSS_INPUT_PULL		},	/* BT_UART0_CTS */
 	{32*5+2,	GSS_INPUT_PULL		},	/* BT_UART0_RTS */
 	{32*5+3,	GSS_INPUT_PULL		},	/* BT_UART0_TXD */
-	{32*5+6,	GSS_INPUT_PULL		},	/* DMIC_CLK */
-	{32*5+7,	GSS_INPUT_PULL		},	/* DMIC_DOUT1 */
+	{32*5+6,	GSS_IGNORE			},	/* DMIC_CLK */
+	{32*5+7,	GSS_IGNORE			},	/* DMIC_DOUT1 */
 	{32*5+12,	GSS_INPUT_PULL		},	/* BT_PCM_DO */
 	{32*5+13,	GSS_INPUT_PULL		},	/* BT_PCM_CLK */
 	{32*5+14,	GSS_INPUT_PULL		},	/* BT_PCM_SYN */

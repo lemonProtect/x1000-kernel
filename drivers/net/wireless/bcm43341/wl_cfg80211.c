@@ -2046,7 +2046,7 @@ wl_get_valid_channels(struct net_device *ndev, u8 *valid_chan_list, s32 size)
 #define FIRST_SCAN_ACTIVE_DWELL_TIME_MS 40
 static bool
 g_first_broadcast_scan = TRUE;
-#endif 
+#endif
 
 static s32
 wl_run_escan(struct wl_priv *wl, struct net_device *ndev,
@@ -2068,7 +2068,7 @@ wl_run_escan(struct wl_priv *wl, struct net_device *ndev,
 	struct net_device *dev = NULL;
 #if defined(USE_INITIAL_SHORT_DWELL_TIME)
 	bool is_first_init_2g_scan = false;
-#endif 
+#endif
 	p2p_scan_purpose_t	p2p_scan_purpose = P2P_SCAN_PURPOSE_MIN;
 
 	WL_DBG(("Enter \n"));
@@ -2091,7 +2091,7 @@ wl_run_escan(struct wl_priv *wl, struct net_device *ndev,
 			is_first_init_2g_scan = true;
 			g_first_broadcast_scan = false;
 		}
-#endif 
+#endif
 
 		/* if scan request is not empty parse scan request paramters */
 		if (request != NULL) {
@@ -2118,7 +2118,7 @@ wl_run_escan(struct wl_priv *wl, struct net_device *ndev,
 		/* Override active_time to reduce scan time if it's first bradcast scan. */
 		if (is_first_init_2g_scan)
 			params->params.active_time = FIRST_SCAN_ACTIVE_DWELL_TIME_MS;
-#endif 
+#endif
 
 		params->version = htod32(ESCAN_REQ_VERSION);
 		params->action =  htod16(action);
@@ -10105,7 +10105,7 @@ s32 wl_cfg80211_attach(struct net_device *ndev, void *data)
 	err = wl_cfg80211_btcoex_init(wl);
 	if (err)
 		goto cfg80211_attach_out;
-#endif 
+#endif
 
 	wlcfg_drv_priv = wl;
 
@@ -10134,7 +10134,7 @@ void wl_cfg80211_detach(void *para)
 
 #if defined(COEX_DHCP)
 	wl_cfg80211_btcoex_deinit(wl);
-#endif 
+#endif
 
 	wl_setup_rfkill(wl, FALSE);
 #ifdef DEBUGFS_CFG80211

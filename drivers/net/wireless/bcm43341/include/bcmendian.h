@@ -49,7 +49,7 @@
 #define htol16(i) (i)
 #define HTOL32(i) (i)
 #define htol32(i) (i)
-#endif 
+#endif
 
 #define ltoh16_buf(buf, i)
 #define htol16_buf(buf, i)
@@ -157,7 +157,7 @@
 	_NTOH32_UA(_bytes); \
 })
 
-#else 
+#else
 
 
 static INLINE uint16
@@ -256,5 +256,5 @@ ntoh32_ua(const void *bytes)
 	return _NTOH32_UA((const uint8 *)bytes);
 }
 
-#endif 
-#endif 
+#endif
+#endif

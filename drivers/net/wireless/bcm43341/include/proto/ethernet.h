@@ -6,7 +6,7 @@
  * $Id: ethernet.h 384540 2013-02-12 04:28:58Z $
  */
 
-#ifndef _NET_ETHERNET_H_	        
+#ifndef _NET_ETHERNET_H_
 #define _NET_ETHERNET_H_
 
 #ifndef _TYPEDEFS_H_
@@ -42,31 +42,31 @@
 #define	ETHER_MAX_DATA		1500
 
 
-#define ETHER_TYPE_MIN		0x0600		
-#define	ETHER_TYPE_IP		0x0800		
-#define ETHER_TYPE_ARP		0x0806		
-#define ETHER_TYPE_8021Q	0x8100		
-#define	ETHER_TYPE_IPV6		0x86dd		
-#define	ETHER_TYPE_BRCM		0x886c		
-#define	ETHER_TYPE_802_1X	0x888e		
+#define ETHER_TYPE_MIN		0x0600
+#define	ETHER_TYPE_IP		0x0800
+#define ETHER_TYPE_ARP		0x0806
+#define ETHER_TYPE_8021Q	0x8100
+#define	ETHER_TYPE_IPV6		0x86dd
+#define	ETHER_TYPE_BRCM		0x886c
+#define	ETHER_TYPE_802_1X	0x888e
 #ifdef PLC
-#define	ETHER_TYPE_88E1		0x88e1		
-#define	ETHER_TYPE_8912		0x8912		
-#define ETHER_TYPE_GIGLED	0xffff		
-#endif 
-#define	ETHER_TYPE_802_1X_PREAUTH 0x88c7	
-#define ETHER_TYPE_WAI		0x88b4		
-#define ETHER_TYPE_89_0D	0x890d		
+#define	ETHER_TYPE_88E1		0x88e1
+#define	ETHER_TYPE_8912		0x8912
+#define ETHER_TYPE_GIGLED	0xffff
+#endif
+#define	ETHER_TYPE_802_1X_PREAUTH 0x88c7
+#define ETHER_TYPE_WAI		0x88b4
+#define ETHER_TYPE_89_0D	0x890d
 
-#define ETHER_TYPE_PPP_SES	0x8864		
-
-
-#define	ETHER_BRCM_SUBTYPE_LEN	4	
+#define ETHER_TYPE_PPP_SES	0x8864
 
 
-#define ETHER_DEST_OFFSET	(0 * ETHER_ADDR_LEN)	
-#define ETHER_SRC_OFFSET	(1 * ETHER_ADDR_LEN)	
-#define ETHER_TYPE_OFFSET	(2 * ETHER_ADDR_LEN)	
+#define	ETHER_BRCM_SUBTYPE_LEN	4
+
+
+#define ETHER_DEST_OFFSET	(0 * ETHER_ADDR_LEN)
+#define ETHER_SRC_OFFSET	(1 * ETHER_ADDR_LEN)
+#define ETHER_TYPE_OFFSET	(2 * ETHER_ADDR_LEN)
 
 
 #define	ETHER_IS_VALID_LEN(foo)	\
@@ -81,7 +81,7 @@
 		((uint8 *)ea)[5] = ((mgrp_ip) >>  0) & 0xff;	\
 }
 
-#ifndef __INCif_etherh         
+#ifndef __INCif_etherh
 
 BWL_PRE_PACKED_STRUCT struct ether_header {
 	uint8	ether_dhost[ETHER_ADDR_LEN];
@@ -93,7 +93,7 @@ BWL_PRE_PACKED_STRUCT struct ether_header {
 BWL_PRE_PACKED_STRUCT struct	ether_addr {
 	uint8 octet[ETHER_ADDR_LEN];
 } BWL_POST_PACKED_STRUCT;
-#endif	
+#endif
 
 
 #define ETHER_SET_LOCALADDR(ea)	(((uint8 *)(ea))[0] = (((uint8 *)(ea))[0] | 2))
@@ -169,4 +169,4 @@ do { \
 
 #include <packed_section_end.h>
 
-#endif 
+#endif

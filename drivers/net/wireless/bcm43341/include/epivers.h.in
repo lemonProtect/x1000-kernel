@@ -27,4 +27,4 @@
 
 #define	EPI_VERSION_STR		"@EPI_VERSION_STR@@EPI_VERSION_TYPE@ (@VC_VERSION_NUM@)"
 
-#endif 
+#endif

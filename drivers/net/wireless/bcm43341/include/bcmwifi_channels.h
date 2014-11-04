@@ -23,9 +23,9 @@ typedef uint16 chanspec_t;
 #define CH_40MHZ_APART			8
 #define CH_20MHZ_APART			4
 #define CH_10MHZ_APART			2
-#define CH_5MHZ_APART			1	
-#define CH_MAX_2G_CHANNEL		14	
-#define	MAXCHANNEL		224	
+#define CH_5MHZ_APART			1
+#define CH_MAX_2G_CHANNEL		14
+#define	MAXCHANNEL		224
 #define CHSPEC_CTLOVLP(sp1, sp2, sep)	(ABS(wf_chspec_ctlchan(sp1) - wf_chspec_ctlchan(sp2)) < \
 				  (sep))
 
@@ -98,7 +98,7 @@ typedef uint16 chanspec_t;
 #define CHSPEC_IS40(chspec)	0
 #endif
 
-#else 
+#else
 
 #define CHSPEC_IS10(chspec)	(((chspec) & WL_CHANSPEC_BW_MASK) == WL_CHANSPEC_BW_10)
 #define CHSPEC_IS20(chspec)	(((chspec) & WL_CHANSPEC_BW_MASK) == WL_CHANSPEC_BW_20)
@@ -106,7 +106,7 @@ typedef uint16 chanspec_t;
 #define CHSPEC_IS40(chspec)	(((chspec) & WL_CHANSPEC_BW_MASK) == WL_CHANSPEC_BW_40)
 #endif
 
-#endif 
+#endif
 
 #define CHSPEC_IS5G(chspec)	(((chspec) & WL_CHANSPEC_BAND_MASK) == WL_CHANSPEC_BAND_5G)
 #define CHSPEC_IS2G(chspec)	(((chspec) & WL_CHANSPEC_BAND_MASK) == WL_CHANSPEC_BAND_2G)
@@ -120,7 +120,7 @@ typedef uint16 chanspec_t;
 
 #define CHANSPEC_STR_LEN    8
 
-#else 
+#else
 
 #define WL_CHANSPEC_CHAN_MASK		0x00ff
 #define WL_CHANSPEC_CHAN_SHIFT		0
@@ -222,7 +222,7 @@ typedef uint16 chanspec_t;
 #define CHSPEC_IS8080(chspec)	0
 #endif
 
-#else 
+#else
 
 #define CHSPEC_IS10(chspec)	(((chspec) & WL_CHANSPEC_BW_MASK) == WL_CHANSPEC_BW_10)
 #define CHSPEC_IS20(chspec)	(((chspec) & WL_CHANSPEC_BW_MASK) == WL_CHANSPEC_BW_20)
@@ -239,7 +239,7 @@ typedef uint16 chanspec_t;
 #define CHSPEC_IS8080(chspec)	(((chspec) & WL_CHANSPEC_BW_MASK) == WL_CHANSPEC_BW_8080)
 #endif
 
-#endif 
+#endif
 
 #define CHSPEC_IS5G(chspec)	(((chspec) & WL_CHANSPEC_BAND_MASK) == WL_CHANSPEC_BAND_5G)
 #define CHSPEC_IS2G(chspec)	(((chspec) & WL_CHANSPEC_BAND_MASK) == WL_CHANSPEC_BAND_2G)
@@ -293,20 +293,20 @@ typedef uint16 chanspec_t;
 	WL_LCHANSPEC_CTL_SB_NONE | (((channel) <= CH_MAX_2G_CHANNEL) ? \
 	WL_LCHANSPEC_BAND_2G : WL_LCHANSPEC_BAND_5G))
 
-#endif 
+#endif
 
 
 
 
-#define WF_CHAN_FACTOR_2_4_G		4814	
+#define WF_CHAN_FACTOR_2_4_G		4814
 
 
-#define WF_CHAN_FACTOR_5_G		10000	
+#define WF_CHAN_FACTOR_5_G		10000
 
 
-#define WF_CHAN_FACTOR_4_G		8000	
+#define WF_CHAN_FACTOR_4_G		8000
 
-#define WLC_2G_25MHZ_OFFSET		5	
+#define WLC_2G_25MHZ_OFFSET		5
 
 
 extern char * wf_chspec_ntoa(chanspec_t chspec, char *buf);
@@ -342,4 +342,4 @@ extern uint wf_channel2freq(uint channel);
 extern uint wf_freq2channel(uint freq);
 
 
-#endif	
+#endif

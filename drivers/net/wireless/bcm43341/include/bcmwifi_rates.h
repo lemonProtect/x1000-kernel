@@ -11,7 +11,7 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif 
+#endif
 
 
 #define WL_RATESET_SZ_DSSS		4
@@ -21,7 +21,7 @@ extern "C" {
 
 #define WL_TX_CHAINS_MAX	3
 
-#define WL_RATE_DISABLED		(-128) 
+#define WL_RATE_DISABLED		(-128)
 
 
 typedef enum wl_tx_bw {
@@ -61,9 +61,9 @@ typedef enum wl_tx_nss {
 
 
 typedef enum clm_rates {
-	
 
-	
+
+
 	WL_RATE_1X1_DSSS_1         = 0,
 	WL_RATE_1X1_DSSS_2         = 1,
 	WL_RATE_1X1_DSSS_5_5       = 2,
@@ -99,9 +99,9 @@ typedef enum clm_rates {
 	WL_RATE_1X1_VHT9SS1        = 21,
 
 
-	
 
-	
+
+
 	WL_RATE_1X2_DSSS_1         = 22,
 	WL_RATE_1X2_DSSS_2         = 23,
 	WL_RATE_1X2_DSSS_5_5       = 24,
@@ -136,7 +136,7 @@ typedef enum clm_rates {
 	WL_RATE_1X2_VHT8SS1        = 42,
 	WL_RATE_1X2_VHT9SS1        = 43,
 
-	
+
 	WL_RATE_2X2_STBC_MCS0      = 44,
 	WL_RATE_2X2_STBC_MCS1      = 45,
 	WL_RATE_2X2_STBC_MCS2      = 46,
@@ -177,9 +177,9 @@ typedef enum clm_rates {
 	WL_RATE_2X2_VHT8SS2        = 62,
 	WL_RATE_2X2_VHT9SS2        = 63,
 
-	
 
-	
+
+
 	WL_RATE_1X3_DSSS_1         = 64,
 	WL_RATE_1X3_DSSS_2         = 65,
 	WL_RATE_1X3_DSSS_5_5       = 66,
@@ -214,7 +214,7 @@ typedef enum clm_rates {
 	WL_RATE_1X3_VHT8SS1        = 84,
 	WL_RATE_1X3_VHT9SS1        = 85,
 
-	
+
 	WL_RATE_2X3_STBC_MCS0      = 86,
 	WL_RATE_2X3_STBC_MCS1      = 87,
 	WL_RATE_2X3_STBC_MCS2      = 88,
@@ -255,7 +255,7 @@ typedef enum clm_rates {
 	WL_RATE_2X3_VHT8SS2        = 104,
 	WL_RATE_2X3_VHT9SS2        = 105,
 
-	
+
 	WL_RATE_3X3_SDM_MCS16      = 106,
 	WL_RATE_3X3_SDM_MCS17      = 107,
 	WL_RATE_3X3_SDM_MCS18      = 108,
@@ -277,9 +277,9 @@ typedef enum clm_rates {
 	WL_RATE_3X3_VHT9SS3        = 115,
 
 
-	
 
-	
+
+
 
 	WL_RATE_1X2_TXBF_OFDM_6    = 116,
 	WL_RATE_1X2_TXBF_OFDM_9    = 117,
@@ -310,7 +310,7 @@ typedef enum clm_rates {
 	WL_RATE_1X2_TXBF_VHT8SS1   = 132,
 	WL_RATE_1X2_TXBF_VHT9SS1   = 133,
 
-	
+
 
 	WL_RATE_2X2_TXBF_SDM_MCS8  = 134,
 	WL_RATE_2X2_TXBF_SDM_MCS9  = 135,
@@ -331,9 +331,9 @@ typedef enum clm_rates {
 	WL_RATE_2X2_TXBF_VHT7SS2   = 141,
 
 
-	
 
-	
+
+
 
 	WL_RATE_1X3_TXBF_OFDM_6    = 142,
 	WL_RATE_1X3_TXBF_OFDM_9    = 143,
@@ -364,7 +364,7 @@ typedef enum clm_rates {
 	WL_RATE_1X3_TXBF_VHT8SS1   = 158,
 	WL_RATE_1X3_TXBF_VHT9SS1   = 159,
 
-	
+
 
 	WL_RATE_2X3_TXBF_SDM_MCS8  = 160,
 	WL_RATE_2X3_TXBF_SDM_MCS9  = 161,
@@ -386,7 +386,7 @@ typedef enum clm_rates {
 	WL_RATE_2X3_TXBF_VHT8SS2   = 168,
 	WL_RATE_2X3_TXBF_VHT9SS2   = 169,
 
-	
+
 
 	WL_RATE_3X3_TXBF_SDM_MCS16 = 170,
 	WL_RATE_3X3_TXBF_SDM_MCS17 = 171,
@@ -412,6 +412,6 @@ typedef enum clm_rates {
 
 #ifdef __cplusplus
 }
-#endif 
+#endif
 
-#endif 
+#endif

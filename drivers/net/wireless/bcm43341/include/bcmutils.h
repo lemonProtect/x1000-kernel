@@ -22,14 +22,14 @@ extern "C" {
 #endif
 
 
-#define _BCM_U	0x01	
-#define _BCM_L	0x02	
-#define _BCM_D	0x04	
-#define _BCM_C	0x08	
-#define _BCM_P	0x10	
-#define _BCM_S	0x20	
-#define _BCM_X	0x40	
-#define _BCM_SP	0x80	
+#define _BCM_U	0x01
+#define _BCM_L	0x02
+#define _BCM_D	0x04
+#define _BCM_C	0x08
+#define _BCM_P	0x10
+#define _BCM_S	0x20
+#define _BCM_X	0x40
+#define _BCM_SP	0x80
 
 extern const unsigned char bcm_ctype[];
 #define bcm_ismask(x)	(bcm_ctype[(int)(unsigned char)(x)])
@@ -51,17 +51,17 @@ extern const unsigned char bcm_ctype[];
 
 
 struct bcmstrbuf {
-	char *buf;	
-	unsigned int size;	
-	char *origbuf;	
-	unsigned int origsize;	
+	char *buf;
+	unsigned int size;
+	char *origbuf;
+	unsigned int origsize;
 };
 
 
 #ifdef BCMDRIVER
 #include <osl.h>
 
-#define GPIO_PIN_NOTDEFINED 	0x20	
+#define GPIO_PIN_NOTDEFINED 	0x20
 
 
 #define SPINWAIT(exp, us) { \
@@ -74,63 +74,63 @@ struct bcmstrbuf {
 
 
 #ifndef PKTQ_LEN_DEFAULT
-#define PKTQ_LEN_DEFAULT        128	
+#define PKTQ_LEN_DEFAULT        128
 #endif
 #ifndef PKTQ_MAX_PREC
-#define PKTQ_MAX_PREC           16	
+#define PKTQ_MAX_PREC           16
 #endif
 
 typedef struct pktq_prec {
-	void *head;     
-	void *tail;     
-	uint16 len;     
-	uint16 max;     
+	void *head;
+	void *tail;
+	uint16 len;
+	uint16 max;
 } pktq_prec_t;
 
 #ifdef PKTQ_LOG
 typedef struct {
-	uint32 requested;    
-	uint32 stored;	     
-	uint32 saved;	     
-	uint32 selfsaved;    
-	uint32 full_dropped; 
-	uint32 dropped;      
-	uint32 sacrificed;   
-	uint32 busy;         
-	uint32 retry;        
-	uint32 ps_retry;     
-	uint32 retry_drop;   
-	uint32 max_avail;    
-	uint32 max_used;     
-	uint32 queue_capacity; 
-	uint32 rtsfail;        
-	uint32 acked;          
+	uint32 requested;
+	uint32 stored;
+	uint32 saved;
+	uint32 selfsaved;
+	uint32 full_dropped;
+	uint32 dropped;
+	uint32 sacrificed;
+	uint32 busy;
+	uint32 retry;
+	uint32 ps_retry;
+	uint32 retry_drop;
+	uint32 max_avail;
+	uint32 max_used;
+	uint32 queue_capacity;
+	uint32 rtsfail;
+	uint32 acked;
 } pktq_counters_t;
-#endif 
+#endif
 
 
 #define PKTQ_COMMON	\
 	uint16 num_prec;        			\
 	uint16 hi_prec;         	\
 	uint16 max;             					\
-	uint16 len;             
+	uint16 len;
 
 
 struct pktq {
 	PKTQ_COMMON
-	
+
 	struct pktq_prec q[PKTQ_MAX_PREC];
 #ifdef PKTQ_LOG
-	pktq_counters_t	_prec_cnt[PKTQ_MAX_PREC];     
-	pktq_counters_t _prec_bytes[PKTQ_MAX_PREC];   
-	uint32 _logtime;                   
+	pktq_counters_t	_prec_cnt[PKTQ_MAX_PREC];
+	pktq_counters_t _prec_bytes[PKTQ_MAX_PREC];
+	uint32 _logtime;
 #endif
 };
 
 
 struct spktq {
 	PKTQ_COMMON
-	
+
 	struct pktq_prec q[1];
 };
 
@@ -142,14 +142,14 @@ typedef bool (*ifpkt_cb_t)(void*, int);
 #ifdef BCMPKTPOOL
 #define POOL_ENAB(pool)		((pool) && (pool)->inited)
 #define SHARED_POOL		(pktpool_shared)
-#else 
+#else
 #define POOL_ENAB(bus)		0
 #define SHARED_POOL		((struct pktpool *)NULL)
-#endif 
+#endif
 
 #ifndef PKTPOOL_LEN_MAX
 #define PKTPOOL_LEN_MAX		40
-#endif 
+#endif
 #define PKTPOOL_CB_MAX		3
 
 struct pktpool;
@@ -177,15 +177,15 @@ typedef struct {
 } pktpool_dbg_t;
 
 typedef struct {
-	uint8 txdh;	
-	uint8 txd11;	
-	uint8 enq;	
-	uint8 rxdh;	
-	uint8 rxd11;	
-	uint8 rxfill;	
-	uint8 idle;	
+	uint8 txdh;
+	uint8 txd11;
+	uint8 enq;
+	uint8 rxdh;
+	uint8 rxd11;
+	uint8 rxfill;
+	uint8 idle;
 } pktpool_stats_t;
-#endif 
+#endif
 
 typedef struct pktpool {
 	bool inited;
@@ -242,7 +242,7 @@ extern int pktpool_start_trigger(pktpool_t *pktp, void *p);
 extern int pktpool_dbg_dump(pktpool_t *pktp);
 extern int pktpool_dbg_notify(pktpool_t *pktp);
 extern int pktpool_stats_dump(pktpool_t *pktp, pktpool_stats_t *stats);
-#endif 
+#endif
 
 
 
@@ -318,10 +318,10 @@ extern uint8 *pktdataoffset(osl_t *osh, void *p,  uint offset);
 extern void *pktoffset(osl_t *osh, void *p,  uint offset);
 
 
-#define	PKTPRIO_VDSCP	0x100		
-#define	PKTPRIO_VLAN	0x200		
-#define	PKTPRIO_UPD	0x400		
-#define	PKTPRIO_DSCP	0x800		
+#define	PKTPRIO_VDSCP	0x100
+#define	PKTPRIO_VLAN	0x200
+#define	PKTPRIO_UPD	0x400
+#define	PKTPRIO_DSCP	0x800
 
 
 
@@ -389,18 +389,18 @@ extern int bcm_nvram_cache(void *sih);
 
 
 typedef struct bcm_iovar {
-	const char *name;	
-	uint16 varid;		
-	uint16 flags;		
-	uint16 type;		
-	uint16 minlen;		
+	const char *name;
+	uint16 varid;
+	uint16 flags;
+	uint16 type;
+	uint16 minlen;
 } bcm_iovar_t;
 
 
 
 
-#define IOV_GET 0 
-#define IOV_SET 1 
+#define IOV_GET 0
+#define IOV_SET 1
 
 
 #define IOV_GVAL(id)		((id) * 2)
@@ -415,19 +415,19 @@ extern int bcm_iovar_lencheck(const bcm_iovar_t *table, void *arg, int len, bool
 #if defined(WLTINYDUMP) || defined(WLMSG_INFORM) || defined(WLMSG_ASSOC) || \
 	defined(WLMSG_PRPKT) || defined(WLMSG_WSEC)
 extern int bcm_format_ssid(char* buf, const uchar ssid[], uint ssid_len);
-#endif 
-#endif	
+#endif
+#endif
 
 
-#define IOVT_VOID	0	
-#define IOVT_BOOL	1	
-#define IOVT_INT8	2	
-#define IOVT_UINT8	3	
-#define IOVT_INT16	4	
-#define IOVT_UINT16	5	
-#define IOVT_INT32	6	
-#define IOVT_UINT32	7	
-#define IOVT_BUFFER	8	
+#define IOVT_VOID	0
+#define IOVT_BOOL	1
+#define IOVT_INT8	2
+#define IOVT_UINT8	3
+#define IOVT_INT16	4
+#define IOVT_UINT16	5
+#define IOVT_INT32	6
+#define IOVT_UINT32	7
+#define IOVT_BUFFER	8
 #define BCM_IOVT_VALID(type) (((unsigned int)(type)) <= IOVT_BUFFER)
 
 
@@ -454,59 +454,59 @@ extern int bcm_format_ssid(char* buf, const uchar ssid[], uint ssid_len);
 
 
 
-#define BCME_STRLEN 		64	
+#define BCME_STRLEN 		64
 #define VALID_BCMERROR(e)  ((e <= 0) && (e >= BCME_LAST))
 
 
 
 
-#define BCME_OK				0	
-#define BCME_ERROR			-1	
-#define BCME_BADARG			-2	
-#define BCME_BADOPTION			-3	
-#define BCME_NOTUP			-4	
-#define BCME_NOTDOWN			-5	
-#define BCME_NOTAP			-6	
-#define BCME_NOTSTA			-7	
-#define BCME_BADKEYIDX			-8	
-#define BCME_RADIOOFF 			-9	
-#define BCME_NOTBANDLOCKED		-10	
-#define BCME_NOCLK			-11	
-#define BCME_BADRATESET			-12	
-#define BCME_BADBAND			-13	
-#define BCME_BUFTOOSHORT		-14	
-#define BCME_BUFTOOLONG			-15	
-#define BCME_BUSY			-16	
-#define BCME_NOTASSOCIATED		-17	
-#define BCME_BADSSIDLEN			-18	
-#define BCME_OUTOFRANGECHAN		-19	
-#define BCME_BADCHAN			-20	
-#define BCME_BADADDR			-21	
-#define BCME_NORESOURCE			-22	
-#define BCME_UNSUPPORTED		-23	
-#define BCME_BADLEN			-24	
-#define BCME_NOTREADY			-25	
-#define BCME_EPERM			-26	
-#define BCME_NOMEM			-27	
-#define BCME_ASSOCIATED			-28	
-#define BCME_RANGE			-29	
-#define BCME_NOTFOUND			-30	
-#define BCME_WME_NOT_ENABLED		-31	
-#define BCME_TSPEC_NOTFOUND		-32	
-#define BCME_ACM_NOTSUPPORTED		-33	
-#define BCME_NOT_WME_ASSOCIATION	-34	
-#define BCME_SDIO_ERROR			-35	
-#define BCME_DONGLE_DOWN		-36	
-#define BCME_VERSION			-37 	
-#define BCME_TXFAIL			-38 	
-#define BCME_RXFAIL			-39	
-#define BCME_NODEVICE			-40 	
-#define BCME_NMODE_DISABLED		-41 	
-#define BCME_NONRESIDENT		-42 
-#define BCME_SCANREJECT			-43 	
-#define BCME_USAGE_ERROR                -44     
-#define BCME_IOCTL_ERROR                -45     
-#define BCME_SERIAL_PORT_ERR            -46     
+#define BCME_OK				0
+#define BCME_ERROR			-1
+#define BCME_BADARG			-2
+#define BCME_BADOPTION			-3
+#define BCME_NOTUP			-4
+#define BCME_NOTDOWN			-5
+#define BCME_NOTAP			-6
+#define BCME_NOTSTA			-7
+#define BCME_BADKEYIDX			-8
+#define BCME_RADIOOFF 			-9
+#define BCME_NOTBANDLOCKED		-10
+#define BCME_NOCLK			-11
+#define BCME_BADRATESET			-12
+#define BCME_BADBAND			-13
+#define BCME_BUFTOOSHORT		-14
+#define BCME_BUFTOOLONG			-15
+#define BCME_BUSY			-16
+#define BCME_NOTASSOCIATED		-17
+#define BCME_BADSSIDLEN			-18
+#define BCME_OUTOFRANGECHAN		-19
+#define BCME_BADCHAN			-20
+#define BCME_BADADDR			-21
+#define BCME_NORESOURCE			-22
+#define BCME_UNSUPPORTED		-23
+#define BCME_BADLEN			-24
+#define BCME_NOTREADY			-25
+#define BCME_EPERM			-26
+#define BCME_NOMEM			-27
+#define BCME_ASSOCIATED			-28
+#define BCME_RANGE			-29
+#define BCME_NOTFOUND			-30
+#define BCME_WME_NOT_ENABLED		-31
+#define BCME_TSPEC_NOTFOUND		-32
+#define BCME_ACM_NOTSUPPORTED		-33
+#define BCME_NOT_WME_ASSOCIATION	-34
+#define BCME_SDIO_ERROR			-35
+#define BCME_DONGLE_DOWN		-36
+#define BCME_VERSION			-37
+#define BCME_TXFAIL			-38
+#define BCME_RXFAIL			-39
+#define BCME_NODEVICE			-40
+#define BCME_NMODE_DISABLED		-41
+#define BCME_NONRESIDENT		-42
+#define BCME_SCANREJECT			-43
+#define BCME_USAGE_ERROR                -44
+#define BCME_IOCTL_ERROR                -45
+#define BCME_SERIAL_PORT_ERR            -46
 #define BCME_LAST			BCME_SERIAL_PORT_ERR
 
 
@@ -562,33 +562,33 @@ extern int bcm_format_ssid(char* buf, const uchar ssid[], uint ssid_len);
 
 #ifndef ABS
 #define	ABS(a)			(((a) < 0) ? -(a) : (a))
-#endif 
+#endif
 
 #ifndef MIN
 #define	MIN(a, b)		(((a) < (b)) ? (a) : (b))
-#endif 
+#endif
 
 #ifndef MAX
 #define	MAX(a, b)		(((a) > (b)) ? (a) : (b))
-#endif 
+#endif
 
 
 #ifndef LIMIT_TO_RANGE
 #define LIMIT_TO_RANGE(x, min, max) \
 	((x) < (min) ? (min) : ((x) > (max) ? (max) : (x)))
-#endif 
+#endif
 
 
 #ifndef LIMIT_TO_MAX
 #define LIMIT_TO_MAX(x, max) \
 	(((x) > (max) ? (max) : (x)))
-#endif 
+#endif
 
 
 #ifndef LIMIT_TO_MIN
 #define LIMIT_TO_MIN(x, min) \
 	(((x) < (min) ? (min) : (x)))
-#endif 
+#endif
 
 #define CEIL(x, y)		(((x) + ((y) - 1)) / (y))
 #define	ROUNDUP(x, y)		((((x) + ((y) - 1)) / (y)) * (y))
@@ -607,14 +607,14 @@ extern int bcm_format_ssid(char* buf, const uchar ssid[], uint ssid_len);
 #define	OFFSETOF(type, member)	offsetof(type, member)
 #else
 #define	OFFSETOF(type, member)	((uint)(uintptr)&((type *)0)->member)
-#endif 
-#endif 
+#endif
+#endif
 
 #ifndef ARRAYSIZE
 #define ARRAYSIZE(a)		(sizeof(a) / sizeof(a[0]))
 #endif
 
-#ifndef ARRAYLAST         
+#ifndef ARRAYLAST
 #define ARRAYLAST(a)		(&a[ARRAYSIZE(a)-1])
 #endif
 
@@ -624,9 +624,9 @@ extern void *_bcmutils_dummy_fn;
 
 
 #ifndef setbit
-#ifndef NBBY		        
-#define	NBBY	8	
-#endif 
+#ifndef NBBY
+#define	NBBY	8
+#endif
 #ifdef BCMUTILS_BIT_MACROS_USE_FUNCS
 extern void setbit(void *array, uint bit);
 extern void clrbit(void *array, uint bit);
@@ -638,7 +638,7 @@ extern bool isclr(const void *array, uint bit);
 #define	isset(a, i)	(((const uint8 *)a)[(i) / NBBY] & (1 << ((i) % NBBY)))
 #define	isclr(a, i)	((((const uint8 *)a)[(i) / NBBY] & (1 << ((i) % NBBY))) == 0)
 #endif
-#endif 
+#endif
 
 #define	isbitset(a, i)	(((a) & (1 << (i))) != 0)
 
@@ -670,12 +670,12 @@ extern bool isclr(const void *array, uint bit);
 #define MODSUB_POW2(x, y, bound) (((x) - (y)) & ((bound) - 1))
 
 
-#define CRC8_INIT_VALUE  0xff		
-#define CRC8_GOOD_VALUE  0x9f		
-#define CRC16_INIT_VALUE 0xffff		
-#define CRC16_GOOD_VALUE 0xf0b8		
-#define CRC32_INIT_VALUE 0xffffffff	
-#define CRC32_GOOD_VALUE 0xdebb20e3	
+#define CRC8_INIT_VALUE  0xff
+#define CRC8_GOOD_VALUE  0x9f
+#define CRC16_INIT_VALUE 0xffff
+#define CRC16_GOOD_VALUE 0xf0b8
+#define CRC32_INIT_VALUE 0xffffffff
+#define CRC32_GOOD_VALUE 0xdebb20e3
 
 
 #define MACF				"%02x:%02x:%02x:%02x:%02x:%02x"
@@ -698,7 +698,7 @@ extern bool isclr(const void *array, uint bit);
 #else
 #define MACDBG				"%02x:%02x:%02x"
 #define MAC2STRDBG(ea) (ea)[0], (ea)[4], (ea)[5]
-#endif 
+#endif
 
 
 typedef struct bcm_bit_desc {
@@ -724,7 +724,7 @@ typedef struct bcm_tlv {
 #define bcm_valid_tlv(elt, buflen) ((buflen) >= 2 && (int)(buflen) >= (int)(2 + (elt)->len))
 
 
-#define ETHER_ADDR_STR_LEN	18	
+#define ETHER_ADDR_STR_LEN	18
 
 
 
@@ -736,14 +736,14 @@ xor_128bit_block(const uint8 *src1, const uint8 *src2, uint8 *dst)
 	    1 ||
 #endif
 	    (((uintptr)src1 | (uintptr)src2 | (uintptr)dst) & 3) == 0) {
-		
-		
+
+
 		((uint32 *)dst)[0] = ((const uint32 *)src1)[0] ^ ((const uint32 *)src2)[0];
 		((uint32 *)dst)[1] = ((const uint32 *)src1)[1] ^ ((const uint32 *)src2)[1];
 		((uint32 *)dst)[2] = ((const uint32 *)src1)[2] ^ ((const uint32 *)src2)[2];
 		((uint32 *)dst)[3] = ((const uint32 *)src1)[3] ^ ((const uint32 *)src2)[3];
 	} else {
-		
+
 		int k;
 		for (k = 0; k < 16; k++)
 			dst[k] = src1[k] ^ src2[k];
@@ -787,9 +787,9 @@ extern const char *bcmerrorstr(int bcmerror);
 
 
 typedef uint32 mbool;
-#define mboolset(mb, bit)		((mb) |= (bit))		
-#define mboolclr(mb, bit)		((mb) &= ~(bit))	
-#define mboolisset(mb, bit)		(((mb) & (bit)) != 0)	
+#define mboolset(mb, bit)		((mb) |= (bit))
+#define mboolclr(mb, bit)		((mb) &= ~(bit))
+#define mboolisset(mb, bit)		(((mb) & (bit)) != 0)
 #define	mboolmaskset(mb, mask, val)	((mb) = (((mb) & ~(mask)) | (val)))
 
 
@@ -831,4 +831,4 @@ extern void bcm_uint64_divide(uint32* r, uint32 a_high, uint32 a_low, uint32 b);
 	}
 #endif
 
-#endif	
+#endif

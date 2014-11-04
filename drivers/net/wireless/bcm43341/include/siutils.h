@@ -12,28 +12,28 @@
 
 
 struct si_pub {
-	uint	socitype;		
+	uint	socitype;
 
-	uint	bustype;		
-	uint	buscoretype;		
-	uint	buscorerev;		
-	uint	buscoreidx;		
-	int	ccrev;			
-	uint32	cccaps;			
-	uint32  cccaps_ext;			
-	int	pmurev;			
-	uint32	pmucaps;		
-	uint	boardtype;		
-	uint    boardrev;               
-	uint	boardvendor;		
-	uint	boardflags;		
-	uint	boardflags2;		
-	uint	chip;			
-	uint	chiprev;		
-	uint	chippkg;		
-	uint32	chipst;			
-	bool	issim;			
-	uint    socirev;		
+	uint	bustype;
+	uint	buscoretype;
+	uint	buscorerev;
+	uint	buscoreidx;
+	int	ccrev;
+	uint32	cccaps;
+	uint32  cccaps_ext;
+	int	pmurev;
+	uint32	pmucaps;
+	uint	boardtype;
+	uint    boardrev;
+	uint	boardvendor;
+	uint	boardflags;
+	uint	boardflags2;
+	uint	chip;
+	uint	chiprev;
+	uint	chippkg;
+	uint32	chipst;
+	bool	issim;
+	uint    socirev;
 	bool	pci_pr32414;
 
 };
@@ -43,34 +43,34 @@ typedef const struct si_pub si_t;
 
 
 
-#define	SI_OSH		NULL	
+#define	SI_OSH		NULL
 
 #define	BADIDX		(SI_MAXCORES + 1)
 
 
-#define	XTAL			0x1	
-#define	PLL			0x2	
+#define	XTAL			0x1
+#define	PLL			0x2
 
 
-#define	CLK_FAST		0	
-#define	CLK_DYNAMIC		2	
+#define	CLK_FAST		0
+#define	CLK_DYNAMIC		2
 
 
-#define GPIO_DRV_PRIORITY	0	
-#define GPIO_APP_PRIORITY	1	
-#define GPIO_HI_PRIORITY	2	
+#define GPIO_DRV_PRIORITY	0
+#define GPIO_APP_PRIORITY	1
+#define GPIO_HI_PRIORITY	2
 
 
 #define GPIO_PULLUP		0
 #define GPIO_PULLDN		1
 
 
-#define GPIO_REGEVT		0	
-#define GPIO_REGEVT_INTMSK	1	
-#define GPIO_REGEVT_INTPOL	2	
+#define GPIO_REGEVT		0
+#define GPIO_REGEVT_INTMSK	1
+#define GPIO_REGEVT_INTPOL	2
 
 
-#define SI_DEVPATH_BUFSZ	16	
+#define SI_DEVPATH_BUFSZ	16
 
 
 #define	SI_DOATTACH	1
@@ -253,10 +253,10 @@ extern int si_cis_source(si_t *sih);
 #define CIS_OTP		2
 
 
-#define	DEFAULT_FAB	0x0	
-#define	CSM_FAB7	0x1	
-#define	TSMC_FAB12	0x2	
-#define	SMIC_FAB4	0x3	
+#define	DEFAULT_FAB	0x0
+#define	CSM_FAB7	0x1
+#define	TSMC_FAB12	0x2
+#define	SMIC_FAB4	0x3
 extern int si_otp_fabid(si_t *sih, uint16 *fabid, bool rw);
 extern uint16 si_fabid(si_t *sih);
 
@@ -346,4 +346,4 @@ si_update_masks(si_t *sih);
 void
 si_force_islanding(si_t *sih, bool enable);
 
-#endif	
+#endif
