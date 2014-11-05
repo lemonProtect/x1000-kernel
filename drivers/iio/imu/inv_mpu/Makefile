@@ -22,6 +22,6 @@ CFLAGS_dmpDefaultMPU6050.o += -Idrivers/iio
 # must be connected to an MPU3050 device on the secondary slave bus.
 ifeq ($(CONFIG_INV_IIO_MPU3050_ACCEL_SLAVE_BMA250), y)
 inv-mpu-iio-objs += inv_slave_bma250.o
-CFLAGS_inv_slave_bma250.o   += -Idrivers/staging/iio
+CFLAGS_inv_slave_bma250.o   += -Idrivers/iio
 endif
 

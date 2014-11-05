@@ -4,7 +4,7 @@
 
 config INV_MPU_IIO
 	tristate "Invensense MPU devices"
-	depends on I2C && SYSFS && IIO && !INV_MPU
+	depends on I2C && SYSFS && IIO && !INV_MPU && !INV_MPU6050_IIO
 	select IIO_BUFFER
 	select IIO_SW_RING
 	select IIO_KFIFO_BUF

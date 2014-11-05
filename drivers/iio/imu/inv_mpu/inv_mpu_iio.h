@@ -30,8 +30,8 @@
 #include <linux/spinlock.h>
 #include <linux/inv_mpu.h>
 
-#include "iio.h"
-#include "buffer.h"
+#include <linux/iio/iio.h>
+#include <linux/iio/buffer.h>
 
 #include "dmpKey.h"
 

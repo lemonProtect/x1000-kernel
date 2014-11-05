@@ -40,8 +40,9 @@
 #include <linux/miscdevice.h>
 #include <linux/spinlock.h>
 
+
+#include <linux/iio/sysfs.h>
 #include "inv_mpu_iio.h"
-#include "sysfs.h"
 #include "inv_test/inv_counters.h"
 
 s64 get_time_ns(void)
@@ -2060,12 +2061,13 @@ static int inv_mpu_probe(struct i2c_client *client,
 	struct inv_mpu_iio_s *st;
 	struct iio_dev *indio_dev;
 	int result;
+
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		result = -ENOSYS;
 		pr_err("I2c function error\n");
 		goto out_no_free;
 	}
-	indio_dev = iio_allocate_device(sizeof(*st));
+	indio_dev = iio_device_alloc(sizeof(*st));
 	if (indio_dev == NULL) {
 		pr_err("memory allocation failed\n");
 		result =  -ENOMEM;
@@ -2174,7 +2176,7 @@ out_remove_ring:
 out_unreg_ring:
 	inv_mpu_unconfigure_ring(indio_dev);
 out_free:
-	iio_free_device(indio_dev);
+	iio_device_free(indio_dev);
 	if (st->plat_data.power_off) {
 		st->plat_data.power_off();
 	}
@@ -2220,7 +2222,7 @@ static int inv_mpu_remove(struct i2c_client *client)
 		inv_mpu_remove_trigger(indio_dev);
 	iio_buffer_unregister(indio_dev);
 	inv_mpu_unconfigure_ring(indio_dev);
-	iio_free_device(indio_dev);
+	iio_device_free(indio_dev);
 
 	dev_info(&client->adapter->dev, "inv-mpu-iio module removed.\n");
 
