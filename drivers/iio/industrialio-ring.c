@@ -479,7 +479,6 @@ ssize_t iio_store_ring_enable(struct device *dev,
 	requested_state = !(buf[0] == '0');
 	current_state = !!(previous_mode & INDIO_ALL_RING_MODES);
 	if (current_state == requested_state) {
-		printk("__func__%s __LINE__%d\n",__func__,__LINE__);
 		printk(KERN_INFO "iio-ring, current state requested again\n");
 		goto done;
 	}

@@ -38,10 +38,10 @@
 #include <linux/poll.h>
 #include <linux/miscdevice.h>
 
-#include "iio.h"
-#include "kfifo_buf.h"
-#include "trigger_consumer.h"
-#include "sysfs.h"
+#include <linux/iio/iio.h>
+#include <linux/iio/kfifo_buf.h>
+#include <linux/iio/trigger_consumer.h>
+#include <linux/iio/sysfs.h>
 
 #include "inv_mpu_iio.h"
 #include <soc/gpio.h>
@@ -503,7 +503,7 @@ static void inv_report_data_3050(struct iio_dev *indio_dev, s64 t,
 	i = (bytes_per_datum + 7) / 8;
 	if (ring->scan_timestamp)
 		buf[i] = t;
-	ring->access->store_to(indio_dev->buffer, (u8 *)buf, t);
+	ring->access->store_to(indio_dev->buffer, (u8 *)buf);
 }
 
 /**
@@ -715,7 +715,7 @@ static int inv_report_gyro_accl_compass(struct iio_dev *indio_dev,
 		buf[(d_ind + 7) / 8] = t;
 	/* if nothing is enabled, send nothing */
 	if (d_ind)
-		ring->access->store_to(indio_dev->buffer, (u8 *)buf, t);
+		ring->access->store_to(indio_dev->buffer, (u8 *)buf);
 
 	return 0;
 }
