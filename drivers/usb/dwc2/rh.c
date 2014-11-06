@@ -473,6 +473,8 @@ int dwc2_rh_hub_control(struct usb_hcd *hcd,
 				port_status &= ~USB_PORT_STAT_HIGH_SPEED;
 		}
 
+		port_status |= USB_PORT_STAT_ENABLE;
+
 		lpmcfg.d32 = dwc_readl(&dwc->core_global_regs->glpmcfg);
 		WARN(((dwc->lx_state == DWC_OTG_L1) ^ lpmcfg.b.prt_sleep_sts),
 			"lx_state = %d, lmpcfg.prt_sleep_sts = %d\n",
