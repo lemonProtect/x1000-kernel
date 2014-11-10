@@ -186,8 +186,10 @@ static int cgu_set_rate(struct clk *clk, unsigned long rate)
 	int ce,stop,busy;
 	unsigned int reg_val,mask;
 	unsigned long flags;
-	if(clk->parent == get_clk_from_id(CLK_ID_EXT1))
-		return -1;
+	/* CLK_ID_CGU_I2S could be exten clk. */
+	//if(clk->parent == get_clk_from_id(CLK_ID_EXT1) && (clk->CLK_ID != CLK_ID_CGU_I2S))
+	//    //return -1;
+	//
 	if(no == CGU_MSC_MUX)
 		return -1;
 	spin_lock_irqsave(&cpm_cgu_lock,flags);
