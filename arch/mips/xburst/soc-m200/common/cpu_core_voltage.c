@@ -33,10 +33,10 @@ struct vol_freq
 	unsigned int u_vol;
 	unsigned int k_freq;
 }vol_freq[] = {
-	{1100000,   25000},
-	{1100000,  100000},
-	{1100000,  300000},
-	{1100000,  600000},
+	{1025000,   25000},
+	{1025000,  100000},
+	{1050000,  300000},
+	{1075000,  600000},
 	{1100000,  800000},
 	{1125000,  1200000},
 };
@@ -147,7 +147,7 @@ static int clkgate_change_notify(struct jz_notifier *notify,void *v)
 		}
 		mutex_unlock(&pcore->mutex);
 		break;
-	case CLK_ID_CGU_MSC_MUX:
+	case CLK_ID_MSC:
 		mutex_lock(&pcore->mutex);
 		pcore->msc_adj = on ? 100000:0;
 		target_vol = get_vol_from_freq(pcore,pcore->current_rate / 1000);

@@ -69,6 +69,8 @@ enum {
 #define CLK_NAME_H2CLK		"h2clk"
 	CLK_ID_PCLK,
 #define CLK_NAME_PCLK		"pclk"
+	CLK_ID_MSC,
+#define CLK_NAME_MSC		"msc"
 	/**********************************************************************************/
 /**********************************************************************************/
 	CLK_ID_CGU,
@@ -252,6 +254,12 @@ enum {
 	PWC_P0 = 0,PWC_P1,PWC_VPU,PWC_GPU,PWC_ISP,PWC_IPU,PWC_DMIC,
 	PWC_BCH,PWC_HASH,PWC_LCD,PWC_USB,PWC_UHC,
 };
+struct  freq_udelay_jiffy {
+	unsigned int  cpufreq;
+	unsigned int  udelay_val;
+	unsigned int  loops_per_jiffy;
+};
+
 int get_clk_sources_size(void);
 struct clk *get_clk_from_id(int clk_id);
 int get_clk_id(struct clk *clk);

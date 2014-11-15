@@ -4,6 +4,7 @@
 #include <linux/delay.h>
 #include <linux/err.h>
 #include <linux/cpufreq.h>
+#include <linux/bsearch.h>
 
 #include <asm/cacheops.h>
 #include <soc/cpm.h>
@@ -46,6 +47,7 @@ static int cclk_set_rate_nopll(struct clk *clk,unsigned long rate,struct clk *pa
 			break;
 	}
 	if(div >= 15){
+		dump_stack();
 		printk("%s don't find the rate[%ld]\n",clk->name,rate);
 		goto SET_CPCCR_RATE_ERR;
 	}
@@ -139,9 +141,9 @@ static inline void sw_ahb_from_l2cache(void)
 	struct clk *ahb0 = get_clk_from_id(CLK_ID_H0CLK);
 	struct clk *ahb2 = get_clk_from_id(CLK_ID_H2CLK);
 	unsigned int rate = get_clk_from_id(CLK_ID_L2CLK)->rate;
-	struct clk *msc_mux = get_clk_from_id(CLK_ID_CGU_MSC_MUX);
+	struct clk *msc = get_clk_from_id(CLK_ID_MSC);
 
-	if(clk_is_enabled(msc_mux))
+	if(clk_is_enabled(msc))
 		return;
 	if(rate >= 300*1000*1000)
 	{
@@ -168,7 +170,7 @@ static int ahb_change_notify(struct jz_notifier *notify,void *v)
 	struct clk *ahb0 = get_clk_from_id(CLK_ID_H0CLK);
 	struct clk *ahb2 = get_clk_from_id(CLK_ID_H2CLK);
 
-	if(on && (clk_id == CLK_ID_CGU_MSC_MUX)) {
+	if(on && (clk_id == CLK_ID_MSC)) {
 		if(clk_get_rate(ahb2) == 200000000)
 			return NOTIFY_OK;
 		spin_lock_irqsave(&cpm_cpccr_lock,flags);
@@ -183,28 +185,56 @@ static int ahb_change_notify(struct jz_notifier *notify,void *v)
  * cpufreq driver. So, update the per-CPU loops_per_jiffy value
  * on frequency transition. We need to update all dependent CPUs.
  */
+extern struct  freq_udelay_jiffy *freq_udelay_jiffys;
+extern unsigned int SUPPORT_CPUFREQ_NUM;
+static int cpufreq_setting_cmp(const void *key,const void *elt) {
+	unsigned int *d = (unsigned int*)key;
+	struct freq_udelay_jiffy *p = (struct freq_udelay_jiffy *)elt;
+	if(*d > p->cpufreq)
+		return 1;
+	else if(*d < p->cpufreq)
+		return -1;
+	return 0;
+}
+static struct freq_udelay_jiffy* search_cpufrq_setting(unsigned int rate) {
+	struct freq_udelay_jiffy *p = NULL;
+
+	p = (struct freq_udelay_jiffy *)bsearch((const void*)&rate,(const void*)freq_udelay_jiffys,
+						SUPPORT_CPUFREQ_NUM - 1,
+						sizeof(struct freq_udelay_jiffy),cpufreq_setting_cmp);
+	if(!p) {
+		dump_stack();
+		printk("warning!!!, new %d freq not found\n", rate);
+		while(1);
+	}
+	return p;
+}
+
+
 #define before_change_udelay_hz(lock, freqs_old, freqs_new) do {	\
+		struct freq_udelay_jiffy *p;				\
 		if (freqs_old < freqs_new) {				\
 			if (!lock) {					\
-				cpu_data[0].udelay_val = cpufreq_scale(cpu_data[0].udelay_val, \
-								       freqs_old, freqs_new); \
-				loops_per_jiffy = cpufreq_scale(loops_per_jiffy, freqs_old, freqs_new);	\
+				p = search_cpufrq_setting(freqs_new);	\
+				cpu_data[0].udelay_val = p->udelay_val;	\
+				loops_per_jiffy = p->loops_per_jiffy;	\
 			} else {					\
 				spin_lock_irqsave(&cpm_cpccr_lock,flags); \
-				cpu_data[0].udelay_val = cpufreq_scale(cpu_data[0].udelay_val, \
-								       freqs_old, freqs_new); \
-				loops_per_jiffy = cpufreq_scale(loops_per_jiffy, freqs_old, freqs_new);	\
+				p = search_cpufrq_setting(freqs_new);	\
+				cpu_data[0].udelay_val = p->udelay_val;	\
+				loops_per_jiffy = p->loops_per_jiffy;	\
 				spin_unlock_irqrestore(&cpm_cpccr_lock,flags); \
 			}						\
-		}							\
+	}								\
 	}while(0)
 
 #define after_change_udelay_hz(freqs_old, freqs_new) do {		\
-		 if (freqs_new < freqs_old) {				\
-			 cpu_data[0].udelay_val = cpufreq_scale(cpu_data[0].udelay_val, \
-								freqs_old, freqs_new); \
-			 loops_per_jiffy = cpufreq_scale(loops_per_jiffy, freqs_old, freqs_new); \
-		 }							\
+		struct freq_udelay_jiffy *p;				\
+		if (freqs_new < freqs_old) {				\
+			p = search_cpufrq_setting(freqs_new);		\
+			cpu_data[0].udelay_val = p->udelay_val;		\
+			loops_per_jiffy = p->loops_per_jiffy;		\
+		}							\
 	 }while(0)
 
 static int cpccr_set_rate(struct clk *clk,unsigned long rate) {

@@ -33,16 +33,6 @@ static struct jz_cpufreq {
 	struct clk *cpu_clk;
 	struct cpufreq_frequency_table *freq_table;
 } *jz_cpufreq;
-/*
- *  unit: kHz
- */
-static unsigned long set_cpu_freqs[] = {
-	12000,
-	24000  ,60000 ,120000,
-	200000 ,300000 ,600000,
-	792000,1008000,1200000,
-	CPUFREQ_TABLE_END
-};
 
 static struct cpufreq_freqs freqs;
 #define SUSPEMD_FREQ_INDEX 0
@@ -80,36 +70,27 @@ static int m200_target(struct cpufreq_policy *policy,
 	freqs.old = m200_getspeed(policy->cpu);
 	freqs.cpu = policy->cpu;
 
-	if (freqs.old == freqs.new && policy->cur == freqs.new)
+	if (freqs.old == freqs.new && policy->cur == freqs.new){
 		return ret;
+	}
+cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
 
-	cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
-	//printk("set speed = %d\n",freqs.new);
+//	printk("------set speed = %d\n",freqs.new);
 	ret = clk_set_rate(jz_cpufreq->cpu_clk, freqs.new * 1000);
 
 	/* notifiers */
-	cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
+cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
 	return ret;
 }
-static void init_freq_table(struct cpufreq_frequency_table *table, unsigned int max_freq)
-{
-	int i;
-	for(i = 0;i < ARRAY_SIZE(set_cpu_freqs);i++) {
-		if(set_cpu_freqs[i] > max_freq)
-			break;
-		table[i].index = i;
-		table[i].frequency = set_cpu_freqs[i];
-	}
-	if(i < ARRAY_SIZE(set_cpu_freqs)) {
-		table[i].index = i;
-		table[i].frequency = CPUFREQ_TABLE_END;
-	}
-}
+#define CPUFRQ_MIN  12000
+extern unsigned int SUPPORT_CPUFREQ_NUM;
+extern void init_freq_table(struct cpufreq_frequency_table *table,
+			    unsigned int max_freq, unsigned int min_freq);
 static int __cpuinit m200_cpu_init(struct cpufreq_policy *policy)
 {
 	unsigned int max_freq;
 	jz_cpufreq = (struct jz_cpufreq *)kzalloc(sizeof(struct jz_cpufreq) +
-						  sizeof(struct cpufreq_frequency_table) * ARRAY_SIZE(set_cpu_freqs), GFP_KERNEL);
+						  sizeof(struct cpufreq_frequency_table) * SUPPORT_CPUFREQ_NUM, GFP_KERNEL);
 	if(!jz_cpufreq) {
 		pr_err("kzalloc fail!!!\n");
 		return -1;
@@ -120,7 +101,7 @@ static int __cpuinit m200_cpu_init(struct cpufreq_policy *policy)
 		goto cpu_clk_err;
 
 	max_freq = clk_get_rate(jz_cpufreq->cpu_clk) / 1000;
-	init_freq_table(jz_cpufreq->freq_table, max_freq);
+	init_freq_table(jz_cpufreq->freq_table, max_freq, CPUFRQ_MIN);
 
 	if(cpufreq_frequency_table_cpuinfo(policy, jz_cpufreq->freq_table))
 		goto freq_table_err;
@@ -131,6 +112,7 @@ static int __cpuinit m200_cpu_init(struct cpufreq_policy *policy)
 /* #endif */
 	policy->min = policy->cpuinfo.min_freq;
 	policy->max = policy->cpuinfo.max_freq;
+	printk("policy min %d max %d\n",policy->min, policy->max);
 	policy->cur = m200_getspeed(policy->cpu);
 	/*
 	 * On JZ47XX SMP configuartion, both processors share the voltage
@@ -189,4 +171,4 @@ static int __init m200_cpufreq_init(void)
 MODULE_AUTHOR("ztyan<ztyan@ingenic.cn>");
 MODULE_DESCRIPTION("cpufreq driver for JZ47XX SoCs");
 MODULE_LICENSE("GPL");
-arch_initcall(m200_cpufreq_init);
+module_init(m200_cpufreq_init);

@@ -19,12 +19,25 @@
 #include <linux/vmalloc.h>
 #include <linux/suspend.h>
 #include <linux/seq_file.h>
+#include <linux/cpufreq.h>
+
 #include <soc/cpm.h>
 #include <soc/base.h>
 #include <soc/extal.h>
 #include <jz_proc.h>
 
 #include "clk.h"
+/*
+ *  unit: kHz
+ */
+static unsigned long set_cpu_freqs[] = {
+	12000,
+	24000  ,60000 ,120000,
+	200000 ,300000 ,600000,
+	792000, 1008000,1200000,
+	CPUFREQ_TABLE_END
+};
+
 static int clk_suspend(void)
 {
 	printk("clk suspend!\n");
@@ -116,7 +129,6 @@ void __init init_all_clk(void)
 			clk_srcs[CLK_ID_H0CLK].rate/1000/1000,
 			clk_srcs[CLK_ID_H2CLK].rate/1000/1000,
 			clk_srcs[CLK_ID_PCLK].rate/1000/1000);
-
 }
 struct clk *clk_get(struct device *dev, const char *id)
 {
@@ -388,13 +400,60 @@ static const struct file_operations rate_fops ={
 	.llseek = seq_lseek,
 	.release = single_release,
 };
+struct  freq_udelay_jiffy *freq_udelay_jiffys;
+unsigned int SUPPORT_CPUFREQ_NUM;
+#ifdef CONFIG_CPU_FREQ
+void init_freq_table(struct cpufreq_frequency_table *table, unsigned int max_freq,
+		     unsigned int min_freq)
+{
+	int i, j = 0;
+	for(i = 0;i < ARRAY_SIZE(set_cpu_freqs) &&
+		    set_cpu_freqs[i] <= max_freq; i++) {
+		if(set_cpu_freqs[i] < min_freq)
+			continue;
+		table[j].index = j;
+		table[j].frequency = set_cpu_freqs[i];
+		j++;
+	}
+	if(j < ARRAY_SIZE(set_cpu_freqs)) {
+		table[j].index = j;
+		table[j].frequency = CPUFREQ_TABLE_END;
+	}
+}
+EXPORT_SYMBOL(init_freq_table);
+#endif
+static void init_freq_udelay_jiffys(struct clk *cpu_clk)
+{
+	int i;
+	unsigned int rate;
 
+	rate = clk_get_rate(cpu_clk)/1000;
+	for(i = 0; i < SUPPORT_CPUFREQ_NUM -1 ; i++) {
+		freq_udelay_jiffys[i].cpufreq = set_cpu_freqs[i];
+		freq_udelay_jiffys[i].udelay_val = cpufreq_scale(cpu_data[0].udelay_val,
+								 rate, set_cpu_freqs[i]);
+		freq_udelay_jiffys[i].loops_per_jiffy = cpufreq_scale(loops_per_jiffy,
+								      rate, set_cpu_freqs[i]);
+	}
+}
 static int __init init_clk_proc(void)
 {
 	int i=0;
 	struct proc_dir_entry *p;
 	struct proc_dir_entry *sub;
 	struct clk *clk_srcs = get_clk_from_id(0);
+	struct clk *cpu_clk;
+	SUPPORT_CPUFREQ_NUM = ARRAY_SIZE(set_cpu_freqs);
+	freq_udelay_jiffys = (struct freq_udelay_jiffy *)kzalloc(sizeof(struct freq_udelay_jiffy) *
+								 SUPPORT_CPUFREQ_NUM - 1, GFP_KERNEL);
+
+	cpu_clk = clk_get(NULL, "cclk");
+	if (IS_ERR(cpu_clk)) {
+		printk("ERROR:cclk request fail!\n");
+		return -1;
+	}
+	init_freq_udelay_jiffys(cpu_clk);
+	clk_put(cpu_clk);
 
 	p = jz_proc_mkdir("clock");
 	if (!p) {
