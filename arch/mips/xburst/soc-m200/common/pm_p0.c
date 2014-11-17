@@ -50,6 +50,7 @@
 extern long long save_goto(unsigned int);
 extern int restore_goto(void);
 extern unsigned int get_pmu_slp_gpio_info(void);
+
 #define get_cp0_ebase()	__read_32bit_c0_register($15, 1)
 
 #define OFF_TDR         (0x00)
@@ -65,11 +66,13 @@ extern unsigned int get_pmu_slp_gpio_info(void);
 	while ((*((volatile unsigned int*)(U1_IOBASE + OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
 
 #define TCSM_DELAY(x)					\
-	i = x;						\
+	do{							\
+		register unsigned int i = x;			\
 	while(i--)					\
 		__asm__ volatile(".set mips32\n\t"	\
 				 "nop\n\t"		\
-				 ".set mips32")
+					 ".set mips32");	\
+	}while(0)
 
 
 static inline void serial_put_hex(unsigned int x) {
@@ -245,12 +248,16 @@ static noinline void cpu_sleep(void)
 			 ".set mips32 \n\t"
 			 :
 			 : "r" (0xa0000000) );
-	/* printk("sleep!\n"); */
+	printk("sleep!\n");
 	/* printk("int mask:0x%08x\n",REG32(0xb0001004)); */
 	/* printk("gate:0x%08x\n",cpm_inl(CPM_CLKGR)); */
 	/* printk("CPM_DDRCDR:0x%08x\n",cpm_inl(CPM_DDRCDR)); */
 	/* printk("DDRC_AUTOSR_EN: %x\n",ddr_readl(DDRC_AUTOSR_EN)); */
 	/* printk("DDRC_DLP: %x\n",ddr_readl(DDRC_DLP)); */
+	/* printk("ddr cs %x\n",ddr_readl(DDRP_DX0GSR)); */
+	/* printk("DDRC_CTRL = %x\n",DDRC_CTRL + DDRC_BASE); */
+	/* printk("CPM_DDRCDR = %x\n",cpm_inl(CPM_DDRCDR)); */
+	/* printk("0xB00000D0: %x\n",*(volatile unsigned int *)0xB00000D0); */
 	/* printk("ddr cs %x\n",ddr_readl(DDRP_DX0GSR)); */
 	REG32(SLEEP_TSCM_DATA + 12) = ddr_readl(DDRP_DX0GSR) & 3;
 	cache_prefetch(LABLE1,200);
@@ -268,7 +275,9 @@ LABLE1:
 		val |= (1 << 4);
 		ddr_writel(val,DDRP_DSGCR);
 	}
-
+        /**
+	 *  DDR keep selrefresh,when it exit the sleep state.
+	 */
 	val = ddr_readl(DDRC_CTRL);
 	val |= (1 << 17);   // enter to hold ddr state
 	ddr_writel(val,DDRC_CTRL);
@@ -298,39 +307,58 @@ static noinline void cpu_resume(void)
 	register int val = 0;
 	register int bypassmode = 0;
 	register unsigned int save_slp;
+
 	TCSM_PCHAR('o');
 	save_slp = REG32(SLEEP_TSCM_DATA + 8);
 	if(save_slp != -1)
 		set_gpio_func(save_slp & 0xffff, save_slp >> 16);
+
 	bypassmode = ddr_readl(DDRP_PIR) & DDRP_PIR_DLLBYP;
 	if(!bypassmode) {
-		val = DDRP_PIR_INIT | DDRP_PIR_DLLSRST | DDRP_PIR_DLLLOCK | DDRP_PIR_ITMSRST;
-	RETRY_LABLE:
+		/**
+		 * reset dll of ddr.
+		 */
+		*(volatile unsigned int *)0xB00000D0 = 0x13;
+		TCSM_DELAY(0x1ff);
+		*(volatile unsigned int *)0xB00000D0 = 0x11;
+		TCSM_DELAY(0x1ff);
+		/**
+		 * for disabled ddr enter power down.
+		 */
+		*(volatile unsigned int *)0xb301102c &= ~(1 << 4);
+		TCSM_PCHAR('d');
+		TCSM_DELAY(0xf);
+		/**
+		 * reset dll of ddr too.
+		 */
+		*(volatile unsigned int *)0xB00000D0 = 0x13;
+		TCSM_DELAY(0x1ff);
+		*(volatile unsigned int *)0xB00000D0 = 0x11;
+		TCSM_DELAY(0x1ff);
+                /**
+		 * dll reset item & dll locked.
+		 */
+		val = DDRP_PIR_INIT | DDRP_PIR_ITMSRST | DDRP_PIR_DLLLOCK;
 		ddr_writel(val, DDRP_PIR);
-		val = REG32(SLEEP_TSCM_DATA + 12);
-		while((ddr_readl(DDRP_DX0GSR) & val) != val);
-
 		while (ddr_readl(DDRP_PGSR) != (DDRP_PGSR_IDONE | DDRP_PGSR_DLDONE | DDRP_PGSR_ZCDONE
 						| DDRP_PGSR_DIDONE | DDRP_PGSR_DTDONE)) {
-
 			if(ddr_readl(DDRP_PGSR) & (DDRP_PGSR_DTERR | DDRP_PGSR_DTIERR)) {
-
-				ddr_writel(1 << 28,DDRP_PIR);
-				while((ddr_readl(DDRP_DX0GSR) & 0x3) != 0)
-					TCSM_PCHAR('1');
-				val++;
-				serial_put_hex(val);
-				TCSM_PCHAR('\r');
-				TCSM_PCHAR('\n');
-				goto RETRY_LABLE;
+				TCSM_PCHAR('e');
+				break;
 			}
 		}
 	}
-
+	/**
+	 * exit the ddr selrefresh
+	 */
 	val = ddr_readl(DDRC_CTRL);
+	val |= 1 << 1;
 	val &= ~(1<< 17);    // exit to hold ddr state
 	ddr_writel(val,DDRC_CTRL);
-	serial_put_hex(REG32(SLEEP_TSCM_DATA + 4));
+	if(!bypassmode){
+		*(volatile unsigned int *)0xb301102c |= (1 << 4);
+		TCSM_DELAY(0x1ff);
+	}
 	if(!REG32(SLEEP_TSCM_DATA + 4) && !bypassmode)
 	{
 		ddr_writel(0x0 , DDRC_DLP);
@@ -340,10 +368,9 @@ static noinline void cpu_resume(void)
 			ddr_writel(val,DDRP_DSGCR);
 		}
 	}
-	if(REG32(SLEEP_TSCM_DATA + 0))
+	if(REG32(SLEEP_TSCM_DATA + 0)) {
 		ddr_writel(1,DDRC_AUTOSR_EN);   // enter auto sel-refresh
-
-
+	}
 	dump_ddr_param();
 #ifdef DDR_MEM_TEST
 	check_ddr_data();

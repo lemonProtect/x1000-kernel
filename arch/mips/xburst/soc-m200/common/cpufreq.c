@@ -73,13 +73,13 @@ static int m200_target(struct cpufreq_policy *policy,
 	if (freqs.old == freqs.new && policy->cur == freqs.new){
 		return ret;
 	}
-cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
+	cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
 
 //	printk("------set speed = %d\n",freqs.new);
 	ret = clk_set_rate(jz_cpufreq->cpu_clk, freqs.new * 1000);
 
 	/* notifiers */
-cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
+	cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
 	return ret;
 }
 #define CPUFRQ_MIN  12000
