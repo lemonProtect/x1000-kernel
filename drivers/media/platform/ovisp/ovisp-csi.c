@@ -47,7 +47,7 @@ static unsigned char  csi_event_disable(unsigned int  mask, unsigned char err_re
 
 unsigned char csi_set_on_lanes(unsigned char lanes)
 {
-	ISP_PRINT(ISP_INFO,"%s:----------> lane num: %d\n", __func__, lanes);
+	//ISP_PRINT(ISP_INFO,"%s:----------> lane num: %d\n", __func__, lanes);
 	return csi_core_write_part(N_LANES, (lanes - 1), 0, 2);
 }
 
@@ -68,7 +68,7 @@ static void mipi_csih_dphy_test_clock(int value)
 
 static void mipi_csih_dphy_test_data_out(void)
 {
-	ISP_PRINT(ISP_INFO,"%s --------:%08x\n", __func__, csi_core_read(PHY_TST_CTRL1));
+	//ISP_PRINT(ISP_INFO,"%s --------:%08x\n", __func__, csi_core_read(PHY_TST_CTRL1));
 }
 
 static void mipi_csih_dphy_write(unsigned char address, unsigned char * data, unsigned char data_length)
@@ -82,20 +82,20 @@ static void mipi_csih_dphy_write(unsigned char address, unsigned char * data, un
                 mipi_csih_dphy_test_data_in(address);
                 /* set TESTEN input high  */
                 mipi_csih_dphy_test_en(1);
-		mdelay(10);
+		//mdelay(1);
                 /* drive the TESTCLK input low; the falling edge captures the chosen test code into the transceiver */
                 mipi_csih_dphy_test_clock(0);
-		mdelay(10);
+		//mdelay(1);
                 /* set TESTEN input low to disable further test mode code latching  */
                 mipi_csih_dphy_test_en(0);
                 /* start writing MSB first */
                 for (i = data_length; i > 0; i--)
                 {       /* set TESTDIN[7:0] to the desired test data appropriate to the chosen test mode */
                         mipi_csih_dphy_test_data_in(data[i - 1]);
-			mdelay(10);
+		//	mdelay(1);
                         /* pulse TESTCLK high to capture this test data into the macrocell; repeat these two steps as necessary */
                         mipi_csih_dphy_test_clock(1);
-			mdelay(10);
+		//	mdelay(1);
                         mipi_csih_dphy_test_clock(0);
                 }
         }
@@ -107,7 +107,7 @@ static void csi_phy_configure(void)
 	unsigned char data[4];
 
 	csi_core_write_part(PHY_TST_CTRL0, 1, 0, 1);
-	mdelay(5);
+//	udelay(5);
 	csi_core_write_part(PHY_TST_CTRL0, 0, 0, 1);
 
 	mipi_csih_dphy_test_data_in(0);
@@ -132,7 +132,7 @@ static int csi_phy_ready(unsigned int id)
 	// TODO: phy0: lane0 is ready. need to be update for other lane
 	ready = csi_core_read(PHY_STATE);
 
-#if 1
+#if 0
 	ISP_PRINT(ISP_INFO,"%s:phy state ready:0x%08x\n", __func__, ready);
 #endif
 	if ((ready & (1 << 10 )) && (ready & (1<<4)))
@@ -144,7 +144,7 @@ static int csi_phy_ready(unsigned int id)
 
 int csi_phy_init(void)
 {
-	ISP_PRINT(ISP_INFO,"csi_phy_init being called ....\n");
+	//ISP_PRINT(ISP_INFO,"csi_phy_init being called ....\n");
 	return 0;
 }
 
@@ -159,11 +159,7 @@ int csi_phy_start(unsigned int id, unsigned int freq, unsigned int lans)
 {
 	int retries = 30;
 	int i;
-
-	ISP_PRINT(ISP_INFO,"csi_phy_start being called\n");
-	
-	printk("###################################!1111111\n");
-	
+	//ISP_PRINT(ISP_INFO,"csi_phy_start being called\n");
 	csi_set_on_lanes(lans);
 
 	/*reset phy*/
@@ -174,37 +170,33 @@ int csi_phy_start(unsigned int id, unsigned int freq, unsigned int lans)
 	csi_phy_configure();
 
 	/*active phy*/
-	mdelay(10);
+	//udelay(10);
 	csi_core_write_part(PHY_SHUTDOWNZ, 1, 0, 1);
-	mdelay(10);
+	//udelay(10);
 	csi_core_write_part(DPHY_RSTZ, 1, 0, 1);
-	mdelay(10);
+	//udelay(10);
 	csi_core_write_part(CSI2_RESETN, 1, 0, 1);
 
 	/* MASK all interrupts */
 	csi_event_disable(0xffffffff, 1);
 	csi_event_disable(0xffffffff, 2);
-
 	/* wait for phy ready */
 	for (i = 0; i < retries; i++) {
 		if (csi_phy_ready(id))
 			break;
-		msleep(10);
+		udelay(2);
 	}
 
-	ISP_PRINT(ISP_INFO,"%s:%d\n",__func__, i);
+	//ISP_PRINT(ISP_INFO,"%s:%d\n",__func__, i);
 	if (i >= retries) {
-		ISP_PRINT(ISP_ERROR,"CSI PHY is not ready\n");
+		//ISP_PRINT(ISP_ERROR,"CSI PHY is not ready\n");
 		return -1;
 	}
 
-	ISP_PRINT(ISP_INFO,"csi_phy_start ok!\n");
-#if 0
-#endif
-		dump_csi_reg();
+	//ISP_PRINT(ISP_INFO,"csi_phy_start ok!\n");
+//	mdelay(200);
 	return 0;
 }
-
 int csi_phy_stop(unsigned int id)
 {
 

@@ -60,8 +60,8 @@ static struct regval_list ov9724_init_720p_raw10_regs[] = {
 	{0x4010,0x08},
 	{0x4000,0x01},
 	// VTS
-	{0x0340,0x02},
-	{0x0341,0xf8},
+	{0x0340,0x03},
+	{0x0341,0x20},
 	{0x0342,0x06},
 	{0x0343,0x28},
 /*
@@ -596,6 +596,7 @@ static int ov9724_probe(struct i2c_client *client,
 	struct ov9724_info *info;
 	int ret;
 
+	printk("---- in the ov9724 init ----\n");
 	info = kzalloc(sizeof(struct ov9724_info), GFP_KERNEL);
 	if (info == NULL)
 		return -ENOMEM;

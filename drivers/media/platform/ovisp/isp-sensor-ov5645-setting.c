@@ -3,6 +3,7 @@
 void isp_setting_init(struct isp_device *isp)
 {
 	isp_reg_writeb(isp, 0x3f, 0x65000);
+#if 0
 	isp_reg_writeb(isp, 0xef, 0x65001);
 	isp_reg_writeb(isp, 0x25, 0x65002);
 	isp_reg_writeb(isp, 0xff, 0x65003);
@@ -116,6 +117,7 @@ void isp_setting_init(struct isp_device *isp)
 	isp_firmware_writeb(isp, 0x60, 0x1e033);
 	isp_firmware_writeb(isp, 0x00, 0x1e034);
 	isp_firmware_writeb(isp, 0x40, 0x1e035);
+#endif
 
 }
 

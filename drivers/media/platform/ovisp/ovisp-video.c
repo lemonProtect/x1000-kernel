@@ -54,8 +54,13 @@ static struct ovisp_camera_format isp_oformats[] = {
 		.depth	  = 8,
 	},
 	{
-		.name	  ="RAW10",
+		.name	  ="RAW10 (BGGR)",
 		.fourcc	  = V4L2_PIX_FMT_SBGGR10,
+		.depth	  = 16,
+	},
+	{
+		.name	  ="RAW10 (GRBG)",
+		.fourcc	  = V4L2_PIX_FMT_SGRBG10,
 		.depth	  = 16,
 	}
 };
@@ -83,6 +88,12 @@ static struct ovisp_camera_format sensor_oformats[] = {
 		.name	  ="RAW10 (GRBG)",
 		.code	  = V4L2_MBUS_FMT_SGRBG10_1X10,
 		.fourcc	  = V4L2_PIX_FMT_SGRBG10,
+		.depth	  = 16,
+	},
+	{
+		.name	  ="YUV422",
+		.code	  = V4L2_MBUS_FMT_YUYV8_1X16,
+		.fourcc	  = V4L2_PIX_FMT_YUYV,
 		.depth	  = 16,
 	}
 };
@@ -132,8 +143,10 @@ static int ovisp_subdev_power_on(struct ovisp_camera_dev *camdev,
 		return ret;
 
 	/* first camera work power on */
+#ifndef CONFIG_VIDEO_AW6120
 	if(!regulator_is_enabled(camdev->camera_power))
 	    regulator_enable(camdev->camera_power);
+#endif
 
 	if (client->power) {
 		ret = client->power(1);
@@ -153,7 +166,6 @@ static int ovisp_subdev_power_on(struct ovisp_camera_dev *camdev,
 	if (ret < 0 && ret != -ENOIOCTLCMD)
 		goto err;
 
-	mdelay(10); //csc-------------------------
 
 	ISP_PRINT(ISP_INFO,"--%s:%d index=%d\n", __func__, __LINE__, index);
 	if (camdev->input >= 0) {
@@ -214,8 +226,10 @@ static int ovisp_subdev_power_off(struct ovisp_camera_dev *camdev,
 	}
 	/*cpu_xxx power should not be power on or off*/
 	/*analog power off*/
+#ifndef CONFIG_VIDEO_AW6120
 	if(regulator_is_enabled(camdev->camera_power))
 		        regulator_disable(camdev->camera_power);
+#endif
 
 	ovisp_subdev_mclk_off(camdev, index);
 
@@ -451,7 +465,7 @@ static int ovisp_camera_update_buffer(struct ovisp_camera_dev *camdev, int index
 		ISP_PRINT(ISP_ERROR,"the type of memory isn't supported!\n");
 		return -EINVAL;
 	}
-	ISP_PRINT(ISP_INFO,"%s:buf.addr:0x%lx  index = %d\n", __func__, buf.addr, index);
+//	ISP_PRINT(ISP_INFO,"%s:buf.addr:0x%lx  index = %d\n", __func__, buf.addr, index);
 	ret = isp_dev_call(camdev->isp, update_buffer, &buf, index);
 	if (ret < 0 && ret != -ENOIOCTLCMD)
 		return -EINVAL;
@@ -526,7 +540,6 @@ static int ovisp_camera_start_capture(struct ovisp_camera_dev *camdev)
 
 	/*ret = v4l2_subdev_call(sd, core, g_register, &frame->vmfmt);*/
 	ISP_PRINT(ISP_INFO,"*********************start_capture end*************************\n");
-
 	return 0;
 }
 
@@ -557,11 +570,10 @@ static int ovisp_camera_start_streaming(struct ovisp_camera_dev *camdev)
 	struct ovisp_camera_devfmt *cfmt = &frame->cfmt;
 	struct isp_format *ifmt = &frame->ifmt;
 	int ret;
-
+//	capture->running = 0;
 	capture->active[0] = NULL;
 	capture->active[1] = NULL;
 
-	printk("!!!!!!!!!!!!!!!!!%s, %d\n", __func__ ,__LINE__);
 	ISP_PRINT(ISP_WARNING,"Set format(%s).\n", camdev->snapshot ? "snapshot" : "preview");
 	/*1. get camera's format */
 	ret = isp_dev_call(camdev->isp, g_devfmt, ifmt);
@@ -581,7 +593,6 @@ static int ovisp_camera_start_streaming(struct ovisp_camera_dev *camdev)
 	}
 
 	/*2. csi phy start here*/
-	printk("!!!!!!!!!!!!!!!!!%s, %d\n", __func__ ,__LINE__);
 	ret = isp_dev_call(camdev->isp, pre_fmt, ifmt);
 	if (ret < 0 && ret != -ENOIOCTLCMD) {
 		ISP_PRINT(ISP_ERROR,"Failed to set isp format\n");
@@ -589,7 +600,6 @@ static int ovisp_camera_start_streaming(struct ovisp_camera_dev *camdev)
 	}
 
 	if(camdev->first_init) {
-	printk("!!!!!!!!!!!!!!!!!%s, %d\n", __func__ ,__LINE__);
 		ret = v4l2_subdev_call(csd->sd, video, s_stream, 1);
 		camdev->first_init = 0;
 	}
@@ -606,6 +616,10 @@ static int ovisp_camera_start_streaming(struct ovisp_camera_dev *camdev)
 	 * in this procedure, we will use firmware to set set format
 	 *
 	 * */
+	if (!capture->running) {
+		ISP_PRINT(ISP_INFO,"%s:%d start_capture!\n",__func__,__LINE__);
+		ovisp_camera_start_capture(camdev);
+	}
 	ISP_PRINT(ISP_INFO,"the main procedure ended ........., now start capture ......\n");
 	return 0;
 }
@@ -698,12 +712,9 @@ static int ovisp_camera_irq_notify(unsigned int status, void *data)
 	struct ovisp_camera_frame *frame = &camdev->frame;
 	struct ovisp_camera_buffer *buf = NULL;
 	unsigned long flags;
-	//printk("irq notify-----------------\n");
 	if (!capture->running)
 		return 0;
-//	if(status & ISP_NOTIFY_RESTARTING){
-//	}
-	//printk("irq notify########\n");
+
 	if (status & ISP_NOTIFY_DATA_DONE) {
 		buf = NULL;
 		spin_lock_irqsave(&camdev->slock, flags);
@@ -729,6 +740,17 @@ static int ovisp_camera_irq_notify(unsigned int status, void *data)
 	}
 	if(!(status & ISP_NOTIFY_UPDATE_BUF))
 		return 0;
+	if (status & ISP_NOTIFY_OVERFLOW){
+		capture->error_frames++;
+		if((status & ISP_NOTIFY_DROP_FRAME0)){
+			buf = capture->active[0];
+			capture->active[0] = NULL;
+		}else{
+			buf = capture->active[1];
+			capture->active[1] = NULL;
+		}
+		list_add_tail(&(buf->list),&(capture->list));
+	}
 	if (status & ISP_NOTIFY_DATA_START){
 		buf = NULL;
 		capture->in_frames++;
@@ -749,9 +771,6 @@ static int ovisp_camera_irq_notify(unsigned int status, void *data)
 			}
 		}
 	}
-
-	if (status & ISP_NOTIFY_OVERFLOW)
-		capture->error_frames++;
 
 	if (status & ISP_NOTIFY_DROP_FRAME){
 		buf = NULL;
@@ -789,20 +808,18 @@ static int ovisp_vb2_queue_setup(struct vb2_queue *vq, const struct v4l2_format 
 	struct ovisp_camera_capture *capture = &camdev->capture;
 	unsigned long size;
 
-
-	ret = isp_dev_call(camdev->isp, g_size, &size);
+		ret = isp_dev_call(camdev->isp, g_size, &size);
 	if (ret < 0 && ret != -ENOIOCTLCMD) {
 		ISP_PRINT(ISP_ERROR,"Failed to get buffer's size\n");
 		return -EINVAL;
 	}
-
 	if (0 == *nbuffers)
 		*nbuffers = 32;
+
 	if(vq->memory == V4L2_MEMORY_MMAP){
 		while (size * *nbuffers > OVISP_CAMERA_BUFFER_MAX)
 			(*nbuffers)--;
 	}
-
 	*nplanes = 1;
 	sizes[0] = size;
 	alloc_ctxs[0] = camdev->alloc_ctx;
@@ -828,7 +845,6 @@ static int ovisp_vb2_queue_setup(struct vb2_queue *vq, const struct v4l2_format 
 static int ovisp_vb2_buffer_init(struct vb2_buffer *vb)
 {
 	vb->v4l2_buf.reserved = ovisp_vb2_plane_paddr(vb, 0);
-
 	return 0;
 }
 
@@ -878,20 +894,14 @@ static void ovisp_vb2_buffer_queue(struct vb2_buffer *vb)
 #endif
 	spin_unlock_irqrestore(&camdev->slock, flags);
 
-//	ISP_PRINT(ISP_INFO,"capture->running:%d, capture->active:%p\n",
-//			capture->running, capture->active);
-	if (!capture->running) {
-		ISP_PRINT(ISP_INFO,"%s:%d start_capture!\n",__func__,__LINE__);
-		ovisp_camera_start_capture(camdev);
-	}
 }
-static int ovisp_vb2_start_streaming(struct vb2_queue *vq,unsigned int count)
+
+static int ovisp_vb2_start_streaming(struct vb2_queue *vq)
 {
 	struct ovisp_camera_dev *camdev = vb2_get_drv_priv(vq);
-
-	printk("%s:%d##########\n", __func__, __LINE__);
-	//if (ovisp_camera_active(camdev))
-	//	return -EBUSY;
+	if (ovisp_camera_active(camdev)){
+		return -EBUSY;
+	}
 
 	return ovisp_camera_start_streaming(camdev);
 }
@@ -1101,6 +1111,9 @@ static int ovisp_vidioc_reqbufs(struct file *file, void *priv,
 			ISP_PRINT(ISP_ERROR,"%s[%d] tlb operator failed!\n", __func__, __LINE__);
 			return -EINVAL;
 		}
+	}else{
+		ISP_PRINT(ISP_WARNING,"%s[%d] sorry, ISP driver cann't support V4L2_MEMORY_MMAP now!\n", __func__, __LINE__);
+		return -EPERM;
 	}
 	return vb2_reqbufs(&camdev->vbq, p);
 }
@@ -1118,7 +1131,7 @@ static int ovisp_vidioc_qbuf(struct file *file, void *priv,
 {
 	int ret = 0;
 	struct ovisp_camera_dev *camdev = video_drvdata(file);
-	ISP_PRINT(ISP_INFO,"%s==========%d\n", __func__, __LINE__);
+	/* ISP_PRINT(ISP_INFO,"%s==========%d\n", __func__, __LINE__); */
 	if(p->memory == V4L2_MEMORY_USERPTR){
 		dma_cache_sync(NULL,(void *)(p->m.userptr),p->length, DMA_FROM_DEVICE);
 		ret = isp_dev_call(camdev->isp, tlb_map_one_vaddr,p->m.userptr,p->length);
@@ -1135,7 +1148,7 @@ static int ovisp_vidioc_dqbuf(struct file *file, void *priv,
 {
 	struct ovisp_camera_dev *camdev = video_drvdata(file);
 	int status;
-	ISP_PRINT(ISP_INFO,"%s==========%d\n", __func__, __LINE__);
+	/* ISP_PRINT(ISP_INFO,"%s==========%d\n", __func__, __LINE__); */
 	status = vb2_dqbuf(&camdev->vbq, p, file->f_flags & O_NONBLOCK);
 	return status;
 }
@@ -1707,7 +1720,7 @@ static int ovisp_camera_probe(struct platform_device *pdev)
 	struct resource *res;
 	int irq;
 	int ret;
-	printk("\n\n####### ## isp camear prob ## #######\n\n");
+
 	pdata = pdev->dev.platform_data;
 	if (!pdata) {
 		ISP_PRINT(ISP_ERROR,"Platform data not set\n");
@@ -1780,10 +1793,14 @@ static int ovisp_camera_probe(struct platform_device *pdev)
 	camdev->frame.field = V4L2_FIELD_INTERLACED;
 	camdev->first_init = 1;
 
+#ifndef CONFIG_VIDEO_AW6120
 	camdev->camera_power = regulator_get(camdev->dev, "cpu_avdd");
 	if(IS_ERR(camdev->camera_power)) {
 		dev_warn(camdev->dev, "camera regulator missing\n");
+		ret = -ENXIO;
+		goto regulator_error;
 	}
+#endif
 
 #if 0
 	/* Initialize contiguous memory allocator */
@@ -1836,7 +1853,6 @@ if (IS_ERR(camdev->alloc_ctx)) {
 	q->buf_struct_size = sizeof(struct ovisp_camera_buffer);
 	q->ops = &ovisp_vb2_qops;
 	q->mem_ops = &ovisp_vb2_memops;
-//	q->mem_ops = &vb2_dma_sg_memops;
 	q->timestamp_type = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 	vb2_queue_init(q);
 
@@ -1879,6 +1895,10 @@ free_i2c:
 	ovisp_camera_free_subdev(camdev);
 cleanup_ctx:
 	vb2_dma_contig_cleanup_ctx(camdev->alloc_ctx);
+#ifndef CONFIG_VIDEO_AW6120
+regulator_error:
+	regulator_put(camdev->camera_power);
+#endif
 unreg_v4l2_dev:
 	v4l2_device_unregister(&camdev->v4l2_dev);
 release_isp_dev:
@@ -1897,7 +1917,9 @@ static int __exit ovisp_camera_remove(struct platform_device *pdev)
 {
 	struct ovisp_camera_dev *camdev = platform_get_drvdata(pdev);
 
+#ifndef CONFIG_VIDEO_AW6120
 	regulator_put(camdev->camera_power);
+#endif
 	video_device_release(camdev->vfd);
 	v4l2_device_unregister(&camdev->v4l2_dev);
 	platform_set_drvdata(pdev, NULL);
@@ -1905,6 +1927,7 @@ static int __exit ovisp_camera_remove(struct platform_device *pdev)
 	dma_free_coherent(camdev->dev, camdev->offline.size, camdev->offline.vaddr, (dma_addr_t)camdev->offline.paddr);
 #endif
 	vb2_dma_contig_cleanup_ctx(camdev->alloc_ctx);
+//	ovisp_vb2_cleanup_ctx(camdev->alloc_ctx);
 	ovisp_camera_free_subdev(camdev);
 	isp_device_release(camdev->isp);
 	isp_debug_deinit();
