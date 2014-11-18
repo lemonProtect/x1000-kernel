@@ -20,5 +20,7 @@ ovisp_vb2_plane_vaddr(struct vb2_buffer *vb, unsigned int plane_no)
 	return (unsigned long)vaddr;
 }
 
-extern const struct vb2_mem_ops  ovisp_vb2_memops;
+
+extern const struct vb2_mem_ops ovisp_vb2_memops;
+
 #endif/* __OVISP_VIDEOBUF_H__ */

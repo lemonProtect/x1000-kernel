@@ -34,9 +34,11 @@ const struct isp_reg_t isp_mipi_regs_init[] = {
 };
 
 const struct isp_reg_t isp_dvp_regs_init[] = {
-//	{0x60100, 0x01},//Software reset
+	{0x60100, 0x01},//Software reset
 	{0x6301b, 0xf0},//isp clock enable
 	{0x63025, 0x40},//clock divider
+	{0x6301a, 0xf0},
+	{0x63041, 0xf8},
 	/* ISP TOP REG */
 #if 0
 	{0x65000, 0x3f},

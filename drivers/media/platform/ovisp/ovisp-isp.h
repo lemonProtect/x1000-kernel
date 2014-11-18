@@ -77,8 +77,10 @@ struct isp_prop {
 struct isp_input_parm {
 	unsigned int width;
 	unsigned int height;
-	unsigned int idi_width;
-	unsigned int idi_height;
+	unsigned int idi_in_width;
+	unsigned int idi_in_height;
+	unsigned int idi_out_width;
+	unsigned int idi_out_height;
 	unsigned int format;
 	unsigned int sequence;
 	unsigned int addrnums;
@@ -239,7 +241,6 @@ struct isp_device {
 	int format_active;
 	int snapshot;
 	int running;
-	int bypass;
 	int poweron;
 
 	/*csi power*/
@@ -247,6 +248,7 @@ struct isp_device {
 	int boot;
 	int input;
 	int irq;
+	bool bypass;
 	bool first_init;
 	bool wait_eof;
 	bool capture_raw_enable;

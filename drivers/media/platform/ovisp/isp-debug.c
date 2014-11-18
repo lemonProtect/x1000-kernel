@@ -109,21 +109,21 @@ void __dump_isp_regs(struct isp_device * isp, int base, int end)
 void dump_csi_reg(void)
 {
 
-	printk("****>>>>> dump csi reg <<<<<******\n");
-	printk("**********VERSION =%08x\n", csi_core_read(VERSION));
-	printk("**********N_LANES =%08x\n", csi_core_read(N_LANES));
-	printk("**********PHY_SHUTDOWNZ = %08x\n", csi_core_read(PHY_SHUTDOWNZ));
-	printk("**********DPHY_RSTZ = %08x\n", csi_core_read(DPHY_RSTZ));
-	printk("**********CSI2_RESETN =%08x\n", csi_core_read(CSI2_RESETN));
-	printk("**********PHY_STATE = %08x\n", csi_core_read(PHY_STATE));
-	printk("**********DATA_IDS_1 = %08x\n", csi_core_read(DATA_IDS_1));
-	printk("**********DATA_IDS_2 = %08x\n", csi_core_read(DATA_IDS_2));
-	printk("**********ERR1 = %08x\n", csi_core_read(ERR1));
-	printk("**********ERR2 = %08x\n", csi_core_read(ERR2));
-	printk("**********MASK1 =%08x\n", csi_core_read(MASK1));
-	printk("**********MASK2 =%08x\n", csi_core_read(MASK2));
-	printk("**********PHY_TST_CTRL0 = %08x\n", csi_core_read(PHY_TST_CTRL0));
-	printk("**********PHY_TST_CTRL1 = %08x\n", csi_core_read(PHY_TST_CTRL1));
+	ISP_PRINT(ISP_INFO,"****>>>>> dump csi reg <<<<<******\n");
+	ISP_PRINT(ISP_INFO,"**********VERSION =%08x\n", csi_core_read(VERSION));
+	ISP_PRINT(ISP_INFO,"**********N_LANES =%08x\n", csi_core_read(N_LANES));
+	ISP_PRINT(ISP_INFO,"**********PHY_SHUTDOWNZ = %08x\n", csi_core_read(PHY_SHUTDOWNZ));
+	ISP_PRINT(ISP_INFO,"**********DPHY_RSTZ = %08x\n", csi_core_read(DPHY_RSTZ));
+	ISP_PRINT(ISP_INFO,"**********CSI2_RESETN =%08x\n", csi_core_read(CSI2_RESETN));
+	ISP_PRINT(ISP_INFO,"**********PHY_STATE = %08x\n", csi_core_read(PHY_STATE));
+	ISP_PRINT(ISP_INFO,"**********DATA_IDS_1 = %08x\n", csi_core_read(DATA_IDS_1));
+	ISP_PRINT(ISP_INFO,"**********DATA_IDS_2 = %08x\n", csi_core_read(DATA_IDS_2));
+	ISP_PRINT(ISP_INFO,"**********ERR1 = %08x\n", csi_core_read(ERR1));
+	ISP_PRINT(ISP_INFO,"**********ERR2 = %08x\n", csi_core_read(ERR2));
+	ISP_PRINT(ISP_INFO,"**********MASK1 =%08x\n", csi_core_read(MASK1));
+	ISP_PRINT(ISP_INFO,"**********MASK2 =%08x\n", csi_core_read(MASK2));
+	ISP_PRINT(ISP_INFO,"**********PHY_TST_CTRL0 = %08x\n", csi_core_read(PHY_TST_CTRL0));
+	ISP_PRINT(ISP_INFO,"**********PHY_TST_CTRL1 = %08x\n", csi_core_read(PHY_TST_CTRL1));
 }
 
 void dump_isp_configuration(struct isp_device * isp)
