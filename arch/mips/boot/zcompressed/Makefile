@@ -14,6 +14,9 @@ OBJCOPY_ARGS 	:= -O elf32-tradlittlemips
 ENTRY 		:= $(obj)/entry
 FILESIZE 	:= $(obj)/filesize
 
+KBUILD_CFLAGS := $(shell echo $(KBUILD_CFLAGS) | sed -e "s/-pg//")
+KBUILD_CFLAGS := $(filter-out -fstack-protector, $(KBUILD_CFLAGS))
+
 drop-sections	= .reginfo .mdebug .comment .note .pdr .options .MIPS.options
 strip-flags	= $(addprefix --remove-section=,$(drop-sections))
 
