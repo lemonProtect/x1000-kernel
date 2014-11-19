@@ -255,6 +255,7 @@ enum {
 	PWC_BCH,PWC_HASH,PWC_LCD,PWC_USB,PWC_UHC,
 };
 struct  freq_udelay_jiffy {
+	unsigned int  max_num;
 	unsigned int  cpufreq;
 	unsigned int  udelay_val;
 	unsigned int  loops_per_jiffy;
