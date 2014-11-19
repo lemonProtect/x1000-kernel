@@ -83,25 +83,35 @@ static int m200_target(struct cpufreq_policy *policy,
 	return ret;
 }
 #define CPUFRQ_MIN  12000
-extern unsigned int SUPPORT_CPUFREQ_NUM;
-extern void init_freq_table(struct cpufreq_frequency_table *table,
-			    unsigned int max_freq, unsigned int min_freq);
+extern struct cpufreq_frequency_table *init_freq_table(unsigned int max_freq,
+						       unsigned int min_freq);
 static int __cpuinit m200_cpu_init(struct cpufreq_policy *policy)
 {
-	unsigned int max_freq;
-	jz_cpufreq = (struct jz_cpufreq *)kzalloc(sizeof(struct jz_cpufreq) +
-						  sizeof(struct cpufreq_frequency_table) * SUPPORT_CPUFREQ_NUM, GFP_KERNEL);
+	unsigned int i, max_freq;
+
+	jz_cpufreq = (struct jz_cpufreq *)kzalloc(sizeof(struct jz_cpufreq), GFP_KERNEL);
 	if(!jz_cpufreq) {
 		pr_err("kzalloc fail!!!\n");
 		return -1;
 	}
-	jz_cpufreq->freq_table = (struct cpufreq_frequency_table *)(jz_cpufreq + 1);
 	jz_cpufreq->cpu_clk = clk_get(NULL, "cclk");
 	if (IS_ERR(jz_cpufreq->cpu_clk))
 		goto cpu_clk_err;
 
 	max_freq = clk_get_rate(jz_cpufreq->cpu_clk) / 1000;
-	init_freq_table(jz_cpufreq->freq_table, max_freq, CPUFRQ_MIN);
+	if(max_freq <= 0) {
+		printk("get cclk max freq fail %d\n", max_freq);
+		goto freq_table_err;
+	}
+	jz_cpufreq->freq_table = init_freq_table(max_freq, CPUFRQ_MIN);
+	if(!jz_cpufreq->freq_table) {
+		printk("get freq table error!!\n");
+		goto freq_table_err;
+	}
+	printk("freq table is:");
+	for(i = 0; jz_cpufreq->freq_table[i].frequency != CPUFREQ_TABLE_END; i++)
+		printk(" %d", jz_cpufreq->freq_table[i].frequency);
+	printk("\n");
 
 	if(cpufreq_frequency_table_cpuinfo(policy, jz_cpufreq->freq_table))
 		goto freq_table_err;

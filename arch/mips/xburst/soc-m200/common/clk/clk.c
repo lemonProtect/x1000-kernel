@@ -401,39 +401,57 @@ static const struct file_operations rate_fops ={
 	.release = single_release,
 };
 struct  freq_udelay_jiffy *freq_udelay_jiffys;
-unsigned int SUPPORT_CPUFREQ_NUM;
 #ifdef CONFIG_CPU_FREQ
-void init_freq_table(struct cpufreq_frequency_table *table, unsigned int max_freq,
+struct cpufreq_frequency_table *init_freq_table(unsigned int max_freq,
 		     unsigned int min_freq)
 {
 	int i, j = 0;
-	for(i = 0;i < ARRAY_SIZE(set_cpu_freqs) &&
-		    set_cpu_freqs[i] <= max_freq; i++) {
+	struct cpufreq_frequency_table *freq_table;
+	unsigned int num = ARRAY_SIZE(set_cpu_freqs);
+
+	if(max_freq <= 0 || min_freq <= 0)
+		return NULL;
+	freq_table = (struct cpufreq_frequency_table *)kzalloc(sizeof(struct cpufreq_frequency_table)
+							       * num, GFP_KERNEL);
+	if(!freq_table) {
+		pr_err("%s: cpufreq_frequency_table kzalloc fail!!!\n", __func__);
+		return NULL;
+	}
+	for(i = 0;i < num && set_cpu_freqs[i] <= max_freq; i++) {
 		if(set_cpu_freqs[i] < min_freq)
 			continue;
-		table[j].index = j;
-		table[j].frequency = set_cpu_freqs[i];
+		freq_table[j].index = j;
+		freq_table[j].frequency = set_cpu_freqs[i];
 		j++;
 	}
-	if(j < ARRAY_SIZE(set_cpu_freqs)) {
-		table[j].index = j;
-		table[j].frequency = CPUFREQ_TABLE_END;
+	if(j < num) {
+		freq_table[j].index = j;
+		freq_table[j].frequency = CPUFREQ_TABLE_END;
 	}
+	return freq_table;
 }
 EXPORT_SYMBOL(init_freq_table);
 #endif
-static void init_freq_udelay_jiffys(struct clk *cpu_clk)
+static void init_freq_udelay_jiffys(struct clk *cpu_clk, unsigned int num)
 {
 	int i;
 	unsigned int rate;
 
 	rate = clk_get_rate(cpu_clk)/1000;
-	for(i = 0; i < SUPPORT_CPUFREQ_NUM -1 ; i++) {
+	for(i = 0; i < num; i++) {
 		freq_udelay_jiffys[i].cpufreq = set_cpu_freqs[i];
 		freq_udelay_jiffys[i].udelay_val = cpufreq_scale(cpu_data[0].udelay_val,
 								 rate, set_cpu_freqs[i]);
 		freq_udelay_jiffys[i].loops_per_jiffy = cpufreq_scale(loops_per_jiffy,
 								      rate, set_cpu_freqs[i]);
+	}
+	freq_udelay_jiffys[0].max_num = num;
+	printk("freq_udelay_jiffys[0].max_num = %d\n", freq_udelay_jiffys[0].max_num);
+
+	printk("cpufreq \tudelay \tloops_per_jiffy\t\n");
+	for(i = 0; i < num; i++) {
+		printk("%u\t %u\t %u\t\n", freq_udelay_jiffys[i].cpufreq,
+		       freq_udelay_jiffys[i].udelay_val, freq_udelay_jiffys[i].loops_per_jiffy);
 	}
 }
 static int __init init_clk_proc(void)
@@ -443,16 +461,20 @@ static int __init init_clk_proc(void)
 	struct proc_dir_entry *sub;
 	struct clk *clk_srcs = get_clk_from_id(0);
 	struct clk *cpu_clk;
-	SUPPORT_CPUFREQ_NUM = ARRAY_SIZE(set_cpu_freqs);
-	freq_udelay_jiffys = (struct freq_udelay_jiffy *)kzalloc(sizeof(struct freq_udelay_jiffy) *
-								 SUPPORT_CPUFREQ_NUM - 1, GFP_KERNEL);
+	unsigned int num = ARRAY_SIZE(set_cpu_freqs) - 1;
 
+	freq_udelay_jiffys = (struct freq_udelay_jiffy *)kzalloc(sizeof(struct freq_udelay_jiffy) *
+								 num, GFP_KERNEL);
+	if(!freq_udelay_jiffys) {
+		pr_err("%s: freq_udelay_jiffys kzalloc fail!!!\n", __func__);
+		return -1;
+	}
 	cpu_clk = clk_get(NULL, "cclk");
 	if (IS_ERR(cpu_clk)) {
 		printk("ERROR:cclk request fail!\n");
 		return -1;
 	}
-	init_freq_udelay_jiffys(cpu_clk);
+	init_freq_udelay_jiffys(cpu_clk, num);
 	clk_put(cpu_clk);
 
 	p = jz_proc_mkdir("clock");
