@@ -151,6 +151,8 @@ static int __ricoh61x_set_s_voltage(struct device *parent,
 	ret = ricoh61x_update(parent, ri->sleep_reg, vsel, ri->vout_mask);
 	if (ret < 0)
 		dev_err(ri->dev, "Error in writing the sleep register\n");
+	else
+		ri->vout_reg_cache = vsel;
 	return ret;
 }
 

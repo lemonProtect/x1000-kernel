@@ -85,6 +85,7 @@ static inline void serial_put_hex(unsigned int x) {
 		TCSM_PCHAR(d);
 	}
 }
+/* #define DDR_MEM_TEST */
 #ifdef DDR_MEM_TEST
 #define MEM_TEST_SIZE   0x100000
 static unsigned int test_mem_space[MEM_TEST_SIZE / 4];
@@ -180,6 +181,7 @@ static inline void config_powerdown_core(unsigned int *resume_pc) {
 
 	printk("opcr = %x\n",cpm_inl(CPM_OPCR));
 	printk("lcr = %x\n",cpm_inl(CPM_LCR));
+	printk("cpccr = %x\n",cpm_inl(CPM_CPCCR));
 
 	// set resume pc
 	cpm_outl((unsigned int)resume_pc,CPM_SLPC);
@@ -260,6 +262,7 @@ static noinline void cpu_sleep(void)
 	/* printk("0xB00000D0: %x\n",*(volatile unsigned int *)0xB00000D0); */
 	/* printk("ddr cs %x\n",ddr_readl(DDRP_DX0GSR)); */
 	REG32(SLEEP_TSCM_DATA + 12) = ddr_readl(DDRP_DX0GSR) & 3;
+	REG32(SLEEP_TSCM_DATA + 16) = REG32(0xb0000000);
 	cache_prefetch(LABLE1,200);
 LABLE1:
 	val = ddr_readl(DDRC_AUTOSR_EN);
@@ -281,6 +284,15 @@ LABLE1:
 	val = ddr_readl(DDRC_CTRL);
 	val |= (1 << 17);   // enter to hold ddr state
 	ddr_writel(val,DDRC_CTRL);
+
+	/*
+	 * (1) SCL_SRC source clock changes APLL to EXCLK
+	 * (2) AH0/2 source clock changes MPLL to EXCLK
+	 * (3) set PDIV H2DIV H0DIV L2CDIV CDIV = 0
+	 */
+	REG32(0xb0000000) = 0x95800000;
+	while((REG32(0xB00000D4) & 7))
+		TCSM_PCHAR('w');
 
 	if(pmu_slp_gpio_info != -1) {
 		set_gpio_func(pmu_slp_gpio_info & 0xffff,
@@ -306,12 +318,18 @@ static noinline void cpu_resume(void)
 {
 	register int val = 0;
 	register int bypassmode = 0;
-	register unsigned int save_slp;
 
 	TCSM_PCHAR('o');
-	save_slp = REG32(SLEEP_TSCM_DATA + 8);
-	if(save_slp != -1)
-		set_gpio_func(save_slp & 0xffff, save_slp >> 16);
+	val = REG32(SLEEP_TSCM_DATA + 8);
+	if(val != -1)
+		set_gpio_func(val & 0xffff, val >> 16);
+
+	/* restore  CPM CPCCR */
+	val = REG32(SLEEP_TSCM_DATA + 16);
+	val |= (7 << 20);
+	REG32(0xb0000000) = val;
+	while((REG32(0xB00000D4) & 7))
+		TCSM_PCHAR('w');
 
 	bypassmode = ddr_readl(DDRP_PIR) & DDRP_PIR_DLLBYP;
 	if(!bypassmode) {
