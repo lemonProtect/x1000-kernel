@@ -176,6 +176,10 @@ config SUSPEND_TEST
 	bool "auto suspend test"
 	default n
 
+config DDR_DEBUG
+   bool "ddr debug code"
+   default n
+
 config EARLY_INIT_RUN
 	bool "early run init process"
 	default n
