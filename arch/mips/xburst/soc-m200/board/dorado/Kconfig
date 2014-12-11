@@ -11,6 +11,10 @@ config BOARD_DORADO_V21
        bool "board dorado v21"
        depends on PRODUCT_DEVELOP
 
+config BOARD_DORADO_V22
+       bool "board dorado v22"
+       depends on PRODUCT_DEVELOP
+
 config BOARD_DORADO_V30
        bool "board dorado v30"
        depends on PRODUCT_DEVELOP
@@ -24,6 +28,10 @@ config BOARD_NAME
 config BOARD_NAME
 	string
 	default "dorado_v21" if BOARD_DORADO_V21
+
+config BOARD_NAME
+	string
+	default "dorado_v22" if BOARD_DORADO_V22
 
 config BOARD_NAME
 	string
