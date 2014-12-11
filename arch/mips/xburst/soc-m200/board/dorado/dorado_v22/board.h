@@ -18,7 +18,7 @@
 #define GPIO_LCD_VSYNC		0
 #define GPIO_LCD_HSYNC		0
 #define GPIO_LCD_CS		GPIO_PA(11)
-#define GPIO_LCD_CLK	        GPIO_PD(28)
+#define GPIO_LCD_CLK	        GPIO_PB(0)
 #define GPIO_LCD_SDO		GPIO_PE(3)
 #define GPIO_LCD_SDI		GPIO_PE(0)
 #define GPIO_LCD_BACK_SEL	GPIO_PC(20)
@@ -98,8 +98,8 @@
 #define GPIO_TP_WAKE		GPIO_PE(10)
 #endif
 #ifdef CONFIG_TOUCHSCREEN_FT6X06
-#define GPIO_TP_INT		GPIO_PD(17)
-#define GPIO_TP_RESET		GPIO_PD(27)
+#define GPIO_TP_INT		GPIO_PD(27)
+#define GPIO_TP_RESET		PCA9539_EXT_GPIO(10)
 #endif
 #ifdef CONFIG_TOUCHSCREEN_FT5336
 #define GPIO_TP_INT		GPIO_PD(17)
