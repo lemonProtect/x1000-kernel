@@ -686,15 +686,19 @@ static int pca953x_probe(struct i2c_client *client,
 	}
 
 	/*reset first*/
-	if (gpio_request_one(pdata->reset_n,
-				GPIOF_DIR_OUT, "pca9539_rst")) {
-		pr_err("The GPIO %d is requested by other driver,"
-				" not available for pca9539\n", pdata->reset_n);
+	if(pdata->reset_n != -1){
+		printk("the pca9539 need reset\n");
+		if (gpio_request_one(pdata->reset_n,
+					GPIOF_DIR_OUT, "pca9539_rst")) {
+			pr_err("The GPIO %d is requested by other driver,"
+					" not available for pca9539\n", pdata->reset_n);
+		}
+		gpio_direction_output(pdata->reset_n, 0);
+		udelay(1000);
+		gpio_direction_output(pdata->reset_n, 1);
+	}else{
+		printk("the pca9539 not need reset\n");
 	}
-	gpio_direction_output(pdata->reset_n, 0);
-	udelay(1000);
-	gpio_direction_output(pdata->reset_n, 1);
-	printk(" the pca9539 reset over\n");
 	chip->client = client;
 
 	chip->gpio_start = pdata->gpio_base;

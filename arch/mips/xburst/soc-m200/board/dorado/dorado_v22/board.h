@@ -135,7 +135,7 @@
 /*GPIO PCA9593*/
 #ifdef CONFIG_GPIO_PCA953X
 #define PCA9539_IRQ_N       GPIO_PD(19)
-#define PCA9539_RST_N       GPIO_PA(14)
+#define PCA9539_RST_N       -1
 #define PCA9539_GPIO_BASE   177
 #define PCA9539_EXT_GPIO(x)   (PCA9539_GPIO_BASE + (x))
 #endif /* CONFIG_PCA9539 */
@@ -181,8 +181,8 @@
 /* ****************************GPIO CAMERA END******************************* */
 
 /* ****************************GPIO AUDIO START****************************** */
-#define GPIO_HP_MUTE		PCA9539_EXT_GPIO(10)	/*hp mute gpio*/
-#define GPIO_HP_MUTE_LEVEL	-1	/*vaild level*/
+#define GPIO_HP_MUTE		PCA9539_EXT_GPIO(11)	/*hp mute gpio*/
+#define GPIO_HP_MUTE_LEVEL	1	/*vaild level*/
 
 #define GPIO_SPEAKER_EN		-1      /*speaker enable gpio*/
 #define GPIO_SPEAKER_EN_LEVEL	-1
@@ -190,8 +190,8 @@
 #define GPIO_HANDSET_EN		-1	/*handset enable gpio*/
 #define GPIO_HANDSET_EN_LEVEL   -1
 
-#define	GPIO_HP_DETECT	-1		/*hp detect gpio*/
-#define GPIO_HP_INSERT_LEVEL    1
+#define	GPIO_HP_DETECT	GPIO_PA(1)		/*hp detect gpio*/
+#define GPIO_HP_INSERT_LEVEL    0
 #define GPIO_MIC_SELECT		-1	/*mic select gpio*/
 #define GPIO_BUILDIN_MIC_LEVEL	-1	/*builin mic select level*/
 #define GPIO_MIC_DETECT		-1
