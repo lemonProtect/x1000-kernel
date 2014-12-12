@@ -72,7 +72,7 @@ static struct ft5336_platform_data ft5336_tsc_pdata = {
 #endif
 /* *****************************touchscreen end*************************** */
 
-#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C0_V12_JZ))
+#if (defined(CONFIG_SOFT_I2C1_GPIO_V12_JZ) || defined(CONFIG_I2C0_V12_JZ))
 struct i2c_board_info jz_i2c0_devs[] __initdata = {
 #ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
 	{
@@ -117,51 +117,8 @@ struct i2c_board_info jz_i2c0_devs[] __initdata = {
 };
 #endif
 
-#ifdef CONFIG_GPIO_PCA953X
-static struct pca953x_platform_data dorado_pca953x_pdata = {
-	.gpio_base  = PCA9539_GPIO_BASE,
-        .irq_base  = IRQ_RESERVED_BASE + 101,
-        .reset_n  = PCA9539_RST_N,
-	.irq_n  = PCA9539_IRQ_N,
- };
-#endif
-
-#if (defined(CONFIG_SOFT_I2C1_GPIO_V12_JZ) || defined(CONFIG_I2C1_V12_JZ))
-struct i2c_board_info jz_i2c1_devs[] __initdata = {
-#ifdef CONFIG_BOARD_DORADO_V21
-#ifdef CONFIG_GPIO_PCA953X
-	{
-		I2C_BOARD_INFO("pca9539",0x74),
-		.platform_data  = &dorado_pca953x_pdata,
-	},
-#endif
-#endif
-};
-#endif  /*I2C1*/
-
-#if (defined(CONFIG_SOFT_I2C2_GPIO_V12_JZ) || defined(CONFIG_I2C2_V12_JZ))
-struct i2c_board_info jz_i2c2_devs[] __initdata = {
-#ifdef CONFIG_BOARD_DORADO_V22
-#ifdef CONFIG_GPIO_PCA953X
-	{
-		I2C_BOARD_INFO("pca9539",0x74),
-		.platform_data  = &dorado_pca953x_pdata,
-	},
-#endif
-#endif
-};
-#endif  /*I2C2*/
-
 #if     defined(CONFIG_SOFT_I2C0_GPIO_V12_JZ) || defined(CONFIG_I2C0_V12_JZ)
 int jz_i2c0_devs_size = ARRAY_SIZE(jz_i2c0_devs);
-#endif
-
-#if     defined(CONFIG_SOFT_I2C1_GPIO_V12_JZ) || defined(CONFIG_I2C1_V12_JZ)
-int jz_i2c1_devs_size = ARRAY_SIZE(jz_i2c1_devs);
-#endif
-
-#if     defined(CONFIG_SOFT_I2C2_GPIO_V12_JZ) || defined(CONFIG_I2C2_V12_JZ)
-int jz_i2c2_devs_size = ARRAY_SIZE(jz_i2c2_devs);
 #endif
 
 /*
