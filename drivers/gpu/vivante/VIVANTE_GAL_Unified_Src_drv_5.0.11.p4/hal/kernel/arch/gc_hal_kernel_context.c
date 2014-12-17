@@ -1798,6 +1798,7 @@ gckCONTEXT_Update(
     gctUINT32 data;
     gctUINT index;
     gctUINT i, j;
+    gctUINT32 dirtyRecordArraySize;
 
 #if gcdSECURE_USER
     gcskSECURE_CACHE_PTR cache;
@@ -1902,6 +1903,9 @@ gckCONTEXT_Update(
                 (gctPOINTER *) &kDelta
                 ));
 
+            dirtyRecordArraySize
+                = gcmSIZEOF(gcsSTATE_DELTA_RECORD) * kDelta->recordCount;
+
 #if REMOVE_DUPLICATED_COPY_FROM_USER
             if (needCopy)
             {
@@ -1930,13 +1934,16 @@ gckCONTEXT_Update(
                         recordArrayMap = recordArrayMap->next;
                     }
 
-                    /* Get access to the state records. */
-                    gcmkONERROR(gckOS_CopyFromUserData(
-                        kernel->os,
-                        recordArrayMap->kData,
-                        gcmUINT64_TO_PTR(kDelta->recordArray),
-                        Context->recordArraySize
-                        ));
+                    if (dirtyRecordArraySize)
+                    {
+                        /* Get access to the state records. */
+                        gcmkONERROR(gckOS_CopyFromUserData(
+                            kernel->os,
+                            recordArrayMap->kData,
+                            gcmUINT64_TO_PTR(kDelta->recordArray),
+                            dirtyRecordArraySize
+                            ));
+                    }
 
                     /* Save user pointer as key. */
                     recordArrayMap->key = kDelta->recordArray;
@@ -1945,22 +1952,29 @@ gckCONTEXT_Update(
             }
             else
             {
+                if (dirtyRecordArraySize)
+                {
+                    /* Get access to the state records. */
+                    gcmkONERROR(gckOS_MapUserPointer(
+                        kernel->os,
+                        gcmUINT64_TO_PTR(kDelta->recordArray),
+                        dirtyRecordArraySize,
+                        (gctPOINTER *) &recordArray
+                        ));
+                }
+            }
+#else
+            if (dirtyRecordArraySize)
+            {
                 /* Get access to the state records. */
-                gcmkONERROR(gckOS_MapUserPointer(
-                    kernel->os,
+                gcmkONERROR(gckKERNEL_OpenUserData(
+                    kernel, needCopy,
+                    Context->recordArray,
                     gcmUINT64_TO_PTR(kDelta->recordArray),
-                    Context->recordArraySize,
+                    dirtyRecordArraySize,
                     (gctPOINTER *) &recordArray
                     ));
             }
-#else
-            /* Get access to the state records. */
-            gcmkONERROR(gckKERNEL_OpenUserData(
-                kernel, needCopy,
-                Context->recordArray,
-                gcmUINT64_TO_PTR(kDelta->recordArray), Context->recordArraySize,
-                (gctPOINTER *) &recordArray
-                ));
 #endif
 
             /* Merge all pending states. */
@@ -2065,24 +2079,31 @@ gckCONTEXT_Update(
             }
             else
             {
-                /* Close access to the state records. */
-                gcmkONERROR(gckOS_UnmapUserPointer(
-                    kernel->os,
-                    gcmUINT64_TO_PTR(kDelta->recordArray),
-                    Context->recordArraySize,
-                    (gctPOINTER *) recordArray
-                    ));
+                if (dirtyRecordArraySize)
+                {
+                    /* Close access to the state records. */
+                    gcmkONERROR(gckOS_UnmapUserPointer(
+                        kernel->os,
+                        gcmUINT64_TO_PTR(kDelta->recordArray),
+                        dirtyRecordArraySize,
+                        (gctPOINTER *) recordArray
+                        ));
+                }
 
                 recordArray = gcvNULL;
             }
 #else
-            /* Get access to the state records. */
-            gcmkONERROR(gckKERNEL_CloseUserData(
-                kernel, needCopy,
-                gcvFALSE,
-                gcmUINT64_TO_PTR(kDelta->recordArray), Context->recordArraySize,
-                (gctPOINTER *) &recordArray
-                ));
+            if (dirtyRecordArraySize)
+            {
+                /* Get access to the state records. */
+                gcmkONERROR(gckKERNEL_CloseUserData(
+                    kernel, needCopy,
+                    gcvFALSE,
+                    gcmUINT64_TO_PTR(kDelta->recordArray),
+                    dirtyRecordArraySize,
+                    (gctPOINTER *) &recordArray
+                    ));
+            }
 #endif
 
             /* Close access to the current state delta. */
