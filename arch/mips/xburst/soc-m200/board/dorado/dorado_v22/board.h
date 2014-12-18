@@ -102,8 +102,8 @@
 #define GPIO_TP_RESET		PCA9539_EXT_GPIO(10)
 #endif
 #ifdef CONFIG_TOUCHSCREEN_FT5336
-#define GPIO_TP_INT		GPIO_PD(17)
-#define GPIO_TP_RESET		GPIO_PD(27)
+#define GPIO_TP_INT		GPIO_PD(27)
+#define GPIO_TP_RESET		PCA9539_EXT_GPIO(10)
 #endif
 /* ****************************GPIO TOUCHSCREEN END************************** */
 
