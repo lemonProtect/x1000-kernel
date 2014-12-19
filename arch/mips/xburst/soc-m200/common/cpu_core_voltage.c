@@ -228,12 +228,12 @@ static int __init cpu_core_voltage_init(void)
 	pcore->clk_prechange.jz_notify = clk_prechange_notify;
 	pcore->clk_prechange.level = NOTEFY_PROI_HIGH;
 	pcore->clk_prechange.msg = JZ_CLK_PRECHANGE;
-	jz_notifier_register(&pcore->clk_prechange);
+	jz_notifier_register(&pcore->clk_prechange, NOTEFY_PROI_HIGH);
 
 	pcore->clkgate_change.jz_notify = clkgate_change_notify;
 	pcore->clkgate_change.level = NOTEFY_PROI_HIGH;
 	pcore->clkgate_change.msg = JZ_CLKGATE_CHANGE;
-	jz_notifier_register(&pcore->clkgate_change);
+	jz_notifier_register(&pcore->clkgate_change, NOTEFY_PROI_HIGH);
 
 	register_pm_notifier(&cpu_core_sleep_pm_notifier);
 
@@ -244,7 +244,7 @@ static void __exit cpu_core_voltage__exit(void)
 {
 	struct cpu_core_voltage *pcore = &cpu_core_vol;
 	destroy_workqueue(pcore->down_wq);
-	jz_notifier_unregister(&pcore->clk_prechange);
+	jz_notifier_unregister(&pcore->clk_prechange, NOTEFY_PROI_HIGH);
 }
 
 module_init(cpu_core_voltage_init);

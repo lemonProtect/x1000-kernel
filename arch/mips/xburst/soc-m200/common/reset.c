@@ -115,7 +115,7 @@ void jz_hibernate(void)
 	/* Put CPU to hibernate mode */
 	rtc_write_reg(RTC_HCR, 0x1);
 
-	jz_notifier_call(JZ_POST_HIBERNATION, NULL);
+	jz_notifier_call(NOTEFY_PROI_HIGH, JZ_POST_HIBERNATION, NULL);
 
 	mdelay(200);
 

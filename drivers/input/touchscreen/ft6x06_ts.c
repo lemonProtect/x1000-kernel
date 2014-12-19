@@ -34,6 +34,7 @@
 #include <linux/input/mt.h>
 #include <linux/input/ft6x06_ts.h>
 #include <soc/gpio.h>
+#include <jz_notifier.h>
 
 //#define FTS_CTL_IIC
 //#define SYSFS_DEBUG
@@ -327,6 +328,8 @@ static void ft6x06_work_handler(struct work_struct *work)
 static irqreturn_t ft6x06_ts_interrupt(int irq, void *dev_id)
 {
 	struct ft6x06_ts_data *ft6x06_ts = dev_id;
+
+	jz_notifier_call(NOTEFY_PROI_NORMAL, JZ_CLK_CHANGING, NULL);
 	disable_irq_nosync(ft6x06_ts->irq);
 
 #if 0

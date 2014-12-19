@@ -232,12 +232,12 @@ static int __init switch_cpu_init(struct cpu_core_ctrl *pcore)
 	pcore->clk_changing.jz_notify = clk_changing_notify;
 	pcore->clk_changing.level = NOTEFY_PROI_HIGH;
 	pcore->clk_changing.msg = JZ_CLK_CHANGING;
-	jz_notifier_register(&pcore->clk_changing);
+	jz_notifier_register(&pcore->clk_changing, NOTEFY_PROI_HIGH);
 
 	pcore->clk_changed.jz_notify = clk_changed_notify;
 	pcore->clk_changed.level = NOTEFY_PROI_HIGH;
 	pcore->clk_changed.msg = JZ_CLK_CHANGED;
-	jz_notifier_register(&pcore->clk_changed);
+	jz_notifier_register(&pcore->clk_changed, NOTEFY_PROI_HIGH);
 
 	return 0;
 }

@@ -437,12 +437,12 @@ int ricoh619_power_off(void)
 
 static int ricoh61x_register_reset_notifier(struct jz_notifier *nb)
 {
-	return jz_notifier_register(nb);
+	return jz_notifier_register(nb, NOTEFY_PROI_HIGH);
 }
 
 static int ricoh61x_unregister_reset_notifier(struct jz_notifier *nb)
 {
-	return jz_notifier_unregister(nb);
+	return jz_notifier_unregister(nb, NOTEFY_PROI_HIGH);
 }
 static int ricoh61x_reset_notifier_handler(struct jz_notifier *nb,void* data)
 {

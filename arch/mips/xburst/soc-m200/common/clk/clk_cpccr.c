@@ -250,7 +250,7 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 		struct clk_notify_data dn;
 		dn.current_rate = clk->rate;
 		dn.target_rate = rate;
-		jz_notifier_call(JZ_CLK_PRECHANGE,&dn);
+		jz_notifier_call(NOTEFY_PROI_HIGH, JZ_CLK_PRECHANGE,&dn);
 	}
 	spin_lock_irqsave(&cpm_cpccr_lock,flags);
 	switch(clkid) {
@@ -335,12 +335,12 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 				struct clk_notify_data dn;
 				dn.current_rate = clk->rate;
 				dn.target_rate = rate;
-				jz_notifier_call(JZ_CLK_CHANGING,&dn);
+				jz_notifier_call(NOTEFY_PROI_HIGH, JZ_CLK_CHANGING,&dn);
 			}
 			// 2. set pll freq
 			before_change_udelay_hz(1, 200000, rate/1000);
 			ret = clk_set_rate(parentclk,rate);
-			jz_notifier_call(JZ_CLK_CHANGED,NULL);
+			jz_notifier_call(NOTEFY_PROI_HIGH, JZ_CLK_CHANGED,NULL);
 			spin_lock_irqsave(&cpm_cpccr_lock,flags);
 
 			if(ret != 0) {
@@ -392,8 +392,8 @@ static int cpccr_set_rate(struct clk *clk,unsigned long rate) {
 			sw_ahb_from_l2cache();
 			spin_unlock_irqrestore(&cpm_cpccr_lock,flags);
 
-			jz_notifier_call(JZ_CLK_CHANGING,&dn);
-			jz_notifier_call(JZ_CLK_CHANGED,NULL);
+			jz_notifier_call(NOTEFY_PROI_HIGH, JZ_CLK_CHANGING,&dn);
+			jz_notifier_call(NOTEFY_PROI_HIGH, JZ_CLK_CHANGED,NULL);
 
 			spin_lock_irqsave(&cpm_cpccr_lock,flags);
 		}
@@ -465,6 +465,6 @@ void __init init_cpccr_clk(struct clk *clk)
 		ahb_change.jz_notify = ahb_change_notify;
 		ahb_change.level = NOTEFY_PROI_NORMAL;
 		ahb_change.msg = JZ_CLKGATE_CHANGE;
-		jz_notifier_register(&ahb_change);
+		jz_notifier_register(&ahb_change, NOTEFY_PROI_HIGH);
 	}
 }

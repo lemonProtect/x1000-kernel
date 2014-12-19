@@ -84,7 +84,7 @@ static int cpm_gate_enable(struct clk *clk,int on){
 	unsigned int clkgr[2] = {CPM_CLKGR,CPM_CLKGR1};
 	unsigned long flags;
 	if(on)
-		jz_notifier_call(JZ_CLKGATE_CHANGE,(void*)(clk->CLK_ID | 0x80000000));
+		jz_notifier_call(NOTEFY_PROI_HIGH, JZ_CLKGATE_CHANGE,(void*)(clk->CLK_ID | 0x80000000));
 	spin_lock_irqsave(&cpm_gate_lock,flags);
 	if(on) {
 		cpm_clear_bit(bit % 32, clkgr[bit / 32]);
@@ -100,7 +100,7 @@ static int cpm_gate_enable(struct clk *clk,int on){
 	}
 	spin_unlock_irqrestore(&cpm_gate_lock,flags);
 	if(!on)
-		jz_notifier_call(JZ_CLKGATE_CHANGE,(void*)clk->CLK_ID);
+		jz_notifier_call(NOTEFY_PROI_HIGH, JZ_CLKGATE_CHANGE,(void*)clk->CLK_ID);
 	return 0;
 }
 static struct clk_ops clk_gate_ops = {

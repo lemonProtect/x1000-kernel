@@ -27,14 +27,18 @@
 #include <linux/syscalls.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
+#include <jz_notifier.h>
 
 
 static struct jz_cpufreq {
+	unsigned int second_rate;
+	struct mutex mutex;
 	struct clk *cpu_clk;
 	struct cpufreq_frequency_table *freq_table;
+	struct jz_notifier freq_up_change;
+	struct work_struct freq_up_work;
 } *jz_cpufreq;
 
-static struct cpufreq_freqs freqs;
 #define SUSPEMD_FREQ_INDEX 0
 static int m200_verify_speed(struct cpufreq_policy *policy)
 {
@@ -54,6 +58,7 @@ static int m200_target(struct cpufreq_policy *policy,
 {
 	int index;
 	int ret = 0;
+	struct cpufreq_freqs freqs;
 	ret = cpufreq_frequency_table_target(policy, jz_cpufreq->freq_table, target_freq, relation, &index);
 	if (ret) {
 		printk("%s: cpu%d: no freq match for %d(ret=%d)\n",
@@ -61,30 +66,58 @@ static int m200_target(struct cpufreq_policy *policy,
 		return ret;
 	}
 	freqs.new = jz_cpufreq->freq_table[index].frequency;
-	if (!freqs.new) {
-		printk("%s: cpu%d: no match for freq %d\n", __func__,
-		       policy->cpu, target_freq);
-		return -EINVAL;
-	}
-
 	freqs.old = m200_getspeed(policy->cpu);
 	freqs.cpu = policy->cpu;
 
-	if (freqs.old == freqs.new && policy->cur == freqs.new){
+	if (freqs.old == freqs.new && policy->cur == freqs.new) {
 		return ret;
 	}
+	mutex_lock(&jz_cpufreq->mutex);
 	cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
-
-//	printk("------set speed = %d\n",freqs.new);
+	if (!freqs.new) {
+		printk("%s: cpu%d: no match for freq %d\n", __func__,
+		       policy->cpu, target_freq);
+		while(1);
+	}
 	ret = clk_set_rate(jz_cpufreq->cpu_clk, freqs.new * 1000);
-
 	/* notifiers */
 	cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
+	mutex_unlock(&jz_cpufreq->mutex);
 	return ret;
 }
 #define CPUFRQ_MIN  12000
 extern struct cpufreq_frequency_table *init_freq_table(unsigned int max_freq,
 						       unsigned int min_freq);
+static void freq_up_irq_work(struct work_struct *work)
+{
+	struct cpufreq_freqs freqs;
+	struct cpufreq_policy *policy;
+
+	policy = cpufreq_cpu_get(0);
+	if(!policy) {
+		printk("cpufreq_cpu_get error\n");
+		return;
+	}
+	freqs.new = policy->max;
+	freqs.old = m200_getspeed(policy->cpu);
+	freqs.cpu = policy->cpu;
+	mutex_lock(&jz_cpufreq->mutex);
+	cpufreq_notify_transition(policy, &freqs, CPUFREQ_PRECHANGE);
+	clk_set_rate(jz_cpufreq->cpu_clk, freqs.new * 1000);
+	cpufreq_notify_transition(policy, &freqs, CPUFREQ_POSTCHANGE);
+	mutex_unlock(&jz_cpufreq->mutex);
+	cpufreq_cpu_put(policy);
+}
+static int freq_up_change_notify(struct jz_notifier *notify,void *v)
+{
+	unsigned int current_rate;
+	current_rate = clk_get_rate(jz_cpufreq->cpu_clk) / 1000;
+	if(current_rate >= jz_cpufreq->second_rate)
+		return NOTIFY_OK;
+
+	schedule_work(&jz_cpufreq->freq_up_work);
+	return NOTIFY_OK;
+}
 static int __cpuinit m200_cpu_init(struct cpufreq_policy *policy)
 {
 	unsigned int i, max_freq;
@@ -112,7 +145,8 @@ static int __cpuinit m200_cpu_init(struct cpufreq_policy *policy)
 	for(i = 0; jz_cpufreq->freq_table[i].frequency != CPUFREQ_TABLE_END; i++)
 		printk(" %d", jz_cpufreq->freq_table[i].frequency);
 	printk("\n");
-
+	jz_cpufreq->second_rate = jz_cpufreq->freq_table[i-2].frequency;
+	printk("jz_cpufreq->second_rate = %d\n", jz_cpufreq->second_rate);
 	if(cpufreq_frequency_table_cpuinfo(policy, jz_cpufreq->freq_table))
 		goto freq_table_err;
 	cpufreq_frequency_table_get_attr(jz_cpufreq->freq_table, policy->cpu);
@@ -134,6 +168,15 @@ static int __cpuinit m200_cpu_init(struct cpufreq_policy *policy)
 	cpumask_setall(policy->cpus);
 	/* 300us for latency. FIXME: what's the actual transition time? */
 	policy->cpuinfo.transition_latency = 500 * 1000;
+
+	mutex_init(&jz_cpufreq->mutex);
+	INIT_WORK(&jz_cpufreq->freq_up_work, freq_up_irq_work);
+
+	jz_cpufreq->freq_up_change.jz_notify = freq_up_change_notify;
+	jz_cpufreq->freq_up_change.level = NOTEFY_PROI_NORMAL;
+	jz_cpufreq->freq_up_change.msg = JZ_CLK_CHANGING;
+	jz_notifier_register(&jz_cpufreq->freq_up_change, NOTEFY_PROI_NORMAL);
+
 	printk("cpu freq init ok!\n");
 	return 0;
 freq_table_err:

@@ -1,7 +1,7 @@
 #include <jz_notifier.h>
 
-static BLOCKING_NOTIFIER_HEAD(jz_notifier_chain);
-
+static BLOCKING_NOTIFIER_HEAD(jz_notifier_chain_high);
+static BLOCKING_NOTIFIER_HEAD(jz_notifier_chain_normal);
 static int jz_notifier(struct notifier_block *nb, unsigned long cmd, void *data)
 {
 	struct jz_notifier *jz_nb = container_of(nb,struct jz_notifier,nb);
@@ -12,8 +12,10 @@ static int jz_notifier(struct notifier_block *nb, unsigned long cmd, void *data)
 	return ret;
 }
 
-int jz_notifier_register(struct jz_notifier *notify)
+int jz_notifier_register(struct jz_notifier *notify, unsigned int priority)
 {
+	unsigned int ret = 0;
+
 	if((notify->level < NOTEFY_PROI_START) && (notify->level >= NOTEFY_PROI_END))
 	{
 		printk("notify level can not support this %d\n",notify->level);
@@ -34,14 +36,37 @@ int jz_notifier_register(struct jz_notifier *notify)
 	}
 	notify->nb.priority = notify->level;
 	notify->nb.notifier_call = jz_notifier;
-	return blocking_notifier_chain_register(&jz_notifier_chain, &notify->nb);
+
+	if(priority == NOTEFY_PROI_HIGH)
+		ret = blocking_notifier_chain_register(&jz_notifier_chain_high, &notify->nb);
+	else if(priority == NOTEFY_PROI_NORMAL)
+		ret = blocking_notifier_chain_register(&jz_notifier_chain_normal, &notify->nb);
+	else
+		printk("not support\n");
+	return ret;
 }
 
-int jz_notifier_unregister(struct jz_notifier *notify)
+int jz_notifier_unregister(struct jz_notifier *notify, unsigned int priority)
 {
-	return blocking_notifier_chain_unregister(&jz_notifier_chain, &notify->nb);
+	unsigned int ret = 0;
+
+	if(priority == NOTEFY_PROI_HIGH)
+		ret = blocking_notifier_chain_unregister(&jz_notifier_chain_high, &notify->nb);
+	else if(priority == NOTEFY_PROI_NORMAL)
+		ret = blocking_notifier_chain_unregister(&jz_notifier_chain_normal, &notify->nb);
+	else
+		printk("not support\n");
+	return ret;
 }
-int jz_notifier_call(unsigned long val, void *v)
+int jz_notifier_call(unsigned int priority, unsigned long val, void *v)
 {
-	return blocking_notifier_call_chain(&jz_notifier_chain, val, v);
+	unsigned int ret = 0;
+
+	if(priority == NOTEFY_PROI_HIGH)
+		ret = blocking_notifier_call_chain(&jz_notifier_chain_high, val, v);
+	else if(priority == NOTEFY_PROI_NORMAL)
+		ret = blocking_notifier_call_chain(&jz_notifier_chain_normal, val, v);
+	else
+		printk("not support\n");
+	return ret;
 }

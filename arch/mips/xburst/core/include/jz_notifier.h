@@ -3,9 +3,9 @@
 
 #include <linux/notifier.h>
 
-/* Hibernation and suspend events
-*/
-
+/*
+ * Hibernation and suspend events
+ */
 enum jz_notif_cmd {
 	JZ_CMD_START = 0,
 	JZ_CLK_PRECHANGE,
@@ -36,8 +36,8 @@ struct jz_notifier {
 	enum jz_notif_cmd msg;
 };
 
-int jz_notifier_register(struct jz_notifier *notify);
-int jz_notifier_unregister(struct jz_notifier *notify);
-int jz_notifier_call(unsigned long val, void *v);
+int jz_notifier_register(struct jz_notifier *notify, unsigned int priority);
+int jz_notifier_unregister(struct jz_notifier *notify, unsigned int priority);
+int jz_notifier_call(unsigned int priority, unsigned long val, void *v);
 
 #endif /* _JZ_NOTIFIER_H_ */
