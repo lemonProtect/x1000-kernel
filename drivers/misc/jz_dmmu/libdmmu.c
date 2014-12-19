@@ -25,7 +25,7 @@ int dmmu_match_user_mem_tlb(void * vaddr, int size)
 {
 	struct dmmu_mem_info info;
 
-	info.vaddr = vaddr;
+	info.vaddr = (unsigned long)vaddr;
 	info.size = size;
 
 	return dmmu_match_handle(&info);
@@ -36,7 +36,7 @@ int dmmu_map_user_mem(void * vaddr, int size)
 	struct proc_page_tab_data *table;
 	struct dmmu_mem_info info;
 
-	info.vaddr = vaddr;
+	info.vaddr = (unsigned long)vaddr;
 	info.size = size;
 	table = dmmu_get_table(current->tgid);
 
@@ -48,7 +48,7 @@ int dmmu_unmap_user_mem(void * vaddr, int size)
 	struct proc_page_tab_data *table;
 	struct dmmu_mem_info info;
 
-	info.vaddr = vaddr;
+	info.vaddr = (unsigned long)vaddr;
 	info.size = size;
 	table = dmmu_get_table(current->tgid);
 
