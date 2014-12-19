@@ -27,7 +27,7 @@ struct snd_codec_data __attribute__((weak)) codec_data = {
 	.replay_headset_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_HPRL,
 					.gpio_hp_mute_stat = STATE_DISABLE,
 					.gpio_spk_en_stat = STATE_DISABLE},
-	.replay_speaker_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_ALL,
+	.replay_speaker_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_LO,
 					.gpio_hp_mute_stat = STATE_DISABLE,
 					.gpio_spk_en_stat = STATE_ENABLE},
 	.replay_headset_and_speaker_route = {.route = SND_ROUTE_REPLAY_DACRL_TO_ALL,
