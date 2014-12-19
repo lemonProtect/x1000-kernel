@@ -2,10 +2,6 @@
 #define _JZ_LIB_DMMU_H
 #include <asm/pgtable-bits.h>
 
-/* TLB FLAGS */
-/* Bit 0 is the valid bit in our TLB design */
-#define DMMU_PGD_VLD		0x1
-
 /* Bit 0~11 is secondary tlb check code in our TLB design */
 //#define DMMU_PTE_CHECK_PAGE_VALID		_PAGE_VALID
 #define DMMU_PTE_CHECK_PAGE_VALID		_PAGE_PRESENT
@@ -13,6 +9,11 @@
 #define DMMU_PTE_CHECK_PAGE_READ		(_PAGE_VALID | _PAGE_READ)
 #define DMMU_PTE_CHECK_PAGE_WRITE		(_PAGE_VALID | _PAGE_WRITE)
 #define DMMU_PTE_CHECK_PAGE_RW			(_PAGE_VALID | _PAGE_READ | _PAGE_WRITE)
+
+/* TLB FLAGS */
+/* Bit 0 is the valid bit in our TLB design */
+#define DMMU_PGD_VLD		(1 << 0)
+#define DMMU_PTE_VLD		DMMU_PTE_CHECK_PAGE_VALID
 
 
 /* user must use interface */

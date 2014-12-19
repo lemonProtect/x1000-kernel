@@ -14,9 +14,9 @@ struct dmmu_mem_info {
 	int size;
 	int page_count;
 
-	unsigned int paddr;
+	unsigned long paddr;
 
-	void *vaddr;
+	unsigned long vaddr;
 	void *pages_phys_addr_table;
 	unsigned int start_offset;
 	unsigned int end_offset;
@@ -26,6 +26,8 @@ struct dmmu_global_data {
 	spinlock_t list_lock;
 	struct miscdevice misc_dev;
 	struct list_head process_list;
+	unsigned long res_page;			/* phys_addr | 0xFFF */
+	unsigned long res_pte;			/* phys_addr | DMMU_PGD_VLD | DMMU_PGD_RES */
 };
 
 struct proc_page_tab_data {
@@ -34,8 +36,6 @@ struct proc_page_tab_data {
 
 	int * alloced_pgd_vaddr;
 	int alloced_pgd_paddr;
-	int *alloced_pte_record;
-	int alloced_page_num ;
 	int ref_times;
 };
 
