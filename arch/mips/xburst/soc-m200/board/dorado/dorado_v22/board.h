@@ -184,7 +184,7 @@
 #define GPIO_HP_MUTE		PCA9539_EXT_GPIO(11)	/*hp mute gpio*/
 #define GPIO_HP_MUTE_LEVEL	1	/*vaild level*/
 
-#define GPIO_SPEAKER_EN		-1      /*speaker enable gpio*/
+#define GPIO_SPEAKER_EN		 PCA9539_EXT_GPIO(5)      /*speaker enable gpio*/
 #define GPIO_SPEAKER_EN_LEVEL	-1
 
 #define GPIO_HANDSET_EN		-1	/*handset enable gpio*/
