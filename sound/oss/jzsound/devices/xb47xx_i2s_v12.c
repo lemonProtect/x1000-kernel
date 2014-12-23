@@ -1082,7 +1082,9 @@ static void i2s_codec_work_handler(struct work_struct *work)
 {
 	struct i2s_device *i2s_dev = (struct i2s_device *)container_of(work, struct i2s_device, i2s_codec_work);
 	struct codec_info *cur_codec = i2s_dev->cur_codec;
+#ifdef CONFIG_JZ_HP_DETECT_CODEC_V12
 	wait_event_interruptible(switch_data.wq,switch_data.hp_work.entry.next != NULL);
+#endif
 	cur_codec->codec_ctl_2(cur_codec, CODEC_IRQ_HANDLE,(unsigned long)(&(switch_data.hp_work)));
 }
 #endif
