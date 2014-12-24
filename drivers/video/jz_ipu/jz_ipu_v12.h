@@ -124,6 +124,10 @@ struct ipu_img_param
 
 };
 
+struct ipu_dmmu_map_info {
+	unsigned int	addr;
+	unsigned int	len;
+};
 
 #ifdef __KERNEL__
 
@@ -193,8 +197,11 @@ struct jz_ipu {
 #define IOCTL_IPU_CLR_BYPASS         _IO(JZIPU_IOC_MAGIC, 111)
 #define IOCTL_IPU_ENABLE_CLK         _IO(JZIPU_IOC_MAGIC, 112)
 #define IOCTL_IPU_TO_BUF             _IO(JZIPU_IOC_MAGIC, 113)
+#define IOCTL_IPU_DMMU_MAP		_IO(JZIPU_IOC_MAGIC, 114)
+#define IOCTL_IPU_DMMU_UNMAP		_IO(JZIPU_IOC_MAGIC, 115)
+#define IOCTL_IPU_DMMU_UNMAP_ALL	_IO(JZIPU_IOC_MAGIC, 116)
 //#define IOCTL_GET_FREE_IPU       _IOR(JZIPU_IOC_MAGIC, 109, int)
-#define IOCTL_IPU_GET_PBUFF			_IO(JZIPU_IOC_MAGIC, 115)
+#define IOCTL_IPU_GET_PBUFF			_IO(JZIPU_IOC_MAGIC, 117)
 
 static inline unsigned int reg_read(struct jz_ipu *jzipu, int offset)
 {

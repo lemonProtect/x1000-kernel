@@ -199,7 +199,7 @@ static void dmmu_cache_wback(struct dmmu_handle *handle)
 	}
 }
 
-int dmmu_map(unsigned long vaddr,unsigned long len)
+unsigned long dmmu_map(unsigned long vaddr,unsigned long len)
 {
 	int end = vaddr + len;
 	struct dmmu_handle *handle;
@@ -209,10 +209,10 @@ int dmmu_map(unsigned long vaddr,unsigned long len)
 	if(!handle)
 		handle = create_handle();
 	if(!handle)
-		return -ENOMEM;
+		return 0;
 
 	if(dmmu_make_present(vaddr,vaddr+len))
-		return -ENOMEM;
+		return 0;
 
 	while(vaddr < end) {
 		node = find_node(handle,vaddr);
@@ -225,7 +225,7 @@ int dmmu_map(unsigned long vaddr,unsigned long len)
 
 	dmmu_cache_wback(handle);
 
-	return 0;
+	return handle->pdg;
 }
 
 int dmmu_unmap(unsigned long vaddr, int len)

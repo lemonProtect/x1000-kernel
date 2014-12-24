@@ -33,6 +33,9 @@
 #include <linux/proc_fs.h>
 #include <linux/delay.h>
 #include <mach/jz_libdmmu.h>
+#ifdef CONFIG_SOC_M200
+#include <mach/libdmmu.h>
+#endif
 
 #include "jz_regs_v12.h"
 #include "jz_ipu_v12.h"
@@ -1320,6 +1323,31 @@ static long ipu_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		dev_info(ipu->dev, "Please define TEST IPU\n");
 #endif
 		break;
+#ifdef CONFIG_SOC_M200
+	case IOCTL_IPU_DMMU_MAP:
+		{
+			struct ipu_dmmu_map_info di;
+			if (copy_from_user(&di, (void *)arg, sizeof(di))) {
+				ret = -EFAULT;
+				break;
+			}
+			return dmmu_map(di.addr,di.len);
+		}
+		break;
+	case IOCTL_IPU_DMMU_UNMAP:
+		{
+			struct ipu_dmmu_map_info di;
+			if (copy_from_user(&di, (void *)arg, sizeof(di))) {
+				ret = -EFAULT;
+				break;
+			}
+			return dmmu_unmap(di.addr,di.len);
+		}
+		break;
+	case IOCTL_IPU_DMMU_UNMAP_ALL:
+		dmmu_unmap_all();
+		break;
+#endif
 	default:
 		dev_err(ipu->dev, "invalid command: 0x%08x\n", cmd);
 		return -EINVAL;

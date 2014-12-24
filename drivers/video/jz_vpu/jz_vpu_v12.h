@@ -46,6 +46,11 @@ struct flush_cache_info {
 	unsigned int	dir;
 };
 
+struct vpu_dmmu_map_info {
+	unsigned int	addr;
+	unsigned int	len;
+};
+
 #define vpu_readl(vpu, offset)		__raw_readl((vpu)->iomem + offset)
 #define vpu_writel(vpu, offset, value)	__raw_writel((value), (vpu)->iomem + offset)
 

@@ -27,6 +27,9 @@
 #include <soc/base.h>
 #include <soc/cpm.h>
 #include <mach/jzcpm_pwc.h>
+#ifdef CONFIG_SOC_M200
+#include <mach/libdmmu.h>
+#endif
 
 #include "jz_vpu_v12.h"
 
@@ -38,6 +41,9 @@
 #define CMD_VPU_CLEAN_WAIT_FLAG 104
 #define CMD_VPU_RESET 105
 #define CMD_VPU_SET_REG 106
+#define CMD_VPU_DMMU_MAP 107
+#define CMD_VPU_DMMU_UNMAP 108
+#define CMD_VPU_DMMU_UNMAP_ALL 109
 
 /* we add them to wait for vpu end before suspend */
 #define VPU_NEED_WAIT_END_FLAG 0x80000000
@@ -302,6 +308,31 @@ static long vpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			*(unsigned int *)(arg_r[i]) = arg_r[i+1];
 		local_irq_restore(flags);
 		break;
+#ifdef CONFIG_SOC_M200
+	case CMD_VPU_DMMU_MAP:
+		{
+			struct vpu_dmmu_map_info di;
+			if (copy_from_user(&di, (void *)arg, sizeof(di))) {
+				ret = -EFAULT;
+				break;
+			}
+			return dmmu_map(di.addr,di.len);
+		}
+		break;
+	case CMD_VPU_DMMU_UNMAP:
+		{
+			struct vpu_dmmu_map_info di;
+			if (copy_from_user(&di, (void *)arg, sizeof(di))) {
+				ret = -EFAULT;
+				break;
+			}
+			return dmmu_unmap(di.addr,di.len);
+		}
+		break;
+	case CMD_VPU_DMMU_UNMAP_ALL:
+		dmmu_unmap_all();
+		break;
+#endif
 	default:
 		break;
 	}
