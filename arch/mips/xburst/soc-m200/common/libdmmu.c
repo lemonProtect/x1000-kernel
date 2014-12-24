@@ -9,6 +9,7 @@
 #include <linux/mm.h>
 #include <linux/list.h>
 #include <linux/mutex.h>
+#include <linux/proc_fs.h>
 #include <linux/debugfs.h>
 #include <linux/mempolicy.h>
 #include <linux/mm_types.h>
@@ -20,6 +21,7 @@
 #include <asm/io.h>
 #include <linux/vmalloc.h>
 #include <linux/sched.h>
+#include <jz_proc.h>
 
 #include <mach/libdmmu.h>
 
@@ -32,6 +34,8 @@ LIST_HEAD(dmmu_list);
 struct dmmu_map_node {
 	unsigned int count;
 	unsigned long index;
+	unsigned long start;
+	unsigned long end;
 	unsigned long page;
 	struct list_head list;
 };
@@ -89,10 +93,12 @@ static unsigned long map_node(struct dmmu_map_node *n,unsigned int vaddr,unsigne
 {
 	unsigned int *pte = (unsigned int *)n->page;
 	int index = ((vaddr & 0x3ff000) >> 12);
+	n->start = vaddr;
 	while(index < 1024 && vaddr < end) {
 		pte[index++] = dmmu_v2p(vaddr);
 		vaddr += 4096;
 	}
+	n->end = index < 1024 ? end : vaddr;
 	n->count++;
 	return vaddr;
 }
@@ -116,10 +122,9 @@ static struct dmmu_map_node *add_node(struct dmmu_handle *handle,unsigned int va
 	struct dmmu_map_node *n = kmalloc(sizeof(*n),GFP_KERNEL);
 	INIT_LIST_HEAD(&n->list);
 	n->count = 0;
-	n->index = vaddr & 0xfffff000;
+	n->index = vaddr & 0xffc00000;
 	n->page = __get_free_page(GFP_KERNEL);
-	//fix me:
-	//should set these pages reserved
+	SetPageReserved(virt_to_page((void *)n->page));
 	list_add(&n->list, &handle->node_list);
 
 	pgd[vaddr>>22] = dmmu_v2p(n->page) | DMMU_PGD_VLD;
@@ -149,8 +154,7 @@ static struct dmmu_handle *create_handle(void)
 
 	handle->tgid = current->tgid;
 	handle->pdg = __get_free_page(GFP_KERNEL);
-	//fix me:
-	//should set these pages reserved
+	SetPageReserved(virt_to_page((void *)handle->pdg));
 
 	if(!handle->pdg) {
 		kfree(handle);
@@ -168,6 +172,7 @@ static int dmmu_make_present(unsigned long addr,unsigned long end)
 {
 	int ret, len, write;
 	struct vm_area_struct * vma;
+	unsigned long vm_page_prot;
 
 	vma = find_vma(current->mm, addr);
 	if (!vma)
@@ -175,16 +180,18 @@ static int dmmu_make_present(unsigned long addr,unsigned long end)
 	write = (vma->vm_flags & VM_WRITE) != 0;
 	BUG_ON(addr >= end);
 	BUG_ON(end > vma->vm_end);
+
+	vm_page_prot = pgprot_val(vma->vm_page_prot);
+	vma->vm_page_prot = __pgprot(vm_page_prot | _PAGE_VALID| _PAGE_ACCESSED | _PAGE_PRESENT);                                                        
+
 	len = DIV_ROUND_UP(end, PAGE_SIZE) - addr/PAGE_SIZE;
 	ret = get_user_pages(current, current->mm, addr,
 			len, write, 0, NULL, NULL);
-	//fix me:
-	//should set these pages reserved
+	vma->vm_page_prot = __pgprot(vm_page_prot);      
 	if (ret < 0)
 		return ret;
 	return ret == len ? 0 : -1;
 }
-
 
 static void dmmu_cache_wback(struct dmmu_handle *handle)
 {
@@ -275,4 +282,66 @@ int dmmu_unmap_all(void)
 	return 0;
 }
 
+static void dmmu_dump_handle(struct seq_file *m, void *v, struct dmmu_handle *h)
+{
+	struct list_head *pos, *next;
+	struct dmmu_map_node *n;
 
+	printk("tgid %d ======================================================\n",h->tgid);
+	list_for_each_safe(pos, next, &h->node_list) {
+		n = list_entry(pos, struct dmmu_map_node, list);
+		{
+			int i = 0;
+			int vaddr = n->start;
+			unsigned int *pte = (unsigned int *)n->page;
+
+			while(vaddr <= n->end) {
+				if(i++%8 == 0)
+					printk("\nvaddr %08x : ",vaddr & 0xfffff000);
+				printk("%08x ",pte[(vaddr & 0x3ff000)>>12]);
+				vaddr += 4096;
+			}
+			printk("\n\n");
+		}
+	}
+}
+
+static int dmmu_proc_show(struct seq_file *m, void *v)
+{
+	struct list_head *pos, *next;
+	struct dmmu_handle *handle;
+
+	list_for_each_safe(pos, next, &dmmu_list) {
+		handle = list_entry(pos, struct dmmu_handle, list);
+			dmmu_dump_handle(m, v, handle);
+	}
+
+	return 0;
+}
+
+static int dmmu_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, dmmu_proc_show, PDE_DATA(inode));
+}
+
+static const struct file_operations dmmus_proc_fops ={
+	.read = seq_read,
+	.open = dmmu_open,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static int __init init_dmmu_proc(void)
+{
+	struct proc_dir_entry *p;
+	p = jz_proc_mkdir("dmmu");
+	if (!p) {
+		pr_warning("create_proc_entry for common dmmu failed.\n");
+		return -ENODEV;
+	}
+	proc_create("dmmus", 0600,p,&dmmus_proc_fops);
+
+	return 0;
+}
+
+module_init(init_dmmu_proc);
