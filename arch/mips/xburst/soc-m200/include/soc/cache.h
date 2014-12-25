@@ -65,6 +65,7 @@ static inline void __jz_cache_init(void)
 	register unsigned long addr;
 	asm volatile ("mtc0 $0, $28\n\t"::);
 
+#if 0
 	for (addr = K0BASE; addr < (K0BASE + CFG_DCACHE_SIZE); addr += CFG_CACHELINE_SIZE) {
 		asm volatile (".set mips32\n\t"
 				" cache %0, 0(%1)\n\t"
@@ -72,6 +73,7 @@ static inline void __jz_cache_init(void)
 				:
 				: "I" (Index_Store_Tag_D), "r"(addr));
 	}
+#endif
 	for (addr = K0BASE; addr < (K0BASE + CFG_ICACHE_SIZE); addr += CFG_CACHELINE_SIZE) {
 		asm volatile (".set mips32\n\t"
 				" cache %0, 0(%1)\n\t"

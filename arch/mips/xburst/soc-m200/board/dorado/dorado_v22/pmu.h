@@ -62,7 +62,7 @@
 #define LDO7_ALWAYS_ON    0
 #define LDO8_ALWAYS_ON    0
 #define LDO9_ALWAYS_ON    0
-#define LDO10_ALWAYS_ON   0
+#define LDO10_ALWAYS_ON   1
 #define LDORTC1_ALWAYS_ON 1
 #define LDORTC2_ALWAYS_ON 1
 /* ****************************PMU DC/LDO ALWAYS ON END********************** */

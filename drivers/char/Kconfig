@@ -6,6 +6,26 @@ menu "Character devices"
 
 source "drivers/tty/Kconfig"
 
+config JZ_DMIC_V12
+	bool "Ingenic Dmic Driver"
+	default n
+	help
+		Say Y here if you want to support DMIC on your board. The Dmic Driver
+		support record and wakeup function. When in doubt, Say N here.
+config JZ_DMIC_WAKEUP
+	bool "Ingenic Voice Wakeup Driver"
+	depends on JZ_DMIC_V12
+	default n
+	help
+		Say Y here if you want to use voice wakeup function. The Voice Wakeup
+		Driver support voice wakeup. when in doubt , Say N here.
+config TEST_SECOND_REFRESH
+	bool "Ingenic Test second refresh for watch(test driver.)"
+	default n
+	help
+		This is a test driver for second refresh, this will remap tlb when system sleep.
+		do not choose this unless you know what you are doing.
+
 config DEVMEM
 	bool "Memory device driver"
 	default y

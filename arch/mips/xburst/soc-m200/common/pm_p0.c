@@ -263,7 +263,7 @@ static inline void set_gpio_func(int gpio, int type) {
 #define SLEEP_TCSM_LEN             4096
 
 #define SLEEP_TCSM_BOOT_LEN        256
-#define SLEEP_TCSM_DATA_LEN        32
+#define SLEEP_TCSM_DATA_LEN        64
 #define SLEEP_TCSM_RESUME_LEN      (SLEEP_TCSM_LEN - SLEEP_TCSM_BOOT_LEN - SLEEP_TCSM_DATA_LEN)
 
 #define SLEEP_TCSM_BOOT_TEXT       (SLEEP_TCSM_SPACE)
@@ -370,9 +370,6 @@ static noinline void cpu_sleep(void)
 		REG32(SLEEP_TCSM_RESUME_DATA + 8) = pmu_slp_gpio_info;
 	}
 
-#ifdef CONFIG_JZ_DMIC_WAKEUP
-	wakeup_module_open(DEEP_SLEEP);
-#endif
 	config_powerdown_core((unsigned int *)SLEEP_TCSM_BOOT_TEXT);
 	/* printk("sleep!\n"); */
 	/* printk("int mask:0x%08x\n",REG32(0xb0001004)); */
@@ -385,6 +382,12 @@ static noinline void cpu_sleep(void)
 	REG32(SLEEP_TCSM_RESUME_DATA + 16) = read_c0_config();
 	REG32(SLEEP_TCSM_RESUME_DATA + 20) = read_c0_status();
 	REG32(SLEEP_TCSM_RESUME_DATA + 24) = REG32(0xb0000000);
+
+
+
+#ifdef CONFIG_JZ_DMIC_WAKEUP
+	wakeup_module_open(DEEP_SLEEP);
+#endif
 
 #ifdef CONFIG_TEST_SECOND_REFRESH
 	printk("test _tlb ...3 \n");
@@ -450,12 +453,18 @@ LABLE1:
 	while((REG32(0xB00000D4) & 7))
 		TCSM_PCHAR('w');
 
-	/* set pdma deep sleep */
-	REG32(0xb00000b8) |= (1<<31);
 	if(pmu_slp_gpio_info != -1) {
 		set_gpio_func(pmu_slp_gpio_info & 0xffff,
 				pmu_slp_gpio_info >> 16);
 	}
+
+#ifdef CONFIG_JZ_DMIC_WAKEUP
+	/* set cache writeback */
+	REG32(SLEEP_TCSM_RESUME_DATA + 32) = __read_32bit_c0_register($12, 2); /* cache attr */
+	__write_32bit_c0_register($12, 2, REG32(SLEEP_TCSM_RESUME_DATA + 32) | (1<<31));
+#endif
+	/* set pdma deep sleep */
+	REG32(0xb00000b8) |= (1<<31);
 	__asm__ volatile(".set mips32\n\t"
 			"wait\n\t"
 			"nop\n\t"
@@ -553,12 +562,6 @@ static noinline void cpu_resume(void)
 	int s_temp;
 #endif
 	TCSM_PCHAR('O');
-	/* restore  CPM CPCCR */
-	val = REG32(SLEEP_TCSM_RESUME_DATA + 24);
-	val |= (7 << 20);
-	REG32(0xb0000000) = val;
-	while((REG32(0xB00000D4) & 7))
-		TCSM_PCHAR('w');
 
 	write_c0_config(REG32(SLEEP_TCSM_RESUME_DATA + 16));  // restore cachable
 	write_c0_status(REG32(SLEEP_TCSM_RESUME_DATA + 20));  // restore cp0 statue
@@ -572,6 +575,14 @@ static noinline void cpu_resume(void)
 	}
 	//serial_put_hex(val);
 #endif
+
+	/* restore  CPM CPCCR */
+	val = REG32(SLEEP_TCSM_RESUME_DATA + 24);
+	val |= (7 << 20);
+	REG32(0xb0000000) = val;
+	while((REG32(0xB00000D4) & 7))
+		TCSM_PCHAR('w');
+
 	val = REG32(SLEEP_TCSM_RESUME_DATA + 8);
 	if(val != -1)
 		set_gpio_func(val & 0xffff, val >> 16);
@@ -658,6 +669,10 @@ static noinline void cpu_resume(void)
 	write_c0_ecc(0x0);
 	__jz_cache_init();
 
+#ifdef CONFIG_JZ_DMIC_WAKEUP
+	/* restore cache attribute */
+	__write_32bit_c0_register($12, 2, REG32(SLEEP_TCSM_RESUME_DATA + 32));
+#endif
 	TCSM_PCHAR('r');
 	__asm__ volatile(".set mips32\n\t"
 			 "jr %0\n\t"
