@@ -232,7 +232,7 @@ unsigned long dmmu_map(unsigned long vaddr,unsigned long len)
 
 	dmmu_cache_wback(handle);
 
-	return handle->pdg;
+	return virt_to_phys((void *)handle->pdg);
 }
 
 int dmmu_unmap(unsigned long vaddr, int len)
@@ -286,7 +286,6 @@ static void dmmu_dump_handle(struct seq_file *m, void *v, struct dmmu_handle *h)
 {
 	struct list_head *pos, *next;
 	struct dmmu_map_node *n;
-
 	printk("tgid %d ======================================================\n",h->tgid);
 	list_for_each_safe(pos, next, &h->node_list) {
 		n = list_entry(pos, struct dmmu_map_node, list);
