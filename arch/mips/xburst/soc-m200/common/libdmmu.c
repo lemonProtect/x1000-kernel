@@ -25,11 +25,13 @@
 
 #include <mach/libdmmu.h>
 
-#define DMMU_PGD_VLD 0x1
+#define DMMU_PTE_VLD 		0x3ff
+#define DMMU_PMD_VLD 		0x3ff
 #define KSEG0_LOW_LIMIT		0x80000000
 #define KSEG1_HEIGH_LIMIT	0xC0000000
 
 LIST_HEAD(dmmu_list);
+static unsigned long reserved_pte = 0;
 
 struct dmmu_map_node {
 	unsigned int count;
@@ -67,7 +69,7 @@ static unsigned int get_paddr(unsigned int vaddr)
 }
 
 
-static int dmmu_v2p(unsigned long vaddr)
+static unsigned long dmmu_v2p(unsigned long vaddr)
 {
 	if(vaddr < KSEG0_LOW_LIMIT)
 		return get_paddr(vaddr);
@@ -79,14 +81,23 @@ static int dmmu_v2p(unsigned long vaddr)
 	return 0;
 }
 
-static void unmap_node(struct dmmu_map_node *n,int checkcount)
+static unsigned long unmap_node(struct dmmu_map_node *n,unsigned long vaddr,unsigned long end,int check)
 {
-	if(checkcount && --n->count)
-		return;
+	unsigned int *pte = (unsigned int *)n->page;
+	int index = ((vaddr & 0x3ff000) >> 12);
+	if(!check) {
+		__free_page((void *)n->page);
+		list_del(&n->list);
+		kfree(n);
+		return 0;
+	}
 
-	free_page(n->page);
-	list_del(&n->list);
-	kfree(n);
+	while(index < 1024 && vaddr < end) {
+		pte[index++] = dmmu_v2p(reserved_pte) | DMMU_PTE_VLD;
+		vaddr += 4096;
+	}
+	n->count--;
+	return vaddr;
 }
 
 static unsigned long map_node(struct dmmu_map_node *n,unsigned int vaddr,unsigned int end)
@@ -95,7 +106,7 @@ static unsigned long map_node(struct dmmu_map_node *n,unsigned int vaddr,unsigne
 	int index = ((vaddr & 0x3ff000) >> 12);
 	n->start = vaddr;
 	while(index < 1024 && vaddr < end) {
-		pte[index++] = dmmu_v2p(vaddr);
+		pte[index++] = dmmu_v2p(vaddr) | DMMU_PTE_VLD;
 		vaddr += 4096;
 	}
 	n->end = index < 1024 ? end : vaddr;
@@ -110,7 +121,7 @@ static struct dmmu_map_node *find_node(struct dmmu_handle *handle,unsigned int v
 
 	list_for_each_safe(pos, next, &handle->node_list) {
 		n = list_entry(pos, struct dmmu_map_node, list);
-		if(n->index == (vaddr & 0xfffff000))
+		if(n->index == (vaddr & 0xffc00000))
 			return n;
 	}
 	return NULL;
@@ -118,6 +129,8 @@ static struct dmmu_map_node *find_node(struct dmmu_handle *handle,unsigned int v
 
 static struct dmmu_map_node *add_node(struct dmmu_handle *handle,unsigned int vaddr)
 {
+	int i;
+	unsigned long *pte;
 	unsigned long *pgd = (unsigned long *)handle->pdg;
 	struct dmmu_map_node *n = kmalloc(sizeof(*n),GFP_KERNEL);
 	INIT_LIST_HEAD(&n->list);
@@ -125,9 +138,14 @@ static struct dmmu_map_node *add_node(struct dmmu_handle *handle,unsigned int va
 	n->index = vaddr & 0xffc00000;
 	n->page = __get_free_page(GFP_KERNEL);
 	SetPageReserved(virt_to_page((void *)n->page));
+
+	pte = (unsigned long *)n->page;
+	for(i=0;i<1024;i++)
+		pte[i] = dmmu_v2p(reserved_pte) | DMMU_PMD_VLD;
+
 	list_add(&n->list, &handle->node_list);
 
-	pgd[vaddr>>22] = dmmu_v2p(n->page) | DMMU_PGD_VLD;
+	pgd[vaddr>>22] = dmmu_v2p(n->page) | DMMU_PMD_VLD;
 	return n;
 }
 
@@ -155,6 +173,11 @@ static struct dmmu_handle *create_handle(void)
 	handle->tgid = current->tgid;
 	handle->pdg = __get_free_page(GFP_KERNEL);
 	SetPageReserved(virt_to_page((void *)handle->pdg));
+
+	if(reserved_pte == 0) {
+		reserved_pte = __get_free_page(GFP_KERNEL);
+		SetPageReserved(virt_to_page((void *)reserved_pte));
+	}
 
 	if(!handle->pdg) {
 		kfree(handle);
@@ -206,12 +229,14 @@ static void dmmu_cache_wback(struct dmmu_handle *handle)
 	}
 }
 
+static void dmmu_dump_handle(struct seq_file *m, void *v, struct dmmu_handle *h);
 unsigned long dmmu_map(unsigned long vaddr,unsigned long len)
 {
 	int end = vaddr + len;
 	struct dmmu_handle *handle;
 	struct dmmu_map_node *node;
 
+	printk("dmmu_map %lx %lx\n",vaddr,len);
 	handle = find_handle();
 	if(!handle)
 		handle = create_handle();
@@ -231,8 +256,11 @@ unsigned long dmmu_map(unsigned long vaddr,unsigned long len)
 	}
 
 	dmmu_cache_wback(handle);
-
-	return virt_to_phys((void *)handle->pdg);
+#ifdef DEBUG
+	dmmu_dump_handle(NULL,NULL,handle);
+	printk("pdg:%08lx\n\n",dmmu_v2p(handle->pdg));
+#endif
+	return dmmu_v2p(handle->pdg);
 }
 
 int dmmu_unmap(unsigned long vaddr, int len)
@@ -241,6 +269,7 @@ int dmmu_unmap(unsigned long vaddr, int len)
 	struct dmmu_handle *handle;
 	struct dmmu_map_node *node;
 
+	printk("dmmu_unmap %lx %x\n",vaddr,len);
 	handle = find_handle();
 	if(!handle)
 		return 0;
@@ -248,13 +277,18 @@ int dmmu_unmap(unsigned long vaddr, int len)
 	while(vaddr < end) {
 		node = find_node(handle,vaddr);
 		if(node)
-			unmap_node(node,1);
+			vaddr = unmap_node(node,vaddr,end,1);
 	}
 	
 	if(list_empty(&handle->node_list)) {
 		list_del(&handle->list);
-		free_page(handle->pdg);
+		__free_page((void *)handle->pdg);
 		kfree(handle);
+	}
+
+	if(list_empty(&dmmu_list)) {
+		__free_page((void *)reserved_pte);
+		reserved_pte = 0;
 	}
 
 	return 0;
@@ -272,29 +306,63 @@ int dmmu_unmap_all(void)
 	
 	list_for_each_safe(pos, next, &handle->node_list) {
 		node = list_entry(pos, struct dmmu_map_node, list);
-		unmap_node(node,0);
+		unmap_node(node,0,0,0);
 	}
 	
 	list_del(&handle->list);
-	free_page(handle->pdg);
+	__free_page((void *)handle->pdg);
 	kfree(handle);
 
+	if(list_empty(&dmmu_list)) {
+		__free_page((void *)reserved_pte);
+		reserved_pte = 0;
+	}
+
 	return 0;
+}
+
+void dmmu_dump_vaddr(unsigned long vaddr)
+{
+	struct dmmu_handle *handle;
+	struct dmmu_map_node *node;
+
+	unsigned long *pmd,*pte;
+	handle = find_handle();
+	if(!handle) {
+		printk("dmmu_dump_vaddr %08lx error - handle not found!\n",vaddr);
+		return;
+	}
+
+	node = find_node(handle,vaddr);
+	if(!node) {
+		printk("dmmu_dump_vaddr %08lx error - node not found!\n",vaddr);
+		return;
+	}
+
+	pmd = (unsigned long *)handle->pdg;
+	pte = (unsigned long *)node->page;
+
+	printk("pmd base = %p; pte base = %p\n",pmd,pte);
+	printk("pmd = %08lx; pte = %08lx\n",pmd[vaddr>>22],pte[(vaddr&0x3ff000)>>12]);
 }
 
 static void dmmu_dump_handle(struct seq_file *m, void *v, struct dmmu_handle *h)
 {
 	struct list_head *pos, *next;
 	struct dmmu_map_node *n;
-	printk("tgid %d ======================================================\n",h->tgid);
+
+	printk("======================== tgid %d ======================== \n\n",h->tgid);
 	list_for_each_safe(pos, next, &h->node_list) {
 		n = list_entry(pos, struct dmmu_map_node, list);
 		{
 			int i = 0;
 			int vaddr = n->start;
+			unsigned long *pmd = (unsigned long *)h->pdg;
 			unsigned int *pte = (unsigned int *)n->page;
 
-			while(vaddr <= n->end) {
+			printk("pmd = %08lx\n",pmd[vaddr >> 22]);
+
+			while(vaddr < n->end) {
 				if(i++%8 == 0)
 					printk("\nvaddr %08x : ",vaddr & 0xfffff000);
 				printk("%08x ",pte[(vaddr & 0x3ff000)>>12]);
