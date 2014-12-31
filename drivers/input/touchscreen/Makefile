@@ -23,6 +23,7 @@ obj-$(CONFIG_TOUCHSCREEN_NOVATEK)       += novatek_ts.o
 obj-$(CONFIG_TOUCHSCREEN_GOODIX)	+= goodix_ts.o
 obj-$(CONFIG_JZ4780_SUPPORT_RESISTANCE_TSC) +=jz4780_ts.o
 obj-$(CONFIG_TOUCHSCREEN_FT5336)        += ft5336_ts.o
+obj-$(CONFIG_TOUCHSCREEN_ITE7258)        += ite7258_ts.o
 
 ##########################################
 obj-$(CONFIG_TOUCHSCREEN_88PM860X)	+= 88pm860x-ts.o

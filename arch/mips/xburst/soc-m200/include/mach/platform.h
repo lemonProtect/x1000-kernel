@@ -26,7 +26,7 @@
 	{ .name = "dmic1-sysclk",	.port = GPIO_PORT_E, .func = GPIO_FUNC_1, .pins = 0x1<<10}
 /*******************************************************************************************************************/
 #define UART0_PORTF							\
-	{ .name = "uart0", .port = GPIO_PORT_F, .func = GPIO_FUNC_2, .pins = 0x0f, }
+	{ .name = "uart0", .port = GPIO_PORT_F, .func = GPIO_FUNC_2, .pins = 0x0b, }
 #define UART1_PORTD							\
 	{ .name = "uart1", .port = GPIO_PORT_D, .func = GPIO_FUNC_2, .pins = 0x9 << 26, }
 #define UART2_PORTC							\

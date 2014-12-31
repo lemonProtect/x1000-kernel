@@ -38,6 +38,9 @@
 #include <soc/gpio.h>
 #include <mach/jzfb.h>
 #ifdef CONFIG_JZ_MIPI_DSI
+#ifdef  CONFIG_JZ_MIPI_DBI
+#define CONFIG_SLCDC_CONTINUA
+#endif
 #include "./jz_mipi_dsi/jz_mipi_dsih_hal.h"
 #include "./jz_mipi_dsi/jz_mipi_dsi_regs.h"
 extern struct dsi_device * jzdsi_init(struct jzdsi_data *pdata);
@@ -84,7 +87,9 @@ static int jzfb_open(struct fb_info *info, int user)
 		 * */
 		jzfb_disable_2(jzfb->fb);
 #ifdef CONFIG_JZ_MIPI_DSI
+#ifndef CONFIG_JZ_MIPI_DBI
 		jzfb->dsi->master_ops->video_cfg(jzfb->dsi);
+#endif
 #endif
 		jzfb_set_par(jzfb->fb);
 		jzfb_enable_2(jzfb->fb);
@@ -1116,7 +1121,9 @@ static int jzfb_blank(int blank_mode, struct fb_info *info)
 		case FB_BLANK_UNBLANK:
 #ifdef CONFIG_JZ_MIPI_DSI
 			jzfb->dsi->master_ops->set_blank(jzfb->dsi, DSI_BLANK_POWERUP);
+#ifndef CONFIG_JZ_MIPI_DBI // for support the dsi mipi slcd
 			jzfb->dsi->master_ops->video_cfg(jzfb->dsi);
+#endif
 #endif
 
 			clk_enable(jzfb->pclk);

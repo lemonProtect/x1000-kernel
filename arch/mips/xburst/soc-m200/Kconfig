@@ -9,6 +9,8 @@ config BOARD_4785_FPGA
 config PRODUCT_DEVELOP
        bool "DEVELOP"
 
+config BOARD_NEWTON
+       bool "NEWTON"
 config BOARD_FORNAX
        bool "FORNAX"
 endchoice
@@ -17,8 +19,12 @@ config PRODUCT_NAME
 	string
 	default "fpga" if BOARD_4785_FPGA
 	default "dorado" if PRODUCT_DEVELOP
+	default "newton" if BOARD_NEWTON
 	default "fornax" if BOARD_FORNAX
 
 if PRODUCT_DEVELOP
 source "arch/mips/xburst/soc-m200/board/dorado/Kconfig"
+endif
+if BOARD_NEWTON
+source "arch/mips/xburst/soc-m200/board/newton/Kconfig"
 endif

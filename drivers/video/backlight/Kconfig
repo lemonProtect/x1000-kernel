@@ -157,6 +157,11 @@ config LCD_BYD_9177AA
 	depends on FB && JZ_MIPI_DSI
 	help
 	   jz mipi dsi.dpi TFT display panel  support
+config LCD_X163
+   tristate "X163 smart mipi-dsi panel(320x320)"
+   depends on FB && JZ_MIPI_DSI && JZ_MIPI_DBI
+   help
+	   jz mipi dsi.dbi smart display panel support
 config NEED_REGULATOR
 	bool "Need regulator"
 	depends on LCD_BYD_8991FTGF

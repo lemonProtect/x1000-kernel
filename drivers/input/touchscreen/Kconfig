@@ -157,6 +157,11 @@ config TOUCHSCREEN_AD7879
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad7879.
 
+config TOUCHSCREEN_ITE7258
+	tristate "Touchscreen ite7258"
+	depends on I2C && M200_SUPPORT_TSC
+	help
+		ite7258 a CTP controller,support panel unknown
 config TOUCHSCREEN_AD7879_I2C
 	tristate "support I2C bus connection"
 	depends on TOUCHSCREEN_AD7879 && I2C
