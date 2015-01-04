@@ -25,8 +25,8 @@
 
 #include <mach/libdmmu.h>
 
-#define DMMU_PTE_VLD 		0x3ff
-#define DMMU_PMD_VLD 		0x3ff
+#define DMMU_PTE_VLD 		0x80
+#define DMMU_PMD_VLD 		0x01
 #define KSEG0_LOW_LIMIT		0x80000000
 #define KSEG1_HEIGH_LIMIT	0xC0000000
 
@@ -85,7 +85,8 @@ static unsigned long unmap_node(struct dmmu_map_node *n,unsigned long vaddr,unsi
 {
 	unsigned int *pte = (unsigned int *)n->page;
 	int index = ((vaddr & 0x3ff000) >> 12);
-	if(!check) {
+	int free = !check || (--n->count == 0);
+	if(free) {
 		__free_page((void *)n->page);
 		list_del(&n->list);
 		kfree(n);
@@ -96,7 +97,7 @@ static unsigned long unmap_node(struct dmmu_map_node *n,unsigned long vaddr,unsi
 		pte[index++] = dmmu_v2p(reserved_pte) | DMMU_PTE_VLD;
 		vaddr += 4096;
 	}
-	n->count--;
+
 	return vaddr;
 }
 
@@ -105,6 +106,9 @@ static unsigned long map_node(struct dmmu_map_node *n,unsigned int vaddr,unsigne
 	unsigned int *pte = (unsigned int *)n->page;
 	int index = ((vaddr & 0x3ff000) >> 12);
 	n->start = vaddr;
+
+	if(pte[index] != (dmmu_v2p(reserved_pte) | DMMU_PTE_VLD))
+		return 0;
 	while(index < 1024 && vaddr < end) {
 		pte[index++] = dmmu_v2p(vaddr) | DMMU_PTE_VLD;
 		vaddr += 4096;
@@ -253,6 +257,8 @@ unsigned long dmmu_map(unsigned long vaddr,unsigned long len)
 		}
 
 		vaddr = map_node(node,vaddr,end);
+		if(vaddr == 0)
+			return 0;
 	}
 
 	dmmu_cache_wback(handle);
