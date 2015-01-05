@@ -25,8 +25,8 @@
 
 #include <mach/libdmmu.h>
 
-#define DMMU_PTE_VLD 		0x80
-#define DMMU_PMD_VLD 		0x01
+#define DMMU_PTE_VLD 		0xff
+#define DMMU_PMD_VLD 		0xff
 #define KSEG0_LOW_LIMIT		0x80000000
 #define KSEG1_HEIGH_LIMIT	0xC0000000
 
@@ -42,12 +42,49 @@ struct dmmu_map_node {
 	struct list_head list;
 };
 
+struct check_node {
+	unsigned long start;
+	unsigned long end;
+	struct list_head list;
+};
+
 struct dmmu_handle {
 	pid_t tgid;
 	unsigned long pdg;
 	struct list_head node_list;
 	struct list_head list;
+	struct list_head check_list;
 };
+
+static struct check_node *handle_check_map(struct dmmu_handle *h,unsigned long vaddr,unsigned long len)
+{
+	struct list_head *pos, *next;
+	struct check_node *n;
+	list_for_each_safe(pos, next, &h->check_list) {
+		n = list_entry(pos, struct check_node, list);
+		if(vaddr == n->start)
+			return n;
+	}
+	return NULL;
+}
+
+static void handle_add_map(struct dmmu_handle *h,unsigned long vaddr,unsigned long len)
+{
+	struct check_node *n = kmalloc(sizeof(*n),GFP_KERNEL);
+	n->start = vaddr;
+	n->end = vaddr + len;
+	INIT_LIST_HEAD(&n->list);
+	list_add(&n->list,&h->check_list);
+}
+
+static void handle_del_map(struct dmmu_handle *h,unsigned long vaddr,unsigned long len)
+{
+	struct check_node *n = handle_check_map(h,vaddr,len);
+	if(!n)
+		return;
+	list_del(&n->list);
+	kfree(n);
+}
 
 static unsigned int get_paddr(unsigned int vaddr)
 {
@@ -68,12 +105,11 @@ static unsigned int get_paddr(unsigned int vaddr)
 	return 0;
 }
 
-
 static unsigned long dmmu_v2p(unsigned long vaddr)
 {
 	if(vaddr < KSEG0_LOW_LIMIT)
 		return get_paddr(vaddr);
-	
+
 	if(vaddr >= KSEG0_LOW_LIMIT && vaddr < KSEG1_HEIGH_LIMIT)
 		return virt_to_phys((void *)vaddr);
 
@@ -107,8 +143,6 @@ static unsigned long map_node(struct dmmu_map_node *n,unsigned int vaddr,unsigne
 	int index = ((vaddr & 0x3ff000) >> 12);
 	n->start = vaddr;
 
-	if(pte[index] != (dmmu_v2p(reserved_pte) | DMMU_PTE_VLD))
-		return 0;
 	while(index < 1024 && vaddr < end) {
 		pte[index++] = dmmu_v2p(vaddr) | DMMU_PTE_VLD;
 		vaddr += 4096;
@@ -145,7 +179,7 @@ static struct dmmu_map_node *add_node(struct dmmu_handle *handle,unsigned int va
 
 	pte = (unsigned long *)n->page;
 	for(i=0;i<1024;i++)
-		pte[i] = dmmu_v2p(reserved_pte) | DMMU_PMD_VLD;
+		pte[i] = dmmu_v2p(reserved_pte) | DMMU_PTE_VLD;
 
 	list_add(&n->list, &handle->node_list);
 
@@ -190,6 +224,7 @@ static struct dmmu_handle *create_handle(void)
 
 	INIT_LIST_HEAD(&handle->list);
 	INIT_LIST_HEAD(&handle->node_list);
+	INIT_LIST_HEAD(&handle->check_list);
 	list_add(&handle->list, &dmmu_list);
 
 	return handle;
@@ -209,12 +244,12 @@ static int dmmu_make_present(unsigned long addr,unsigned long end)
 	BUG_ON(end > vma->vm_end);
 
 	vm_page_prot = pgprot_val(vma->vm_page_prot);
-	vma->vm_page_prot = __pgprot(vm_page_prot | _PAGE_VALID| _PAGE_ACCESSED | _PAGE_PRESENT);                                                        
+	vma->vm_page_prot = __pgprot(vm_page_prot | _PAGE_VALID| _PAGE_ACCESSED | _PAGE_PRESENT);
 
 	len = DIV_ROUND_UP(end, PAGE_SIZE) - addr/PAGE_SIZE;
 	ret = get_user_pages(current, current->mm, addr,
 			len, write, 0, NULL, NULL);
-	vma->vm_page_prot = __pgprot(vm_page_prot);      
+	vma->vm_page_prot = __pgprot(vm_page_prot);
 	if (ret < 0)
 		return ret;
 	return ret == len ? 0 : -1;
@@ -234,22 +269,29 @@ static void dmmu_cache_wback(struct dmmu_handle *handle)
 }
 
 static void dmmu_dump_handle(struct seq_file *m, void *v, struct dmmu_handle *h);
+
 unsigned long dmmu_map(unsigned long vaddr,unsigned long len)
 {
 	int end = vaddr + len;
 	struct dmmu_handle *handle;
 	struct dmmu_map_node *node;
 
+#ifdef DEBUG
 	printk("dmmu_map %lx %lx\n",vaddr,len);
+#endif
 	handle = find_handle();
 	if(!handle)
 		handle = create_handle();
 	if(!handle)
 		return 0;
 
+	if(handle_check_map(handle,vaddr,len)){
+		return 0;
+	}
 	if(dmmu_make_present(vaddr,vaddr+len))
 		return 0;
 
+	handle_add_map(handle,vaddr,len);
 	while(vaddr < end) {
 		node = find_node(handle,vaddr);
 		if(!node) {
@@ -257,8 +299,6 @@ unsigned long dmmu_map(unsigned long vaddr,unsigned long len)
 		}
 
 		vaddr = map_node(node,vaddr,end);
-		if(vaddr == 0)
-			return 0;
 	}
 
 	dmmu_cache_wback(handle);
@@ -285,8 +325,10 @@ int dmmu_unmap(unsigned long vaddr, int len)
 		if(node)
 			vaddr = unmap_node(node,vaddr,end,1);
 	}
-	
-	if(list_empty(&handle->node_list)) {
+
+	handle_del_map(handle,vaddr,len);
+
+	if(list_empty(&handle->node_list) && list_empty(&handle->check_list)) {
 		list_del(&handle->list);
 		__free_page((void *)handle->pdg);
 		kfree(handle);
@@ -304,17 +346,24 @@ int dmmu_unmap_all(void)
 {
 	struct dmmu_handle *handle;
 	struct dmmu_map_node *node;
+	struct check_node *cn;
 	struct list_head *pos, *next;
 
 	handle = find_handle();
 	if(!handle)
 		return 0;
-	
+
 	list_for_each_safe(pos, next, &handle->node_list) {
 		node = list_entry(pos, struct dmmu_map_node, list);
 		unmap_node(node,0,0,0);
 	}
-	
+
+	list_for_each_safe(pos, next, &handle->check_list) {
+		cn = list_entry(pos, struct check_node, list);
+		list_del(&cn->list);
+		kfree(cn);
+	}
+
 	list_del(&handle->list);
 	__free_page((void *)handle->pdg);
 	kfree(handle);
