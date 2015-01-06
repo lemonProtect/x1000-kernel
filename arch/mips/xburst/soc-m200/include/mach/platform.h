@@ -134,13 +134,14 @@
 	{ .name = "otg-drvvbus", .port = GPIO_PORT_E, .func = GPIO_FUNC_0, .pins = 1 << 10, }
 
 /*******************************************************************************************************************/
-
 #define ISP_PORTD							\
 	{ .name = "isp", .port = GPIO_PORT_D, .func = GPIO_FUNC_2, .pins = 0x000003ff, }
 
 #define ISP_I2C							\
 	{ .name = "isp-i2c",    .port = GPIO_PORT_B,  .func = GPIO_FUNC_2, .pins = 3 << 7, }
 
+#define ISP_PORTC							\
+	{ .name = "isp-clk", .port = GPIO_PORT_C, .func = GPIO_FUNC_2, .pins = 1 << 24, }
 /*******************************************************************************************************************/
 
 #define CIM_PORTC							\

@@ -11,16 +11,18 @@ static int ov9724_power(int onoff)
 	if(temp) {
 		gpio_request(CAMERA_PWDN_N, "CAMERA_PWDN_N");
 		gpio_request(CAMERA_RST, "CAMERA_RST");
+		gpio_request(CAMERA_PWEN, "CAMERA_PWEN");
 		temp = 0;
 	}
 	if (onoff) { /* conflict with USB_ID pin */
-		//gpio_direction_output(CAMERA_PWDN_N, 0);
+		gpio_direction_output(CAMERA_PWEN, 1);
 		mdelay(10); /* this is necesary */
-		//gpio_direction_output(CAMERA_PWDN_N, 1);
+		gpio_direction_output(CAMERA_PWDN_N, 1);
 		;
 	} else {
-		//gpio_direction_output(CAMERA_PWDN_N, 0);
-		gpio_direction_output(CAMERA_RST, 0);   /*PWM0 */
+		gpio_direction_output(CAMERA_PWDN_N, 0);
+		mdelay(3);
+		gpio_direction_output(CAMERA_PWEN, 0);
 	}
 
 	return 0;
@@ -29,12 +31,13 @@ static int ov9724_power(int onoff)
 static int ov9724_reset(void)
 {
 	/*reset*/
-	gpio_direction_output(CAMERA_RST, 1);   /*PWM0 */
-	mdelay(10);
-	gpio_direction_output(CAMERA_RST, 0);   /*PWM0 */
-	mdelay(10);
-	gpio_direction_output(CAMERA_RST, 1);   /*PWM0 */
-
+	if(CAMERA_RST != -1) {
+		gpio_direction_output(CAMERA_RST, 1);   /*PWM0 */
+		mdelay(10);
+		gpio_direction_output(CAMERA_RST, 0);   /*PWM0 */
+		mdelay(10);
+		gpio_direction_output(CAMERA_RST, 1);   /*PWM0 */
+	}
 	return 0;
 }
 

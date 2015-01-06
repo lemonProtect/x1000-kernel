@@ -32,6 +32,9 @@
 #include "isp-debug.h"
 
 #include "ovisp-csi.h"
+
+#define CAMERA_NEED_REGULATOR		(0)
+
 static struct ovisp_camera_format isp_oformats[] = {
 	{
 		.name     = "YUV 4:2:2 packed, YCbYCr",
@@ -143,7 +146,7 @@ static int ovisp_subdev_power_on(struct ovisp_camera_dev *camdev,
 		return ret;
 
 	/* first camera work power on */
-#ifndef CONFIG_VIDEO_AW6120
+#if (CAMERA_NEED_REGULATOR)
 	if(!regulator_is_enabled(camdev->camera_power))
 	    regulator_enable(camdev->camera_power);
 #endif
@@ -226,7 +229,7 @@ static int ovisp_subdev_power_off(struct ovisp_camera_dev *camdev,
 	}
 	/*cpu_xxx power should not be power on or off*/
 	/*analog power off*/
-#ifndef CONFIG_VIDEO_AW6120
+#if (CAMERA_NEED_REGULATOR)
 	if(regulator_is_enabled(camdev->camera_power))
 		        regulator_disable(camdev->camera_power);
 #endif
@@ -1793,7 +1796,7 @@ static int ovisp_camera_probe(struct platform_device *pdev)
 	camdev->frame.field = V4L2_FIELD_INTERLACED;
 	camdev->first_init = 1;
 
-#ifndef CONFIG_VIDEO_AW6120
+#if (CAMERA_NEED_REGULATOR)
 	camdev->camera_power = regulator_get(camdev->dev, "cpu_avdd");
 	if(IS_ERR(camdev->camera_power)) {
 		dev_warn(camdev->dev, "camera regulator missing\n");
@@ -1895,7 +1898,7 @@ free_i2c:
 	ovisp_camera_free_subdev(camdev);
 cleanup_ctx:
 	vb2_dma_contig_cleanup_ctx(camdev->alloc_ctx);
-#ifndef CONFIG_VIDEO_AW6120
+#if (CAMERA_NEED_REGULATOR)
 regulator_error:
 	regulator_put(camdev->camera_power);
 #endif
@@ -1917,7 +1920,7 @@ static int __exit ovisp_camera_remove(struct platform_device *pdev)
 {
 	struct ovisp_camera_dev *camdev = platform_get_drvdata(pdev);
 
-#ifndef CONFIG_VIDEO_AW6120
+#if (CAMERA_NEED_REGULATOR)
 	regulator_put(camdev->camera_power);
 #endif
 	video_device_release(camdev->vfd);

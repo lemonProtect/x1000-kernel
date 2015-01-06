@@ -73,7 +73,12 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #endif
 #ifdef CONFIG_OVISP_I2C
 	ISP_I2C,
+#ifdef CONFIG_MCLK_GPIO_PC24
+	ISP_PORTC,
+#endif
+#ifdef CONFIG_MCLK_GPIO_PE02
 	MCLK_PORTE_BIT2,
+#endif
 #endif
 
 #if (defined(CONFIG_DVP_CAMERA0))

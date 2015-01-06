@@ -182,7 +182,8 @@
 
 /* ****************************GPIO CAMERA START***************************** */
 #define CAMERA_RST				-1
-#define CAMERA_PWDN_N           GPIO_PC(23) /* pin conflict with USB_ID */
+#define CAMERA_PWDN_N           GPIO_PC(22) /* pin conflict with USB_ID */
+#define CAMERA_PWEN				GPIO_PC(23)
 #define CAMERA_MCLK		GPIO_PE(2) /* no use */
 #ifdef CONFIG_DVP_OV9712
 #define OV9712_POWER	 	GPIO_PC(2) //the power of camera board
