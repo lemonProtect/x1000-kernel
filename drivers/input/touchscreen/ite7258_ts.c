@@ -964,7 +964,6 @@ static int ite7258_ts_probe(struct i2c_client *client,
 		goto exit_get_version;
 	}
 
-	printk("++++++++++++++++++++++++++++++++++++++++++++++\n");
 	input_dev = input_allocate_device();
         if (!input_dev) {
                 err = -ENOMEM;
@@ -1003,9 +1002,9 @@ static int ite7258_ts_probe(struct i2c_client *client,
 
 
 
-	mutex_init(&ite7258_ts->lock);
+		mutex_init(&ite7258_ts->lock);
         ite7258_hw_init(client);
-        ite7258_idle_mode(client);
+	    ite7258_idle_mode(client);
 
         INIT_WORK(&ite7258_ts->work, ite7258_work_handler);
         ite7258_ts->workqueue = create_singlethread_workqueue("ite7258_ts");

@@ -122,8 +122,8 @@
 /* #define GPIO_HOME_KEY		GPIO_PD(18) */
 /* #define ACTIVE_LOW_HOME		1 */
 
-#define GPIO_VOLUMEDOWN_KEY         GPIO_PD(18)
-#define ACTIVE_LOW_VOLUMEDOWN	0
+#define GPIO_BACK_KEY         GPIO_PD(18)
+#define  ACTIVE_LOW_BACK	0
 
 #define GPIO_ENDCALL_KEY            GPIO_PA(30)
 #define ACTIVE_LOW_ENDCALL      1
@@ -215,18 +215,10 @@
 /* ****************************GPIO AUDIO END******************************** */
 
 /* ****************************GPIO WIFI START******************************* */
-#define HOST_WAKE_WL	GPIO_PA(10)
+#define BCM_PWR_EN       GPIO_PA(0)
 #define WL_WAKE_HOST	GPIO_PA(9)
-#define WL_REG_EN	GPIO_PA(8)
-#if 0
-#define GPIO_WLAN_REG_ON	GPIO_PG(7)
-#define GPIO_WLAN_INT	        GPIO_PG(8)
-#define GPIO_WLAN_WAKE	        GPIO_PB(28)
-#define GPIO_WIFI_RST_N     GPIO_PB(20)
-#endif
-
-#define WLAN_PWR_EN	(-1)
-//#define WLAN_PWR_EN	GPIO_PE(3)
+#define WL_REG_EN   GPIO_PA(8)
+#define HOST_WAKE_WL    (-1)
 /* ****************************GPIO WIFI END********************************* */
 
 /* ****************************GPIO NFC START******************************** */

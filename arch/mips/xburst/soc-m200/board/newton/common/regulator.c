@@ -70,7 +70,7 @@ static struct regulator_consumer_supply d2041_consumer_supply[D2041_NUMBER_OF_RE
 	[D2041_LDO_13] = REGULATOR_SUPPLY("lcd_1v8", NULL),
 	[D2041_LDO_16] = REGULATOR_SUPPLY("vcc_sensor3v3", NULL),
 	[D2041_LDO_17] = REGULATOR_SUPPLY("vcc_sensor1v8", NULL),
-	[D2041_LDO_19] = REGULATOR_SUPPLY("wifi_vddio_1v8", NULL),
+	[D2041_LDO_19] = REGULATOR_SUPPLY("wifi_vddio_18", NULL),
 	[D2041_LDO_AUD] = REGULATOR_SUPPLY("vrtc25", NULL),
 };
 

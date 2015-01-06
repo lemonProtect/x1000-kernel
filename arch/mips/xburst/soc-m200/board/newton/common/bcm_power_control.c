@@ -18,7 +18,7 @@ static void disable_clk32k(void)
 }
 
 static struct bcm_power_platform_data bcm_power_platform_data = {
-	.wlan_pwr_en = WLAN_PWR_EN,
+	.wlan_pwr_en = BCM_PWR_EN,
 	.clk_enable = enable_clk32k,
 	.clk_disable = disable_clk32k,
 };
@@ -147,7 +147,7 @@ struct bcm2079x_platform_data bcm2079x_pdata = {
 #endif	/*CONFIG_BCM2079X_NFC*/
 
 /*For WiFi*/
-#ifdef CONFIG_WLAN
+#ifdef CONFIG_BCMDHD_1_141_66
 #define RESET               0
 #define NORMAL              1
 
@@ -156,8 +156,12 @@ extern int jzmmc_clk_ctrl(int index, int on);
 extern int bcm_power_on(void);
 extern int bcm_power_down(void);
 
-#ifdef CONFIG_BCM43341
-static struct resource wlan_resources[] = {
+struct wifi_data {
+	struct wake_lock                wifi_wake_lock;
+	int                             wifi_reset;
+};
+
+struct resource wlan_resources[] = {
 	[0] = {
 		.start = WL_WAKE_HOST,
 		.end = WL_WAKE_HOST,
@@ -174,52 +178,42 @@ struct platform_device wlan_device = {
 	.resource       = wlan_resources,
 	.num_resources  = ARRAY_SIZE(wlan_resources),
 };
-#endif /* CONFIG_BCM43341 */
 
-struct wifi_data {
-	struct wake_lock                wifi_wake_lock;
-	int                             wifi_reset;
-};
 static struct wifi_data bcm_data;
 
-/*The function should be called iw8103,but do not modify because of compatibility */
 static void wifi_le_set_io(void)
 {
-#if 0
-	/*set WL REG ON , WL WAKE HOST pins to output low status*/
-//	jzgpio_set_func(GPIO_PORT_B, GPIO_INPUT, 0x3 << 20);
-
-	/*set WL_MSC1_D0 , WL_MSC1_D1, WL_MSC1_D2, WL_MSC1_D3,
-	  WL_MSC1_CLK, WL_MSC1_CMD pins to output low statu*/
-//	jzgpio_set_func(GPIO_PORT_D, GPIO_INPUT, 0x3F << 20);
-#endif
+	/*when wifi is down, set WL_MSC1_D0 , WL_MSC1_D1, WL_MSC1_D2, WL_MSC1_D3,
+	  WL_MSC1_CLK, WL_MSC1_CMD pins to INPUT_NOPULL status*/
+	jzgpio_set_func(GPIO_PORT_E, GPIO_INPUT, 0x1 << 20);
+	jzgpio_set_func(GPIO_PORT_E, GPIO_INPUT, 0x1 << 21);
+	jzgpio_set_func(GPIO_PORT_E, GPIO_INPUT, 0x1 << 22);
+	jzgpio_set_func(GPIO_PORT_E, GPIO_INPUT, 0x1 << 23);
+	jzgpio_set_func(GPIO_PORT_E, GPIO_INPUT, 0x1 << 28);
+	jzgpio_set_func(GPIO_PORT_E, GPIO_INPUT, 0x1 << 29);
 }
 
 static void wifi_le_restore_io(void)
 {
-#if 0
-	/*set WL WAKE HOST pin to input*/
-//	jzgpio_set_func(GPIO_PORT_B,GPIO_INPUT,0x1 << 21);
-
-	/*set WL_MSC1_D0 , WL_MSC1_D1, WL_MSC1_D2, WL_MSC1_D3,
-	  WL_MSC1_CLK, WL_MSC1_CMD pins to GPIO_FUNC_0*/
-//	jzgpio_set_func(GPIO_PORT_D,GPIO_FUNC_0,0x3F << 20);
-#endif
+	/*when wifi is up ,set WL_MSC1_D0 , WL_MSC1_D1, WL_MSC1_D2, WL_MSC1_D3,
+		 WL_MSC1_CLK, WL_MSC1_CMD pins to GPIO_FUNC_0*/
+	jzgpio_set_func(GPIO_PORT_E, GPIO_FUNC_2, 0x1 << 20);
+	jzgpio_set_func(GPIO_PORT_E, GPIO_FUNC_2, 0x1 << 21);
+	jzgpio_set_func(GPIO_PORT_E, GPIO_FUNC_2, 0x1 << 22);
+	jzgpio_set_func(GPIO_PORT_E, GPIO_FUNC_2, 0x1 << 23);
+	jzgpio_set_func(GPIO_PORT_E, GPIO_FUNC_2, 0x1 << 28);
+	jzgpio_set_func(GPIO_PORT_E, GPIO_FUNC_2, 0x1 << 29);
 }
 
 int bcm_wlan_init(void)
 {
 	int reset;
-	static struct wake_lock	*wifi_wake_lock = &bcm_data.wifi_wake_lock;
 
 	wifi_le_set_io();
 
-	gpio_request(WL_REG_EN, "wl_reg_on");
-	gpio_direction_output(WL_REG_EN, 0);
-
-#if defined(WL_RST_EN)
-	reset = WL_RST_EN;
-	if (gpio_request(WL_RST_EN, "wifi_reset")) {
+#if defined(HOST_WIFI_RST)
+	reset = HOST_WIFI_RST;
+	if (gpio_request(HOST_WIFI_RST, "wifi_reset")) {
 		pr_err("no wifi_reset pin available\n");
 
 		return -EINVAL;
@@ -231,7 +225,6 @@ int bcm_wlan_init(void)
 #endif
 	bcm_data.wifi_reset = reset;
 
-	wake_lock_init(wifi_wake_lock, WAKE_LOCK_SUSPEND, "wifi_wake_lock");
 
 	return 0;
 }
@@ -267,10 +260,10 @@ start:
 	switch(flag) {
 		case RESET:
 #ifdef WL_REG_EN
-			gpio_direction_output(wl_reg_on, 1);
+			gpio_direction_output(wl_reg_on,1);
 			msleep(200);
 #endif
-			jzmmc_clk_ctrl(1, 1);
+			msleep(200);
 #ifdef WL_RST_EN
 			gpio_direction_output(reset, 0);
 			msleep(200);
@@ -281,6 +274,7 @@ start:
 		case NORMAL:
 			msleep(200);
 #ifdef WL_REG_EN
+			gpio_request(wl_reg_on, "wl_reg_on");
 			gpio_direction_output(wl_reg_on,1);
 			msleep(200);
 #endif
@@ -295,7 +289,6 @@ start:
 			break;
 	}
 
-	//	wake_lock(wifi_wake_lock);
 
 	return 0;
 }
@@ -324,14 +317,13 @@ start:
 	pr_debug("wlan power off:%d\n", flag);
 	switch(flag) {
 		case RESET:
+#ifdef WL_REG_EN
+			gpio_direction_output(wl_reg_on,0);
+#endif
 #ifdef WL_RST_EN
 			gpio_direction_output(reset, 0);
 #endif
-#ifdef WL_REG_EN
-			udelay(65);
-			gpio_direction_output(wl_reg_on,0);
-#endif
-			jzmmc_clk_ctrl(1, 0);
+			msleep(200);
 			break;
 
 		case NORMAL:
@@ -347,7 +339,7 @@ start:
 			gpio_direction_output(wl_reg_on,0);
 #endif
 			msleep(200);
-			jzmmc_manual_detect(1, 0);
+//			jzmmc_manual_detect(1, 0);
 			break;
 	}
 

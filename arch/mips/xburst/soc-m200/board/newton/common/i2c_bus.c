@@ -189,16 +189,16 @@ int jz_i2c1_devs_size = ARRAY_SIZE(jz_i2c1_devs);
 		.dev	= { .platform_data = &i2c##NO##_gpio_data,},	\
 	};
 
-#ifndef CONFIG_I2C0_V12_JZ
+#ifdef CONFIG_SOFT_I2C0_GPIO_V12_JZ
 DEF_GPIO_I2C(0);
 #endif
-#ifndef CONFIG_I2C1_V12_JZ
+#ifdef CONFIG_SOFT_I2C1_GPIO_V12_JZ
 DEF_GPIO_I2C(1);
 #endif
-#ifndef CONFIG_I2C2_V12_JZ
+#ifdef CONFIG_SOFT_I2C2_GPIO_V12_JZ
 DEF_GPIO_I2C(2);
 #endif
-#ifndef CONFIG_I2C3_V12_JZ
+#ifdef CONFIG_SOFT_I2C3_GPIO_V12_JZ
 DEF_GPIO_I2C(3);
 #endif
 #endif /*CONFIG_I2C_GPIO*/

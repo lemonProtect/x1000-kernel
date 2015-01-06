@@ -108,7 +108,7 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&bt_power_device, 0, 0),
 	DEF_DEVICE(&bluesleep_device, 0, 0),
 #endif
-#ifdef CONFIG_BCM43341
+#ifdef CONFIG_BCMDHD_1_141_66
 	DEF_DEVICE(&wlan_device, 0, 0),
 #endif /* CONFIG_BCM43341 */
 #ifdef CONFIG_JZ_IPU_V12
