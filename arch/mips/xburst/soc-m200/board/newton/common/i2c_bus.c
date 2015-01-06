@@ -128,13 +128,6 @@ struct i2c_board_info jz_i2c0_devs[] __initdata = {
 		.platform_data = &ft5336_tsc_pdata,
 	},
 #endif
-#ifdef CONFIG_INV_MPU_IIO
-	{
-		I2C_BOARD_INFO("mpu6500", 0x68),
-		.irq = (IRQ_GPIO_BASE + GPIO_GSENSOR_INT),
-		.platform_data = &mpu9250_platform_data,
-	},
-#endif /*CONFIG_INV_MPU_IIO*/
 #if defined(CONFIG_BCM2079X_NFC)
 	{
 		I2C_BOARD_INFO("bcm2079x-i2c", 0x77),
@@ -165,6 +158,20 @@ struct i2c_board_info jz_i2c1_devs[] __initdata = {
 };
 #endif  /*I2C1*/
 
+#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_V12_JZ))
+struct i2c_board_info jz_i2c2_devs[] __initdata = {
+
+#ifdef CONFIG_INV_MPU_IIO
+	{
+		I2C_BOARD_INFO("mpu6500", 0x68),
+		.irq = (IRQ_GPIO_BASE + GPIO_GSENSOR_INT),
+		.platform_data = &mpu9250_platform_data,
+	},
+#endif /*CONFIG_INV_MPU_IIO*/
+};
+#endif  /*I2C1*/
+
+
 #if     defined(CONFIG_SOFT_I2C0_GPIO_V12_JZ) || defined(CONFIG_I2C0_V12_JZ)
 int jz_i2c0_devs_size = ARRAY_SIZE(jz_i2c0_devs);
 #endif
@@ -173,6 +180,9 @@ int jz_i2c0_devs_size = ARRAY_SIZE(jz_i2c0_devs);
 int jz_i2c1_devs_size = ARRAY_SIZE(jz_i2c1_devs);
 #endif
 
+#if     defined(CONFIG_SOFT_I2C2_GPIO_V12_JZ) || defined(CONFIG_I2C2_V12_JZ)
+int jz_i2c2_devs_size = ARRAY_SIZE(jz_i2c2_devs);
+#endif
 /*
  * define gpio i2c,if you use gpio i2c,
  * please enable gpio i2c and disable i2c controller

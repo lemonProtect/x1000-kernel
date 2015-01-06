@@ -21,7 +21,7 @@
 #define FMT16BITS   AFMT_S16_LE
 #define FMT24BITS   AFMT_S24_LE
 
-#define DEFAULT_SND_DEV "/dev/jzdmic_driver"
+#define DEFAULT_SND_DEV "/dev/jz-dmic"
 
 #define DEFAULT_SND_SPD 16000
 #define DEFAULT_SND_CHN 1
