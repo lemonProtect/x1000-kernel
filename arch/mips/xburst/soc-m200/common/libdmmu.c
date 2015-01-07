@@ -25,12 +25,17 @@
 
 #include <mach/libdmmu.h>
 
-#define DMMU_PTE_VLD 		0xff
-#define DMMU_PMD_VLD 		0xff
+#define MAP_COUNT		0x10
+#define MAP_CONUT_MASK		0xff0
+
+#define DMMU_PTE_VLD 		0x01
+#define DMMU_PMD_VLD 		0x01
+
 #define KSEG0_LOW_LIMIT		0x80000000
 #define KSEG1_HEIGH_LIMIT	0xC0000000
 
 LIST_HEAD(dmmu_list);
+static unsigned long reserved_page = 0;
 static unsigned long reserved_pte = 0;
 
 struct dmmu_map_node {
@@ -44,7 +49,7 @@ struct dmmu_map_node {
 
 struct check_node {
 	unsigned long start;
-	unsigned long end;
+	unsigned long len;
 	struct list_head list;
 };
 
@@ -62,7 +67,7 @@ static struct check_node *handle_check_map(struct dmmu_handle *h,unsigned long v
 	struct check_node *n;
 	list_for_each_safe(pos, next, &h->check_list) {
 		n = list_entry(pos, struct check_node, list);
-		if(vaddr == n->start)
+		if(vaddr == n->start && len == n->len)
 			return n;
 	}
 	return NULL;
@@ -72,18 +77,9 @@ static void handle_add_map(struct dmmu_handle *h,unsigned long vaddr,unsigned lo
 {
 	struct check_node *n = kmalloc(sizeof(*n),GFP_KERNEL);
 	n->start = vaddr;
-	n->end = vaddr + len;
+	n->len = len;
 	INIT_LIST_HEAD(&n->list);
 	list_add(&n->list,&h->check_list);
-}
-
-static void handle_del_map(struct dmmu_handle *h,unsigned long vaddr,unsigned long len)
-{
-	struct check_node *n = handle_check_map(h,vaddr,len);
-	if(!n)
-		return;
-	list_del(&n->list);
-	kfree(n);
 }
 
 static unsigned int get_paddr(unsigned int vaddr)
@@ -130,7 +126,11 @@ static unsigned long unmap_node(struct dmmu_map_node *n,unsigned long vaddr,unsi
 	}
 
 	while(index < 1024 && vaddr < end) {
-		pte[index++] = dmmu_v2p(reserved_pte) | DMMU_PTE_VLD;
+		if(pte[index] & MAP_CONUT_MASK)
+			pte[index] -= MAP_COUNT;
+		else
+			pte[index] = reserved_pte;
+		index++;
 		vaddr += 4096;
 	}
 
@@ -144,7 +144,12 @@ static unsigned long map_node(struct dmmu_map_node *n,unsigned int vaddr,unsigne
 	n->start = vaddr;
 
 	while(index < 1024 && vaddr < end) {
-		pte[index++] = dmmu_v2p(vaddr) | DMMU_PTE_VLD;
+		if(pte[index] == reserved_pte) {
+			pte[index] = dmmu_v2p(vaddr) | DMMU_PTE_VLD;
+		} else {
+			pte[index] += MAP_COUNT;
+		}
+		index++;
 		vaddr += 4096;
 	}
 	n->end = index < 1024 ? end : vaddr;
@@ -179,7 +184,7 @@ static struct dmmu_map_node *add_node(struct dmmu_handle *handle,unsigned int va
 
 	pte = (unsigned long *)n->page;
 	for(i=0;i<1024;i++)
-		pte[i] = dmmu_v2p(reserved_pte) | DMMU_PTE_VLD;
+		pte[i] = reserved_pte;
 
 	list_add(&n->list, &handle->node_list);
 
@@ -213,8 +218,9 @@ static struct dmmu_handle *create_handle(void)
 	SetPageReserved(virt_to_page((void *)handle->pdg));
 
 	if(reserved_pte == 0) {
-		reserved_pte = __get_free_page(GFP_KERNEL);
-		SetPageReserved(virt_to_page((void *)reserved_pte));
+		reserved_page = __get_free_page(GFP_KERNEL);
+		SetPageReserved(virt_to_page((void *)reserved_page));
+		reserved_pte = dmmu_v2p(reserved_page) | DMMU_PTE_VLD;
 	}
 
 	if(!handle->pdg) {
@@ -286,7 +292,7 @@ unsigned long dmmu_map(unsigned long vaddr,unsigned long len)
 		return 0;
 
 	if(handle_check_map(handle,vaddr,len)){
-		return 0;
+		return dmmu_v2p(handle->pdg);
 	}
 	if(dmmu_make_present(vaddr,vaddr+len))
 		return 0;
@@ -314,19 +320,24 @@ int dmmu_unmap(unsigned long vaddr, int len)
 	unsigned long end = vaddr + len;
 	struct dmmu_handle *handle;
 	struct dmmu_map_node *node;
+	struct check_node *n;
 
 	printk("dmmu_unmap %lx %x\n",vaddr,len);
 	handle = find_handle();
 	if(!handle)
 		return 0;
 
+	n = handle_check_map(handle,vaddr,len);
+	if(!n)
+		return -EAGAIN;
+	list_del(&n->list);
+	kfree(n);
+
 	while(vaddr < end) {
 		node = find_node(handle,vaddr);
 		if(node)
 			vaddr = unmap_node(node,vaddr,end,1);
 	}
-
-	handle_del_map(handle,vaddr,len);
 
 	if(list_empty(&handle->node_list) && list_empty(&handle->check_list)) {
 		list_del(&handle->list);
@@ -335,7 +346,8 @@ int dmmu_unmap(unsigned long vaddr, int len)
 	}
 
 	if(list_empty(&dmmu_list)) {
-		__free_page((void *)reserved_pte);
+		__free_page((void *)reserved_page);
+		reserved_page = 0;
 		reserved_pte = 0;
 	}
 
@@ -369,7 +381,8 @@ int dmmu_unmap_all(void)
 	kfree(handle);
 
 	if(list_empty(&dmmu_list)) {
-		__free_page((void *)reserved_pte);
+		__free_page((void *)reserved_page);
+		reserved_page = 0;
 		reserved_pte = 0;
 	}
 
