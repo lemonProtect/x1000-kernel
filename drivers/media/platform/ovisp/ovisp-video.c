@@ -1106,12 +1106,11 @@ static int ovisp_vidioc_reqbufs(struct file *file, void *priv,
 		return -EINVAL;
 	}
 	if(p->memory == V4L2_MEMORY_USERPTR){
-		if(p->count == 0)
+		if(p->count == 0){
 			ret = isp_dev_call(camdev->isp, tlb_unmap_all_vaddr);
-		else
-			ret = isp_dev_call(camdev->isp, tlb_init);
+		}
 		if(ret < 0){
-			ISP_PRINT(ISP_ERROR,"%s[%d] tlb operator failed!\n", __func__, __LINE__);
+			ISP_PRINT(ISP_ERROR," %s[%d] tlb operator failed!\n", __func__, __LINE__);
 			return -EINVAL;
 		}
 	}else{
@@ -1566,8 +1565,9 @@ static int ovisp_v4l2_close(struct file *file)
 	/* Close the priority */
 	v4l2_prio_close(&camdev->prio, fh->prio);
 
-	if(camdev->isp->tlb_flag)
-		ret = isp_dev_call(camdev->isp, tlb_deinit);
+	if(camdev->isp->tlb_flag){
+		isp_dev_call(camdev->isp, tlb_unmap_all_vaddr);
+	}
 	return ret;
 }
 
