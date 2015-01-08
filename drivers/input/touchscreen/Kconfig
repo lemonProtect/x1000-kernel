@@ -162,6 +162,14 @@ config TOUCHSCREEN_ITE7258
 	depends on I2C && M200_SUPPORT_TSC
 	help
 		ite7258 a CTP controller,support panel unknown
+
+config ITE7258_MULTITOUCH
+	bool "Enable multi-touch on FocalTech ITE7258 "
+	depends on TOUCHSCREEN_ITE7258
+	default y
+	help
+	  support multitouch ite7258,if you want , say Y here.
+
 config TOUCHSCREEN_AD7879_I2C
 	tristate "support I2C bus connection"
 	depends on TOUCHSCREEN_AD7879 && I2C

@@ -49,8 +49,6 @@
 #include "ite7258_ex_fun.h"
 #endif
 
-
-#define		CONFIG_ITE7258_MULTITOUCH
 struct ite7258_ts_data {
         unsigned int irq;
         unsigned int rst;
