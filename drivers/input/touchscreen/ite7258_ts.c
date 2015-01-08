@@ -506,7 +506,7 @@ static void ite7258_report_value(struct ite7258_ts_data *data)
 #else
 	input_report_abs(data->input_dev, ABS_X, data->x_pos);
 	input_report_abs(data->input_dev, ABS_Y, data->y_pos);
-	//input_report_abs(data->input_dev, ABS_PRESSURE, 0xF);
+//	input_report_abs(data->input_dev, ABS_PRESSURE, 0xF);
 #endif
 }
 
@@ -566,10 +566,13 @@ static int ite7258_read_Touchdata(struct ite7258_ts_data *data)
 			//printk("[mtk-tpd] input Read_Point1 x=%d y=%d\n",xraw,yraw);
 			data->x_pos = xraw;
 			data->y_pos = yraw;
-			input_report_key(data->input_dev, BTN_TOUCH, 1);
 			ite7258_report_value(data);
+			input_report_key(data->input_dev, BTN_TOUCH, 1);
 			input_sync(data->input_dev);
+		}else if ( pucPoint[0]== 0) {
+			input_report_key(data->input_dev, BTN_TOUCH, 0);
 		}
+
 #endif
 	}
 	return 0;
@@ -873,13 +876,13 @@ static void ite7258_input_set(struct input_dev *input_dev, struct ite7258_ts_dat
         set_bit(ABS_X, input_dev->absbit);
         set_bit(ABS_Y, input_dev->absbit);
 
-	//set_bit(ABS_PRESSURE, input_dev->absbit);
+		//set_bit(ABS_PRESSURE, input_dev->absbit);
         set_bit(EV_SYN, input_dev->evbit);
         set_bit(BTN_TOUCH, input_dev->keybit);
 
         input_set_abs_params(input_dev, ABS_X, 0, ts->x_max, 0, 0);
         input_set_abs_params(input_dev, ABS_Y, 0, ts->y_max, 0, 0);
-	input_set_abs_params(input_dev, ABS_PRESSURE, 0, 0xFF, 0, 0);
+//		input_set_abs_params(input_dev, ABS_PRESSURE, 0, 0xFF, 0, 0);
 #endif
         set_bit(EV_KEY, input_dev->evbit);
         set_bit(EV_ABS, input_dev->evbit);
