@@ -49,6 +49,10 @@
 #include "ite7258_ex_fun.h"
 #endif
 
+#include "ite7258_cfg.h"
+#include "ite7258_fw.h"
+
+
 struct ite7258_ts_data {
         unsigned int irq;
         unsigned int rst;
@@ -94,8 +98,9 @@ int ite7258_i2c_Read(struct i2c_client *client, char *writebuf,
 {
 	int ret;
 	struct ite7258_ts_data *ts = i2c_get_clientdata(client);
-	if(ts->is_suspend)
+	if(ts->is_suspend) {
 		return 0;
+	}
 	if (writelen > 0) {
 		struct i2c_msg msgs[] = {
 			{
@@ -165,6 +170,9 @@ static void  ite7258_wait_command_done(struct i2c_client *client)
                 count++;
                 msleep(1);
         }while(rbuffer[0] & 0x01 && count < 500);
+		if(count >= 500) {
+			printk("wait command done timeout!!!\n");
+		}
 }
 
 static bool ite7258_enter_update_mode(struct i2c_client *client)
@@ -253,9 +261,8 @@ static bool ite7258_firmware_reinit(struct i2c_client *client)
 {
         u8 cmd_data_buf[2];
         ite7258_wait_command_done(client);
-
         cmd_data_buf[0] = 0x20;
-        cmd_data_buf[0] = 0x6F;
+        cmd_data_buf[1] = 0x6F;
         if(!ite7258_i2c_Write(client, cmd_data_buf, 2) ){
                 printk("XXX %s, %d\n", __func__, __LINE__);
                 return false;
@@ -286,7 +293,7 @@ static bool ite7258_setupdate_offset(struct i2c_client *client,
         ite7258_wait_command_done(client);
 
         command_buf[0] = 0xA0;
-        if(ite7258_i2c_Read(client, command_buf, 1, command_respon_buf, 2)){
+        if(ite7258_i2c_Read(client, command_buf, 1, command_respon_buf, 2) < 0){
                 printk("XXX %s, %d\n", __func__, __LINE__);
                 return false;
         }
@@ -309,19 +316,24 @@ static bool ite7258_really_update(struct i2c_client *client,
         unsigned char read_length;
         int retry_count;
         int i;
-
-        read_length = 128;
+		read_length = 128;
+		printk("==>");
         while(index < length){
+			if(!(index % 512)) {
+				printk("#");
+			}
                 retry_count = 0;
                 do{
                         ite7258_setupdate_offset(client, offset + index);
                         buffer[0] = 0x20;
                         buffer[1] = 0x62;
-                        buffer[2] = 128;
-                        for (i = 0; i < 129; i++) {
-                                buf_write[i] = buffer[3 + i] = date[index + i];
+						buffer[2] = 128;
+						for (i = 0; i < 129; i++) {
+								buffer[3 + i] = date[index + i];
+
+								buf_write[i] = buffer[3 + i];
                         }
-                        ite7258_i2c_Write(client, buffer, 132);
+						ite7258_i2c_Write(client, buffer, 131);
 
                         // Read from Flash
                         buffer[0] = 0x20;
@@ -334,21 +346,24 @@ static bool ite7258_really_update(struct i2c_client *client,
 
                         buffer[0] = 0xA0;
                         ite7258_i2c_Read(client, buffer, 1, buf_read, read_length);
+
                         // Compare
-                        for (i = 0; i < 128; i++) {
-                                if (buf_read[i] != buf_write[i]) {
-                                        break;
-                                }
+						for (i = 0; i < 128; i++) {
+								if (buf_read[i] != buf_write[i]) {
+									printk("compare error:i:%d buf_read:%x, buf_write:%x\n",i, buf_read[i], buf_write[i]);
+									break;
+								}
                         }
-                        if (i == 128) break;
+						if (i == 128) break;
                 }while (retry_count++ < 4);
 
                 if (retry_count == 4 && i != 128){
                         printk("XXX %s, %d\n", __func__, __LINE__);
                         return false;
                 }
-                index += 128;
+				index += 128;
         }
+		printk("\n");
         return true;
 }
 
@@ -400,100 +415,69 @@ static bool ite7258_firmware_down(void)
                 return false;
         }
         printk("OOO %s, %d\n", __func__, __LINE__);
+
         return true;
 }
 
-static int ite7258_upgrade_fw(void)
+static int ite7258_check_update_fw(unsigned char *target_fw, unsigned char *target_config)
 {
         unsigned int fw_size = 0;
         unsigned int config_size = 0;
-        struct file *fw_fd = NULL;
-        struct file *config_fd = NULL;
+        u8 *fw_buf;
+        u8 *config_buf;
+		int i;
+		int fw_need_update = 0;
+		int cfg_need_update = 0;
 
-        mm_segment_t fs;
-        u8 *fw_buf = kzalloc(0x8000, GFP_KERNEL);
-        u8 *config_buf = kzalloc(0x500, GFP_KERNEL);
-        if(fw_buf  == NULL || config_buf == NULL){
-                printk("kzalloc failed\n");
-        }
+		update->fw_length = sizeof(CTP_FW);
+        update->fw_buf = CTP_FW;
+		fw_buf = CTP_FW;
+		fw_size = sizeof(CTP_FW);
 
-        fs = get_fs();
-        set_fs(get_ds());
+		for(i = 0; i < 4; i++)
+		{
+			if(target_fw[i] < fw_buf[8 + i])
+			{
+				fw_need_update = 1;
+			} else {
+				fw_need_update = 0;
+			}
+		}
 
-        fw_fd = filp_open("/data/upgrade/it7260_FW", O_RDONLY, 0);
-        if (fw_fd < 0){
-                printk("open /data/upgrade/it7260_FW failed \n");
-                fw_fd = filp_open("/sdcard/upgrade/it7260_FW", O_RDONLY, 0);
-                if (fw_fd < 0){
-                        printk("open /sdcard/upgrade/it7260_FW failed \n");
-                        filp_close(fw_fd,NULL);
-                        return 1;
-                }
-        }
 
-        fw_size = fw_fd->f_op->read(fw_fd, fw_buf, 0x8000, &fw_fd->f_pos);
-        printk("fw_ver : %d,%d,%d,%d\n",fw_buf[8], fw_buf[9], fw_buf[10], fw_buf[11]);
-        printk("--------------------- fw_size = %x\n", fw_size);
+		update->conf_length = sizeof(CTP_CFG);
+        update->conf_buf    = CTP_CFG;
+        config_buf = CTP_CFG;
+		config_size = sizeof(CTP_CFG);
 
-        config_fd = filp_open("/data/upgrade/it7260_Config", O_RDONLY, 0);
-        if(config_fd < 0){
-                printk("open /data/upgrade/it7260_Config failed \n");
-                config_fd = filp_open("/sdcard/upgrade/it7260_Config", O_RDONLY, 0);
-                if (config_fd < 0){
-                        printk("open /sdcard/upgrade/it7260_Config failed \n");
-                        filp_close(config_fd,NULL);
-                        return 1;
-                }
-        }
-        update->fw_length = fw_size;
-        update->fw_buf = fw_buf;
+		for(i = 0; i < 4; i++)
+		{
+			if(target_config[i] < config_buf[config_size - 8 - i])
+			{
+				cfg_need_update = 1;
+			} else {
+				cfg_need_update = 0;
+			}
+		}
 
-        config_size = config_fd->f_op->read(config_fd, \
-                        config_buf, 0x500, &config_fd->f_pos);
-        printk("cfg_ver : %d,%d,%d,%d\n",config_buf[config_size-8],
-                                        config_buf[config_size-7],
-                                        config_buf[config_size-6],
-                                        config_buf[config_size-5]);
-        printk("--------------------- config_size = %x\n", config_size);
-        update->conf_length = config_size - 8;
-        update->conf_buf    = &config_buf[config_size-7];
+		if(fw_need_update) {
+			printk("device:fw_ver : %d,%d,%d,%d\n",target_fw[0], target_fw[1], target_fw[2], target_fw[3]);
+			printk("update:fw_ver : %d,%d,%d,%d\n",fw_buf[8], fw_buf[9], fw_buf[10], fw_buf[11]);
 
-        set_fs(fs);
-        filp_close(fw_fd,NULL);
-        filp_close(config_fd,NULL);
-        //tpd_halt = 1;
-        //mt65xx_eint_mask(CUST_EINT_TOUCH_PANEL_NUM);
-        if (ite7258_firmware_down() == false){
-                //fail
-                //tpd_halt = 0;
-                //mt65xx_eint_unmask(CUST_EINT_TOUCH_PANEL_NUM);
-                return 1;
-        }else{
-                //succese;
-                //tpd_halt = 0;
-                //mt65xx_eint_unmask(CUST_EINT_TOUCH_PANEL_NUM);
-                return 0;
-        }
+			printk("device:cfg_ver : %d,%d,%d,%d\n",target_config[0], target_config[1], target_config[2], target_config[3]);
+			printk("update:cfg_ver : %d,%d,%d,%d\n",config_buf[config_size-8],
+					config_buf[config_size-7],
+					config_buf[config_size-6],
+					config_buf[config_size-5]);
+			if(ite7258_firmware_down() == true) {
+				printk("touch panel firmware update ok!, system will restart!\n");
+			} else {
+				printk("touch panel firmware update failed!\n");
+			}
 
-}
-
-static int IT7258_upgrade_store_temp(void)
-{
-        if(!ite7258_upgrade_fw()) {
-                printk("IT7258_upgrade_OK\n\n");
-                return 0;
-        } else {
-                printk("IT7258_upgrade_failed\n");
-                return -1;
-        }
-}
-
-static ssize_t IT7258_upgrade_store(struct device *dev,
-                struct device_attribute *attr, const char *buf, size_t count)
-{
-        printk("%s():\n", __func__);
-        IT7258_upgrade_store_temp();
-        return count;
+		} else {
+			printk("%s, touch panel firmware no need to update!\n", __func__);
+		}
 }
 
 static void ite7258_report_value(struct ite7258_ts_data *data)
@@ -646,11 +630,12 @@ static void ite7258_idle_mode(struct i2c_client *client)
 static int ite7258_print_version(struct i2c_client *client)
 {
         unsigned char wbuffer[9];
-        unsigned char rbuffer[9];
+		unsigned char rbuffer[9];
 
-        int ret = -1;
-
-#ifdef  ITE7258_DEBUG
+		unsigned char target_fw[4];
+		unsigned char target_config[4];
+		int ret = -1;
+		int i;
 
         ite7258_wait_command_done(client);
         /* Firmware Information */
@@ -667,8 +652,11 @@ static int ite7258_print_version(struct i2c_client *client)
         printk("ITE7258 Touch Panel FW Version:%d.%d.%d.%d\tExtension ROM Version:%d.%d.%d.%d\n",\
                                rbuffer[1], rbuffer[2], rbuffer[3], rbuffer[4], \
                                rbuffer[5], rbuffer[6], rbuffer[7], rbuffer[8]);
+        for(i = 0; i < 4; i++) {
+			target_fw[i] = rbuffer[5+i];
+		}
 
-        ite7258_wait_command_done(client);
+		ite7258_wait_command_done(client);
         /* Configuration Version */
         wbuffer[0] = CMD_BUF_ADDR;
         wbuffer[1] = 0x01;
@@ -681,7 +669,11 @@ static int ite7258_print_version(struct i2c_client *client)
         ret = ite7258_i2c_Read(client, wbuffer, 1, rbuffer, 7);
         printk("ITE7258 Touch Panel Configuration Version:%x.%x.%x.%x\n",
                         rbuffer[1], rbuffer[2], rbuffer[3], rbuffer[4]);
+		for(i = 0; i < 4; i++) {
+			target_config[i] = rbuffer[1 + i];
+		}
 
+#ifdef  ITE7258_DEBUG
         /* IRQ status */
         ite7258_wait_command_done(client);
         wbuffer[0] = CMD_BUF_ADDR;
@@ -697,6 +689,8 @@ static int ite7258_print_version(struct i2c_client *client)
         printk("[mtk-tpd] ITE7258 Touch irq %x, %x \n",rbuffer[0], rbuffer[1]);
 #endif
 
+		ite7258_check_update_fw(target_fw, target_config);
+
         /* vendor ID && Device ID */
         ite7258_wait_command_done(client);
         wbuffer[0] = CMD_BUF_ADDR;
@@ -708,14 +702,6 @@ static int ite7258_print_version(struct i2c_client *client)
         wbuffer[0] = CMD_RESPONSE_BUF_ADDR;
         memset(rbuffer, 0xFF,  8);
         ret = ite7258_i2c_Read(client, wbuffer, 1, rbuffer, 8);
-
-/*	if(strncmp(rbuffer, "ITE7260", 7)){
-		return -1;
-	}
-*/
-	if(rbuffer[1] != 0x49 && rbuffer[2] != 0x54 && rbuffer[3] != 0x45){
-		return -1;
-	}
 
         printk("ITE7258 Touch Panel Firmware Version %c%c%c%c%c%c%c\n",
                         rbuffer[1], rbuffer[2], rbuffer[3], rbuffer[4],
@@ -746,27 +732,26 @@ static void ite7258_ts_suspend(struct early_suspend *handler)
 static void ite7258_ts_resume(struct early_suspend *handler)
 {
 	printk("ite7258 resume ---------\n");
-        struct ite7258_ts_data *ts = container_of(handler, struct ite7258_ts_data,
-                        early_suspend);
+	struct ite7258_ts_data *ts = container_of(handler, struct ite7258_ts_data,
+			early_suspend);
 	//mutex_lock(&ts->lock);
 	flush_scheduled_work();
-        gpio_direction_output(ts->rst, 1);
+	gpio_direction_output(ts->rst, 1);
 	msleep(2);
-        gpio_direction_output(ts->rst, 0);
+	gpio_direction_output(ts->rst, 0);
 	gpio_direction_output(ts->client->irq, 0);
-        msleep(10);
-        regulator_enable(ts->vcc_reg);
-        dev_dbg(&ts->client->dev, "[FTS]ite7258 resume.\n");
+	msleep(10);
+	regulator_enable(ts->vcc_reg);
+	dev_dbg(&ts->client->dev, "[FTS]ite7258 resume.\n");
 	msleep(2);
 	gpio_direction_input(ts->client->irq);
 	//ite7258_idle_mode(ts->client);
 	ts->is_suspend = 0;
 
 	//msleep(10);
-        enable_irq(ts->irq);
+	enable_irq(ts->irq);
 	printk("ite7258 resume ---------\n");
 	//mutex_unlock(&ts->lock);
-	//ite7258_print_version(ts->client);
 }
 #endif
 
@@ -859,7 +844,6 @@ static int ite7258_regulator_get(struct ite7258_ts_data *ite7258_ts)
 
         return 0;
 }
-
 static void ite7258_input_set(struct input_dev *input_dev, struct ite7258_ts_data *ts)
 {
 #ifdef CONFIG_ITE7258_MULTITOUCH
@@ -897,18 +881,6 @@ static void ite7258_input_set(struct input_dev *input_dev, struct ite7258_ts_dat
 
 }
 
-
-
-static DEVICE_ATTR(upgrade, 0666, NULL, IT7258_upgrade_store);
-static struct attribute *it7258_attributes[] = {
-        &dev_attr_upgrade.attr,
-        NULL
-};
-
-static const struct attribute_group it7258_attr_group = {
-        .attrs = it7258_attributes,
-};
-
 static int ite7258_ts_probe(struct i2c_client *client,
                 const struct i2c_device_id *id)
 {
@@ -936,6 +908,8 @@ static int ite7258_ts_probe(struct i2c_client *client,
                 err = -ENOMEM;
                 goto exit_alloc_update_failed;
         }
+		update->client = client;
+
         i2c_set_clientdata(client, ite7258_ts);
         ite7258_ts->irq = pdata->gpio[0].num;
         ite7258_ts->rst = pdata->gpio[1].num;
@@ -959,13 +933,7 @@ static int ite7258_ts_probe(struct i2c_client *client,
                 goto exit_regulator_failed;
         }
 
-	if(ite7258_print_version(client)){
-		printk("cmp OK!!!!!!!!!!!!!!--------------------------\n");
-		err = -ENOMEM;
-		goto exit_get_version;
-	}
-
-	input_dev = input_allocate_device();
+		input_dev = input_allocate_device();
         if (!input_dev) {
                 err = -ENOMEM;
                 dev_err(&client->dev, "failed to allocate input device\n");
@@ -999,27 +967,21 @@ static int ite7258_ts_probe(struct i2c_client *client,
                 dev_err(&client->dev, "%s:[FTS] create fts control iic driver failed\n",
                                 __func__);
 #endif
-        msleep(50);
 
 
+		if(ite7258_print_version(client)){
+			err = -ENOMEM;
+			goto exit_get_version;
+		}
 
 		mutex_init(&ite7258_ts->lock);
         ite7258_hw_init(client);
-	    ite7258_idle_mode(client);
+		ite7258_idle_mode(client);
 
         INIT_WORK(&ite7258_ts->work, ite7258_work_handler);
         ite7258_ts->workqueue = create_singlethread_workqueue("ite7258_ts");
-	printk("%s: ts data: %p\n", __func__, ite7258_ts);
+		printk("%s: ts data: %p\n", __func__, ite7258_ts);
 
-#if 0
-        /* Update interface */
-        err = sysfs_create_group(&(client->dev.kobj), &it7258_attr_group);
-        if(err){
-                dev_err(&client->dev, "failed to register sysfs\n");
-        }else{
-                printk("create it7260 sysfs attr_group sucontinues\n");
-        }
-#endif
         err = request_irq(ite7258_ts->irq, ite7258_ts_interrupt,
                         pdata->irqflags, client->dev.driver->name,
                         ite7258_ts);
@@ -1040,9 +1002,8 @@ exit_input_register_device_failed:
 
 exit_input_dev_alloc_failed:
 exit_get_version:
-        regulator_disable(ite7258_ts->vcc_reg);
-        regulator_put(ite7258_ts->vcc_reg);
-
+		regulator_disable(ite7258_ts->vcc_reg);
+		regulator_put(ite7258_ts->vcc_reg);
         i2c_set_clientdata(client, NULL);
 
 exit_regulator_failed:
@@ -1078,7 +1039,6 @@ static int ite7258_ts_remove(struct i2c_client *client)
                 regulator_disable(ite7258_ts->vcc_reg);
                 regulator_put(ite7258_ts->vcc_reg);
         }
-
         kfree(ite7258_ts);
 
         i2c_set_clientdata(client, NULL);
