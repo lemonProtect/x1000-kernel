@@ -70,10 +70,16 @@ extern unsigned int get_pmu_slp_gpio_info(void);
 #define LSR_TDRQ        (1 << 5)
 #define LSR_TEMT        (1 << 6)
 
-#define U1_IOBASE (UART1_IOBASE + 0xa0000000)
+//#define PRINT_DEBUG
+
+#ifdef PRINT_DEBUG
+#define U_IOBASE (UART1_IOBASE + 0xa0000000)
 #define TCSM_PCHAR(x)							\
-	*((volatile unsigned int*)(U1_IOBASE+OFF_TDR)) = x;		\
-	while ((*((volatile unsigned int*)(U1_IOBASE + OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
+	*((volatile unsigned int*)(U_IOBASE+OFF_TDR)) = x;		\
+	while ((*((volatile unsigned int*)(U_IOBASE + OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
+#else
+#define TCSM_PCHAR(x)
+#endif
 
 #define TCSM_DELAY(x)					\
 	do{							\
