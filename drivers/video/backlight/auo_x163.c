@@ -407,6 +407,10 @@ static void auo_x163_power_on(struct mipi_dsim_lcd_device *dsim_dev, int power)
 	/* lcd power on */
 	if (lcd->ddi_pd->lcd_pdata->power_on)
 		lcd->ddi_pd->lcd_pdata->power_on(lcd->ld, power);
+
+	if(lcd->ddi_pd->lcd_pdata->reset) {
+		lcd->ddi_pd->lcd_pdata->reset(lcd->ld);
+	}
 }
 #endif
 #else

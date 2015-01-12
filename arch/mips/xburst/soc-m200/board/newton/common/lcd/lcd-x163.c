@@ -50,7 +50,6 @@ int auo_x163_reset(struct lcd_device *lcd)
 {
 	int ret = 0;
 
-	return 0;
 	ret = gpio_request(GPIO_LCD_RST, "lcd rst");
 	if (ret) {
 		printk(KERN_ERR "can's request lcd rst\n");
@@ -62,6 +61,9 @@ int auo_x163_reset(struct lcd_device *lcd)
 	gpio_direction_output(GPIO_LCD_RST, 0);  //reset active low
 	mdelay(10);
 	gpio_direction_output(GPIO_LCD_RST, 1);
+
+	gpio_free(GPIO_LCD_RST);
+
 	return 0;
 }
 
