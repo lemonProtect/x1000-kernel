@@ -119,11 +119,11 @@
 /* ****************************GPIO TOUCHSCREEN END************************** */
 
 /* ****************************GPIO KEY START******************************** */
-#define GPIO_HOME_KEY		GPIO_PD(18) 
-#define ACTIVE_LOW_HOME		1 
+/*#define GPIO_HOME_KEY		GPIO_PD(18)
+#define ACTIVE_LOW_HOME		1 */
 
-/*#define GPIO_BACK_KEY         GPIO_PD(18)
-#define  ACTIVE_LOW_BACK	0*/
+#define GPIO_BACK_KEY         GPIO_PD(18)
+#define  ACTIVE_LOW_BACK	0
 
 #define GPIO_ENDCALL_KEY            GPIO_PA(30)
 #define ACTIVE_LOW_ENDCALL      1
