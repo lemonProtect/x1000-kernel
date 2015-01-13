@@ -464,9 +464,9 @@ static int gpio_set_type(struct irq_data *data, unsigned int flow_type)
 	case IRQ_TYPE_EDGE_FALLING:	func = GPIO_INT_FE;	break;
 	case IRQ_TYPE_EDGE_BOTH:
 		if (gpio_pin_level(jz, pin))
-			func = GPIO_INT_RE;
-		else
 			func = GPIO_INT_FE;
+		else
+			func = GPIO_INT_RE;
 		break;
 	default:
 		return -EINVAL;
