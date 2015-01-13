@@ -130,21 +130,23 @@ err_vdd:
 
 struct mpu_platform_data mpu9250_platform_data = {
         .int_config  = 0x90,
-        .level_shifter = 0,
-        .orientation = {  0,  -1,  0,
-                          1,   0,  0,
-                          0,   0,  1 },
+		.level_shifter = 0,
+		.orientation = {
+			0, -1,  0,
+			-1,  0,  0,
+			0,  0, -1,
+		},
         .key = { 0xec, 0x5c, 0xa6, 0x17, 0x54, 0x3, 0x42, 0x90, 0x74, 0x7e,
                  0x3a, 0x6f, 0xc, 0x2c, 0xdd, 0xb },
 #if !defined(CONFIG_SENSORS_AK09911)
-        .sec_slave_type = SECONDARY_SLAVE_TYPE_COMPASS,
-        .sec_slave_id   = COMPASS_ID_AK8963,
-        .secondary_i2c_addr = 0x0C,
-	.secondary_orientation = {
-		1,  0,  0,
-		0, -1,  0,
-		0,  0, -1
-	},
+		.sec_slave_type = SECONDARY_SLAVE_TYPE_COMPASS,
+		.sec_slave_id   = COMPASS_ID_AK8963,
+		.secondary_i2c_addr = 0x0C,
+		.secondary_orientation = {
+			-1, 0,  0,
+			0, -1,  0,
+			0,  0, 1,
+		},
 #endif
 	.board_init = inv_mpu_early_init,
 	.board_exit = inv_mpu_exit,
