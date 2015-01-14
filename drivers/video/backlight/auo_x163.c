@@ -44,14 +44,15 @@ struct auo_x163_platform_data{
 
 struct auo_x163 {
 	struct device	*dev;
-	unsigned int			power;
-	unsigned int			id;
+	unsigned int	power;
+	unsigned int	id;
 
 	struct lcd_device	*ld;
 	struct backlight_device	*bd;
 
 	struct mipi_dsim_lcd_device	*dsim_dev;
 	struct auo_x163_platform_data	*ddi_pd;
+        struct backlight_properties props;
 	struct mutex			lock;
 	struct regulator *vcc_lcd_1v8_reg;
 	struct regulator *vcc_lcd_3v0_reg;
@@ -63,7 +64,7 @@ struct auo_x163 {
 	bool  enabled;
 };
 
-#if 1
+#if 0
 static void auo_x163_regulator_enable(struct auo_x163 *lcd)
 {
 	int ret = 0;
@@ -78,7 +79,7 @@ static void auo_x163_regulator_enable(struct auo_x163 *lcd)
 			goto out;
 		}
 //		mdelay(10);
-		regulator_enable(lcd->vcc_lcd_3v0_reg);
+		ret = regulator_enable(lcd->vcc_lcd_3v0_reg);
 		if(ret){
 			printk("+++++++++++++++++++auo_x163 vcc_lcd_3v0 enable ERROR!!!+++++++++++\n");
 			goto out;
@@ -173,7 +174,6 @@ static int auo_x163_get_power(struct lcd_device *ld)
 	return lcd->power;
 }
 
-
 static struct lcd_ops auo_x163_lcd_ops = {
 	.set_power = auo_x163_set_power,
 	.get_power = auo_x163_get_power,
@@ -210,7 +210,11 @@ struct dsi_cmd_packet auo_x163_cmd_list1[] = {
 	{0x39, 0x08, 0x00, {0xcf, 0xff, 0xd4, 0x95, 0xef, 0x4f, 0x00, 0x04}},
 
 	{0x39, 0x02, 0x00, {0x35, 0x00}},
-	{0x15, 0x02, 0x00, {0x36, 0x00}},
+#ifdef CONFIG_AUO_X163_ROTATION_180
+	{0x39, 0x02, 0x00, {0x36, 0xc0}},
+#else
+	{0x39, 0x02, 0x00, {0x36, 0x00}},
+#endif
 	{0x15, 0x02, 0x00, {0xc0, 0x20}},
 
 	{0x39, 0x07, 0x00, {0xc2, 0x17, 0x17, 0x17, 0x17, 0x17, 0x0b}},
@@ -230,7 +234,6 @@ struct dsi_cmd_packet auo_x163_cmd_list2[] = {
 
 };
 
-#if 1
 static void auo_x163_panel_condition_setting(struct auo_x163 *lcd)
 {
 	int  i;
@@ -241,7 +244,6 @@ static void auo_x163_panel_condition_setting(struct auo_x163 *lcd)
 	}
 
 }
-#endif
 #if 0
 static void auo_x163_panel_condition_setting1(struct auo_x163 *lcd)
 {
@@ -254,7 +256,69 @@ static void auo_x163_panel_condition_setting1(struct auo_x163 *lcd)
 
 }
 #endif
-#if 1
+/*
+ * This can enter idle mode and auo_x163_exit_idle will exit idle mode
+ * BUT: they are still not join the system
+ * */
+static void auo_x163_enter_idle(struct auo_x163 *lcd)
+{
+        int i;
+        struct dsi_device *dsi = lcd_to_master(lcd);
+        struct dsi_master_ops *ops = lcd_to_master_ops(lcd);
+
+        struct dsi_cmd_packet auo_x163_cmd_bl[] = {
+                {0x39, 0x02, 0x00, {0x39}},
+        };
+
+        for(i = 0; i < ARRAY_SIZE(auo_x163_cmd_bl); i++) {
+                ops->cmd_write(dsi,  auo_x163_cmd_bl[i]);
+        }
+}
+
+static void auo_x163_exit_idle(struct auo_x163 *lcd)
+{
+        int i;
+        struct dsi_device *dsi = lcd_to_master(lcd);
+        struct dsi_master_ops *ops = lcd_to_master_ops(lcd);
+
+        struct dsi_cmd_packet auo_x163_cmd_bl[] = {
+                {0x39, 0x02, 0x00, {0x38}},
+        };
+
+        for(i = 0; i < ARRAY_SIZE(auo_x163_cmd_bl); i++) {
+                ops->cmd_write(dsi,  auo_x163_cmd_bl[i]);
+        }
+}
+
+static void auo_x163_brightness_setting(struct auo_x163 *lcd, unsigned long value)
+{
+        int  i;
+        struct dsi_master_ops *ops = lcd_to_master_ops(lcd);
+        struct dsi_device *dsi = lcd_to_master(lcd);
+        struct dsi_cmd_packet auo_x163_cmd_bl[] = {
+                {0x39, 0x02, 0x00, {0x51, value}},
+                {0x39, 0x02, 0x00, {0x53, 0x20}}
+        };
+
+        for(i = 0; i < ARRAY_SIZE(auo_x163_cmd_bl); i++) {
+                ops->cmd_write(dsi,  auo_x163_cmd_bl[i]);
+        }
+        //auo_x163_enter_idle(lcd);
+}
+
+static int auo_x163_backlight_update_status(struct backlight_device *bd)
+{
+        struct auo_x163 *lcd = dev_get_drvdata(&bd->dev);
+        unsigned long brightness = bd->props.brightness;
+
+	if(brightness > lcd->props.max_brightness)
+		brightness = lcd->props.max_brightness;
+        auo_x163_brightness_setting(lcd, brightness);
+	return 0;
+}
+static const struct backlight_ops auo_x163_backlight_ops = {
+        .update_status  = auo_x163_backlight_update_status,
+};
 static void auo_x163_set_sequence(struct mipi_dsim_lcd_device *dsim_dev)
 {
 	struct auo_x163 *lcd = dev_get_drvdata(&dsim_dev->dev);
@@ -270,13 +334,11 @@ static void auo_x163_set_sequence(struct mipi_dsim_lcd_device *dsim_dev)
 //    auo_x163_panel_condition_setting1(lcd);
 	lcd->power = FB_BLANK_UNBLANK;
 }
-#endif
 static int auo_x163_regulator_get(struct auo_x163 *lcd)
 {
 	int err = 0;
 
 	lcd->vcc_lcd_1v8_reg = regulator_get(NULL, lcd->vcc_lcd_1v8_name);
-	printk("+++++++++++++++++++++vcc_lcd_1v8_name: %s++++++++++++++\n", lcd->vcc_lcd_1v8_name);
 	if (IS_ERR(lcd->vcc_lcd_1v8_reg)) {
 		printk("failed to get VCC regulator.");
 		err = PTR_ERR(lcd->vcc_lcd_1v8_reg);
@@ -284,7 +346,6 @@ static int auo_x163_regulator_get(struct auo_x163 *lcd)
 	}
 
 	lcd->vcc_lcd_3v0_reg = regulator_get(NULL, lcd->vcc_lcd_3v0_name);
-	printk("+++++++++++++++++++++vcc_lcd_3v0_name: %s++++++++++++++\n", lcd->vcc_lcd_3v0_name);
 	if (IS_ERR(lcd->vcc_lcd_3v0_reg)) {
 		printk("failed to get VCC regulator.");
 		err = PTR_ERR(lcd->vcc_lcd_3v0_reg);
@@ -301,10 +362,10 @@ static int auo_x163_regulator_get(struct auo_x163 *lcd)
 		}
 	}
 
-	regulator_enable(lcd->vcc_lcd_1v8_reg);
-	regulator_enable(lcd->vcc_lcd_3v0_reg);
+	err = regulator_enable(lcd->vcc_lcd_1v8_reg);
+	err = regulator_enable(lcd->vcc_lcd_3v0_reg);
 	if (lcd->vcc_lcd_blk_reg)
-		regulator_enable(lcd->vcc_lcd_blk_reg);
+		err = regulator_enable(lcd->vcc_lcd_blk_reg);
 
 	goto return_err;
 error_get_vcc_lcd_blk:
@@ -320,6 +381,7 @@ static int auo_x163_probe(struct mipi_dsim_lcd_device *dsim_dev)
 {
 	struct auo_x163 *lcd;
 	int err;
+
 	lcd = devm_kzalloc(&dsim_dev->dev, sizeof(struct auo_x163), GFP_KERNEL);
 	if (!lcd) {
 		dev_err(&dsim_dev->dev, "failed to allocate auo_x163 structure.\n");
@@ -333,20 +395,25 @@ static int auo_x163_probe(struct mipi_dsim_lcd_device *dsim_dev)
 	mutex_init(&lcd->lock);
 
 	lcd->ld = lcd_device_register("auo_x163", lcd->dev, lcd,
-								  &auo_x163_lcd_ops);
+				      &auo_x163_lcd_ops);
 	if (IS_ERR(lcd->ld)) {
 		dev_err(lcd->dev, "failed to register lcd ops.\n");
 		return PTR_ERR(lcd->ld);
 	}
 
+        lcd->props.type = BACKLIGHT_RAW;
+	lcd->props.max_brightness = 255;
+        lcd->bd = backlight_device_register("pwm-backlight.0", lcd->dev, lcd,
+					    &auo_x163_backlight_ops, &lcd->props);
 	lcd->vcc_lcd_1v8_name = lcd->ddi_pd->vcc_lcd_1v8_name;
-	printk("+++++++++++++++++++=== auo vcc_lcd_1v8_name : %s+++++++++++++\n", lcd->vcc_lcd_1v8_name);
+	dev_dbg(lcd->dev,"auo vcc_lcd_1v8_name : %s+++++++++++++\n", lcd->vcc_lcd_1v8_name);
 	lcd->vcc_lcd_3v0_name = lcd->ddi_pd->vcc_lcd_3v0_name;
-	printk("+++++++++++++++++++=== auo vcc_lcd_3v0_name : %s+++++++++++++\n", lcd->vcc_lcd_3v0_name);
+	dev_dbg(lcd->dev,"auo vcc_lcd_3v0_name : %s+++++++++++++\n", lcd->vcc_lcd_3v0_name);
 	lcd->vcc_lcd_blk_name = lcd->ddi_pd->vcc_lcd_blk_name;
 
 	err = auo_x163_regulator_get(lcd);
 	if(err){
+		printk("--------------------------------------------------error.\n");
 		dev_err(&dsim_dev->dev, "failed to get regulator\n");
 		return err;
 	}
@@ -358,11 +425,9 @@ static int auo_x163_probe(struct mipi_dsim_lcd_device *dsim_dev)
 	dev_dbg(lcd->dev, "probed auo_x163 panel driver.\n");
 
 	return 0;
-
 }
 
 #ifdef CONFIG_PM
-#if 1
 static int auo_x163_suspend(struct mipi_dsim_lcd_device *dsim_dev)
 {
 	struct auo_x163 *lcd = dev_get_drvdata(&dsim_dev->dev);
@@ -378,17 +443,15 @@ static int auo_x163_suspend(struct mipi_dsim_lcd_device *dsim_dev)
 
 	return 0;
 }
-#endif
-#if 1
 static int auo_x163_resume(struct mipi_dsim_lcd_device *dsim_dev)
 {
 	struct auo_x163 *lcd = dev_get_drvdata(&dsim_dev->dev);
-	printk("!!!!!!!!!!!\n");
+	int ret;
 	if (lcd->enabled) {
-		regulator_enable(lcd->vcc_lcd_3v0_reg);
-		regulator_enable(lcd->vcc_lcd_1v8_reg);
+		ret = regulator_enable(lcd->vcc_lcd_3v0_reg);
+		ret = regulator_enable(lcd->vcc_lcd_1v8_reg);
 		if (lcd->vcc_lcd_blk_reg)
-			regulator_enable(lcd->vcc_lcd_blk_reg);
+			ret = regulator_enable(lcd->vcc_lcd_blk_reg);
 		lcd->enabled = false;
 	}
 	mdelay(140);
@@ -412,7 +475,6 @@ static void auo_x163_power_on(struct mipi_dsim_lcd_device *dsim_dev, int power)
 		lcd->ddi_pd->lcd_pdata->reset(lcd->ld);
 	}
 }
-#endif
 #else
 #define auo_x163_suspend		NULL
 #define auo_x163_resume		NULL
@@ -422,7 +484,6 @@ static void auo_x163_power_on(struct mipi_dsim_lcd_device *dsim_dev, int power)
 static struct mipi_dsim_lcd_driver auo_x163_dsim_ddi_driver = {
 	.name = "auo_x163-lcd",
 	.id = 0,
-
 	.power_on = auo_x163_power_on,
 	.set_sequence = auo_x163_set_sequence,
 	.probe = auo_x163_probe,

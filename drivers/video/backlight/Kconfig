@@ -159,15 +159,15 @@ config LCD_BYD_9177AA
 	   jz mipi dsi.dpi TFT display panel  support
 config LCD_X163
    tristate "X163 smart mipi-dsi panel(320x320)"
-   depends on FB && JZ_MIPI_DSI && JZ_MIPI_DBI
+   depends on FB && JZ_MIPI_DSI
    help
 	   jz mipi dsi.dbi smart display panel support
-config NEED_REGULATOR
-	bool "Need regulator"
-	depends on LCD_BYD_8991FTGF
+config AUO_X163_ROTATION_180
+	bool "AUO X163 rotation 180"
+	depends on LCD_X163
 	default n
 	help
-	  If your board is needed regulator_get supply for LCD, select this option.
+	  If your board is needed rotation 180, select this option.
 endif # LCD_CLASS_DEVICE
 
 #
