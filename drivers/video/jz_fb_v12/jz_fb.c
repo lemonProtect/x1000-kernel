@@ -41,6 +41,10 @@
 #ifdef  CONFIG_JZ_MIPI_DBI
 #define CONFIG_SLCDC_CONTINUA
 #endif
+
+
+//#define CONFIG_SLCDC_USE_TE
+
 #include "./jz_mipi_dsi/jz_mipi_dsih_hal.h"
 #include "./jz_mipi_dsi/jz_mipi_dsi_regs.h"
 extern struct dsi_device * jzdsi_init(struct jzdsi_data *pdata);
@@ -57,9 +61,17 @@ static void dump_lcdc_registers(struct jzfb *jzfb);
 static int jzfb_set_par(struct fb_info *info);
 void dump_cpm_reg(void);
 
+
+
 static int uboot_inited;
 static int showFPS = 0;
 static struct jzfb *jzfb;
+
+#if !defined(CONFIG_SLCDC_CONTINUA)
+static volatile int g_mipi_update = 0;
+#endif
+
+
 static const struct fb_fix_screeninfo jzfb_fix  = {
 	.id = "jzfb",
 	.type = FB_TYPE_PACKED_PIXELS,
@@ -285,6 +297,7 @@ jzfb_calculate_size(struct fb_info *info, struct jzfb_display_size *size)
 	size->height_width |= ((jzfb->osd.fg0.w - 1) << LCDC_DESSIZE_WIDTH_BIT
 			       & LCDC_DESSIZE_WIDTH_MASK);
 
+
 	return 0;
 }
 
@@ -417,7 +430,13 @@ jzfb_config_smart_lcd_dma(struct fb_info *info,
 	framedesc[2].page_width = 0;
 	framedesc[2].desc_size = 0;
 
-	/*must to optimize*/
+	/* if connect mipi smart lcd, do not sent command by slcdc, send command by mipi dsi controller. */
+#ifdef CONFIG_JZ_MIPI_DSI
+	//framedesc[2].databuf = NULL;
+	framedesc[2].cmd = LCDC_CMD_CMD | LCDC_CMD_FRM_EN | 0;
+	framedesc[2].cpos = 0;
+#else	/* CONFIG_JZ_MIPI_DSI */
+	/* must to optimize */
 	switch (jzfb->pdata->smart_config.bus_width) {
 		case 8:
 			framedesc[2].cmd = LCDC_CMD_CMD | LCDC_CMD_FRM_EN | 1;
@@ -433,6 +452,8 @@ jzfb_config_smart_lcd_dma(struct fb_info *info,
 			framedesc[2].cpos = 1;
 			break;
 	}
+#endif	/* CONFIG_JZ_MIPI_DSI */
+
 }
 
 static void
@@ -1232,6 +1253,18 @@ static void jzfb_free_devmem(struct jzfb *jzfb)
 	}
 }
 
+
+static void jzfb_slcd_restart(struct jzfb *jzfb)
+{
+	unsigned int tmp;
+	if (jzfb->pdata->lcd_callback_ops.dma_transfer_begin){
+		jzfb->pdata->lcd_callback_ops.dma_transfer_begin(jzfb);
+	}
+	tmp = reg_read(jzfb, SLCDC_CTRL);
+	tmp |= SLCDC_CTRL_DMA_START | SLCDC_CTRL_DMA_MODE;
+	reg_write(jzfb, SLCDC_CTRL, tmp);
+}
+
 #define SPEC_TIME_IN_NS (1000*1000000)  /* 1s */
 static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 {
@@ -1309,19 +1342,14 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 		/* smart tft spec code here */
 		jzfb->framedesc[0]->databuf = jzfb->vidmem_phys
 		    + jzfb->frm_size * next_frm;
-		if (!jzfb->is_lcd_en)
-			return -EINVAL;;
+		//if (!jzfb->is_lcd_en)
+			//return -EINVAL;;
 
 #ifndef CONFIG_SLCDC_CONTINUA
-		if (jzfb->pdata->lcd_callback_ops.dma_transfer_begin){
-			jzfb->pdata->lcd_callback_ops.dma_transfer_begin(jzfb);
-			tmp = reg_read(jzfb, SLCDC_CTRL);
-			tmp |= SLCDC_CTRL_DMA_START | SLCDC_CTRL_DMA_MODE;
-			reg_write(jzfb, SLCDC_CTRL, tmp);
-		}else{
-			tmp = reg_read(jzfb, SLCDC_CTRL);
-			tmp |= SLCDC_CTRL_DMA_START | SLCDC_CTRL_DMA_MODE;
-			reg_write(jzfb, SLCDC_CTRL, tmp);
+		if (g_mipi_update) {
+			g_mipi_update = 1;
+		} else {
+			jzfb_slcd_restart(jzfb);
 		}
 #endif
 	} else {
@@ -1625,7 +1653,6 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 	case JZFB_SET_VSYNCINT:
 		if (unlikely(copy_from_user(&value, argp, sizeof(int))))
 			return -EFAULT;
-
 		if (value) {
 			tmp = reg_read(jzfb, LCDC_STATE);
 			reg_write(jzfb, LCDC_STATE, tmp & ~LCDC_STATE_EOF);
@@ -1705,6 +1732,13 @@ static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
 			jzfb->fg1_framedesc->cmd &= ~LCDC_CMD_FRM_EN;
 		}
 		break;
+	case JZFB_GET_LCDTYPE:
+		if(copy_to_user(argp, &(jzfb->pdata->lcd_type), sizeof(int))){
+			dev_info(info->dev, "copy lcd_type to user failed\n");
+			return -EFAULT;
+		}
+		break;
+
 	default:
 		jzfb_image_enh_ioctl(info, cmd, arg);
 		break;
@@ -1780,6 +1814,53 @@ static irqreturn_t jzfb_irq_handler(int irq, void *data)
 	}
 	return IRQ_HANDLED;
 }
+
+
+#if !defined(CONFIG_SLCDC_CONTINUA)
+static irqreturn_t jzfb_te_irq_handler(int irq, void *data)
+{
+	struct jzfb *jzfb = (struct jzfb *)data;
+
+	if (g_mipi_update > 0) {
+		if (!(reg_read(jzfb, SLCDC_STATE) & SLCDC_STATE_BUSY)) {
+			jzfb_slcd_restart(jzfb);
+		}
+		g_mipi_update = -1;
+	}
+
+	return IRQ_HANDLED;
+}
+
+int jzfb_te_irq_register(struct jzfb *jzfb)
+{
+	int ret = 0;
+#ifdef CONFIG_JZ_MIPI_DSI
+	int te_gpio = jzfb->pdata->dsi_pdata->dsi_config.te_gpio;
+	int te_irq_level = jzfb->pdata->dsi_pdata->dsi_config.te_irq_level;
+#else
+	int te_gpio = jzfb->pdata->smart_config.te_gpio;
+	int te_irq_level = jzfb->pdata->smart_config.te_irq_level;
+#endif
+	unsigned int te_irq_no;
+
+	if (te_gpio && gpio_request_one(te_gpio, GPIOF_DIR_IN, "slcd_te_gpio")) {
+		dev_err(jzfb->dev, "gpio request slcd te gpio faile\n");
+		return -EBUSY;
+	}
+
+	te_irq_no = gpio_to_irq(te_gpio);
+
+	if (request_irq(te_irq_no, jzfb_te_irq_handler,
+				te_irq_level | IRQF_DISABLED,
+				"slcd_te_irq", jzfb)) {
+		dev_err(jzfb->dev,"slcd te request irq failed\n");
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+#endif /*!defined(CONFIG_SLCDC_CONTINUA)*/
+
 
 static struct fb_ops jzfb_ops = {
 	.owner = THIS_MODULE,
@@ -2508,6 +2589,14 @@ static int jzfb_probe(struct platform_device *pdev)
 		ret = -EINVAL;
 		goto err_free_devmem;
 	}
+
+#if !defined(CONFIG_SLCDC_CONTINUA)
+	if (jzfb->pdata->lcd_type == LCD_TYPE_SLCD)
+	{
+		if (!jzfb_te_irq_register(jzfb))
+			g_mipi_update = -1;
+	}
+#endif
 
 	ret = sysfs_create_group(&jzfb->dev->kobj, &lcd_debug_attr_group);
 	if (ret) {
