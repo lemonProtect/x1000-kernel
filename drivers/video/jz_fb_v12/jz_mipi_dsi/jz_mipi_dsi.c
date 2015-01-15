@@ -790,7 +790,9 @@ struct dsi_device * jzdsi_init(struct jzdsi_data *pdata)
 		 * dsi->state = INITIALIZED. the lcd display abnormal.
 		 *
 		 * */
-		//dsi->state = INITIALIZED; /*must be here for set_sequence function*/
+#ifdef CONFIG_JZ_MIPI_DBI
+		dsi->state = INITIALIZED; /*must be here for set_sequence function*/
+#endif
 	} else {
 
 		if (dsim_ddi->dsim_lcd_drv && dsim_ddi->dsim_lcd_drv->power_on)
