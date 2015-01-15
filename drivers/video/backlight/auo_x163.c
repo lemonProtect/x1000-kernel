@@ -28,6 +28,9 @@
 #include <video/mipi_display.h>
 #include <mach/jz_dsim.h>
 
+#define MAX_BRIGHTNESS		(0xFF)
+#define MIN_BRIGHTNESS		(0)
+
 #define POWER_IS_ON(pwr)	((pwr) == FB_BLANK_UNBLANK)
 #define POWER_IS_OFF(pwr)	((pwr) == FB_BLANK_POWERDOWN)
 #define POWER_IS_NRM(pwr)	((pwr) == FB_BLANK_NORMAL)
@@ -401,10 +404,11 @@ static int auo_x163_probe(struct mipi_dsim_lcd_device *dsim_dev)
 		return PTR_ERR(lcd->ld);
 	}
 
-        lcd->props.type = BACKLIGHT_RAW;
-	lcd->props.max_brightness = 255;
-        lcd->bd = backlight_device_register("pwm-backlight.0", lcd->dev, lcd,
-					    &auo_x163_backlight_ops, &lcd->props);
+	lcd->props.type = BACKLIGHT_RAW;
+	lcd->props.max_brightness = MAX_BRIGHTNESS;
+	lcd->props.brightness = MAX_BRIGHTNESS;
+	lcd->bd = backlight_device_register("pwm-backlight.0", lcd->dev, lcd,
+			&auo_x163_backlight_ops, &lcd->props);
 	lcd->vcc_lcd_1v8_name = lcd->ddi_pd->vcc_lcd_1v8_name;
 	dev_dbg(lcd->dev,"auo vcc_lcd_1v8_name : %s+++++++++++++\n", lcd->vcc_lcd_1v8_name);
 	lcd->vcc_lcd_3v0_name = lcd->ddi_pd->vcc_lcd_3v0_name;
