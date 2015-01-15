@@ -409,6 +409,25 @@ int main(int argc, char *argv[])
 	if (record_enable) {
 		printf("Record\n");
 		dev_fd = open_device(dmic_dev, O_RDONLY, &is_dev_reg_file);
+
+
+		/*SET SAMPLE RATE:*/
+
+#define DMIC_SET_CHANNEL    0x100
+#define DMIC_ENABLE         0x101
+#define DMIC_DISABLE        0x102
+#define DMIC_SET_SAMPLERATE 0x103
+#define DMIC_GET_ROUTE      0x104
+#define DMIC_SET_ROUTE      0x105
+#define DMIC_SET_DEVICE     0x106
+
+
+		int ret = 0;
+		ret = ioctl(dev_fd, DMIC_SET_SAMPLERATE, &speed);
+		if(ret < 0) {
+			printf("[ioctl] dmic set sample rate!\n");
+		}
+
 	}
 
 	if ( (record_enable) && (dev_fd < 0)) {
