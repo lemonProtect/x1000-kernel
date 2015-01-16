@@ -1188,8 +1188,8 @@ ssize_t xb_snd_dsp_read(struct file *file,
 			}
 
 			if (!node) {
-				if (wait_event_interruptible(dp->wq,
-							     (atomic_read(&dp->avialable_couter) >= 1 || dp->force_stop_dma == true)) < 0) {
+				if (wait_event_interruptible_timeout(dp->wq,
+							     (atomic_read(&dp->avialable_couter) >= 1 || dp->force_stop_dma == true), HZ) <= 0) {
 					mutex_unlock(&dp->mutex);
 					return count - mcount;
 				}
@@ -1315,8 +1315,8 @@ ssize_t xb_snd_dsp_write(struct file *file,
 				}
 				if (dp->is_non_block == true)
 					goto write_return;
-				if (wait_event_interruptible(dp->wq, (atomic_read(&dp->avialable_couter) >= 1)
-							     || dp->force_stop_dma == true) < 0)
+				if (wait_event_interruptible_timeout(dp->wq, (atomic_read(&dp->avialable_couter) >= 1)
+							     || dp->force_stop_dma == true, HZ) <= 0)
 					goto write_return;
 			} else {
 				atomic_dec(&dp->avialable_couter);
@@ -2240,15 +2240,22 @@ long xb_snd_dsp_ioctl(struct file *file,
 		if (file->f_mode & FMODE_WRITE)
 			dp = endpoints->out_endpoint;
 		if (dp != NULL) {
-			int i = 0x7ffff;
+			//int i = 0x7ffff;
+
 			mutex_lock(&dp->mutex);
 			del_timer_sync(&dp->transfer_watchdog);
 			dp->force_stop_dma = true;
 			dp->wait_stop_dma = true;
+#if 0
 			while(wait_event_interruptible(dp->wq,dp->is_trans == false) && i--);
 			if (!i) {
 				dmaengine_terminate_all(dp->dma_chan);
 			}
+#else
+			if(wait_event_interruptible_timeout(dp->wq,dp->is_trans == false, HZ) <= 0) {
+				dmaengine_terminate_all(dp->dma_chan);
+			}
+#endif
 
 			if (dp->force_stop_dma == true)
 				mdelay(20);
