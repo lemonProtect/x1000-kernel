@@ -122,7 +122,7 @@ static unsigned long unmap_node(struct dmmu_map_node *n,unsigned long vaddr,unsi
 		__free_page((void *)n->page);
 		list_del(&n->list);
 		kfree(n);
-		return end;
+		return vaddr+(1024-index)*4096;
 	}
 
 	while(index < 1024 && vaddr < end) {
