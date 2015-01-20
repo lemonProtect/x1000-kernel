@@ -121,7 +121,7 @@ typedef unsigned int	u32;
 /*#define CONFIG_CPU_IDLE_SLEEP*/
 #define CONFIG_CPU_SWITCH_FREQUENCY
 
-#define CONFIG_SLEEP_DEBUG
+/*#define CONFIG_SLEEP_DEBUG*/
 
 
 

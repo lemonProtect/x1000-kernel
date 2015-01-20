@@ -63,8 +63,6 @@ void dump_cpm_reg()
 	printf("CPM_LCR:%08x\n", REG32(CPM_IOBASE + CPM_LCR));
 	printf("CPM_CLKGR0:%08x\n", REG32(CPM_IOBASE + CPM_CLKGR0));
 	printf("CPM_CLKGR1:%08x\n", REG32(CPM_IOBASE + CPM_CLKGR1));
-	printf("CPM_SPCR0:%08x\n",  REG32(CPM_IOBASE + CPM_SPCR0));
-	printf("CPM_SPCR1:%08x\n", REG32(CPM_IOBASE + CPM_SPCR1));
 	printf("I2S_DEVCLK:%08x\n", REG32(CPM_IOBASE + CPM_I2SCDR));
 }
 
@@ -72,7 +70,6 @@ void dmic_clk_config(void)
 {
 	/*1. cgu config 12MHz , extern clock */
 	/* dmic need a 12MHZ clock from cpm */
-	REG32(CPM_IOBASE + CPM_LCR)		&= ~(1<<7);
 
 	REG32(CPM_IOBASE + CPM_I2SCDR) |= 2 << 30;
 	REG32(CPM_IOBASE + CPM_I2SCDR) |= 1 << 29; /*CE*/
@@ -89,6 +86,8 @@ void dmic_clk_config(void)
 
 	REG32(CPM_IOBASE + CPM_CLKGR1) &= ~(1 << 7); /* clk on */
 
+	REG32(CPM_IOBASE + CPM_LCR)		&= ~(1<<7);
+	while(REG32(CPM_IOBASE + CPM_LCR) & (1<<6));
 	/*3.extern clk sleep mode enable*/
 	REG32(CPM_IOBASE + CPM_OPCR) |= 1 << 4;
 	/*4. l2 cache power on */

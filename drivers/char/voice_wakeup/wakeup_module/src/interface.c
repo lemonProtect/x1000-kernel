@@ -84,6 +84,7 @@ int open(int mode)
 		case NORMAL_RECORD:
 			dmic_init_mode(NORMAL_RECORD);
 			dmic_record_enabled = 1;
+			break;
 		case NORMAL_WAKEUP:
 			wakeup_open();
 			dmic_init_mode(NORMAL_RECORD);
