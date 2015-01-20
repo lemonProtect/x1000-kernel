@@ -315,7 +315,7 @@ static void config_osd_regs(struct jz_ipu *ipu)
 {
 	unsigned int tmp;
 
-	tmp = GLB_ALPHA(0xff) | MOD_OSD(0x1) | OSD_PM;
+	tmp = GLB_ALPHA(0xff) | MOD_OSD(0x3) | OSD_PM;
 	reg_write(ipu, IPU_OSD_CTRL, tmp);
 }
 

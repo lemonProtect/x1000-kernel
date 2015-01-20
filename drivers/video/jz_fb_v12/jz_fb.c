@@ -330,7 +330,7 @@ jzfb_config_tft_lcd_dma(struct fb_info *info,
 		framedesc->page_width = size->fg0_line_size;
 	}
 
-	if (jzfb->framedesc[0]->cpos & LCDC_CPOS_ALPHAMD1)
+	if (1 || (jzfb->framedesc[0]->cpos & LCDC_CPOS_ALPHAMD1))
 		/* per pixel alpha mode */
 		framedesc->cpos = LCDC_CPOS_ALPHAMD1;
 	else
