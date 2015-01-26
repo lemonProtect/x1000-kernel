@@ -32,7 +32,6 @@
 #include <linux/miscdevice.h>
 #include <linux/proc_fs.h>
 #include <linux/delay.h>
-#include <mach/jz_libdmmu.h>
 #ifdef CONFIG_SOC_M200
 #include <mach/libdmmu.h>
 #endif
@@ -804,7 +803,7 @@ static int jz_ipu_init(struct jz_ipu *ipu, struct ipu_img_param *imgp)
 	}
 	if (imgp->stlb_base || imgp->dtlb_base)
 		reg_write(ipu, IPU_TLB_PARA,
-				(DMMU_PTE_CHECK_PAGE_VALID << 16 | DMMU_PTE_CHECK_PAGE_VALID));
+				(0x1 << 16 | 0x1));
 
 	if (in_fmt == IN_FMT_YUV420_B) {
 		__enable_blk_mode();
