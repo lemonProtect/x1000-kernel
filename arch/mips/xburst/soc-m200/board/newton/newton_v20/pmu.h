@@ -56,7 +56,7 @@
 #define DC5_ALWAYS_ON     0
 #define LDO1_ALWAYS_ON    0
 #define LDO2_ALWAYS_ON    1
-#define LDO3_ALWAYS_ON    1
+#define LDO3_ALWAYS_ON    0
 #define LDO4_ALWAYS_ON    1
 #define LDO5_ALWAYS_ON    1
 #define LDO6_ALWAYS_ON    1
@@ -76,14 +76,14 @@
 #define DC5_BOOT_ON     0
 #define LDO1_BOOT_ON    0
 #define LDO2_BOOT_ON    1
-#define LDO3_BOOT_ON    1
+#define LDO3_BOOT_ON    0
 #define LDO4_BOOT_ON    1
 #define LDO5_BOOT_ON    1
 #define LDO6_BOOT_ON    1
 #define LDO7_BOOT_ON    1
 #define LDO8_BOOT_ON    1
-#define LDO9_BOOT_ON    1
-#define LDO10_BOOT_ON   1
+#define LDO9_BOOT_ON    0
+#define LDO10_BOOT_ON   0
 #define LDORTC1_BOOT_ON 1
 #define LDORTC2_BOOT_ON 1
 /* ****************************PMU DC/LDO BOOT ON END************************ */

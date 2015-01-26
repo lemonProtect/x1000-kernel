@@ -18,7 +18,6 @@
 #include <linux/i2c.h>
 #include <linux/input.h>
 #include <linux/input/mt.h>
-//#include <linux/earlysuspend.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
@@ -55,30 +54,29 @@
 
 
 struct ite7258_ts_data {
-        unsigned int irq;
-        unsigned int rst;
-        unsigned int x_max;
-        unsigned int y_max;
-        unsigned int x_pos;
-        unsigned int y_pos;
+	unsigned int irq;
+	unsigned int rst;
+	unsigned int x_max;
+	unsigned int y_max;
+	unsigned int x_pos;
+	unsigned int y_pos;
 	unsigned int is_suspend;
-        struct i2c_client *client;
-        struct input_dev *input_dev;
-        struct jztsc_platform_data *pdata;
-    //    struct early_suspend early_suspend;
+	struct i2c_client *client;
+	struct input_dev *input_dev;
+	struct jztsc_platform_data *pdata;
 	struct mutex lock;
-        struct work_struct  work;
-        struct workqueue_struct *workqueue;
-        char *vcc_name;
-        struct regulator *vcc_reg;
+	struct work_struct  work;
+	struct workqueue_struct *workqueue;
+	char *vcc_name;
+	struct regulator *vcc_reg;
 };
 
 struct ite7258_update_data{
-        struct i2c_client *client;
-        unsigned int fw_length;
-        unsigned int conf_length;
-        char *fw_buf;
-        char *conf_buf;
+	struct i2c_client *client;
+	unsigned int fw_length;
+	unsigned int conf_length;
+	char *fw_buf;
+	char *conf_buf;
 };
 
 static struct ite7258_update_data *update;
@@ -714,29 +712,29 @@ static int ite7258_print_version(struct i2c_client *client)
 
 }
 
-#if defined(CONFIG_PM) && defined(CONFIG_HAS_EARLYSUSPEND)
-static void ite7258_ts_suspend(struct early_suspend *handler)
+#if defined(CONFIG_PM)
+static int ite7258_ts_suspend(struct device *dev)
 {
-       struct ite7258_ts_data *ts = container_of(handler, struct ite7258_ts_data,
-                        early_suspend);
+	struct ite7258_ts_data *ts = dev_get_drvdata(dev);
 
 	//flush_work(&ts->work);
 	printk("---------------TP suspend\n");
 	mutex_lock(&ts->lock);
 	flush_scheduled_work();
-        disable_irq(ts->irq);
+	disable_irq(ts->irq);
 	ts->is_suspend = 1;
 	regulator_disable(ts->vcc_reg);
 	mutex_unlock(&ts->lock);
-        dev_dbg(&ts->client->dev, "[FTS]ite7258 suspend\n");
+	dev_dbg(&ts->client->dev, "[FTS]ite7258 suspend\n");
 
+	return 0;
 }
 
-static void ite7258_ts_resume(struct early_suspend *handler)
+static int ite7258_ts_resume(struct device *dev)
 {
 	printk("ite7258 resume ---------\n");
-	struct ite7258_ts_data *ts = container_of(handler, struct ite7258_ts_data,
-			early_suspend);
+	struct ite7258_ts_data *ts = dev_get_drvdata(dev);
+
 	//mutex_lock(&ts->lock);
 	flush_scheduled_work();
 	gpio_direction_output(ts->rst, 1);
@@ -755,19 +753,7 @@ static void ite7258_ts_resume(struct early_suspend *handler)
 	enable_irq(ts->irq);
 	printk("ite7258 resume ---------\n");
 	//mutex_unlock(&ts->lock);
-}
-#endif
-
- #ifdef CONFIG_HAS_EARLYSUSPEND
-static void ite7258_early_suspend(struct early_suspend *h)
-{
-	ite7258_ts_suspend(h);
-}
-
-static void ite7258_ts_late_resume(struct early_suspend *h)
-{
-//	printk("ite7258 late resume ----------\n");
-	ite7258_ts_resume(h);
+	return 0;
 }
 #endif
 
@@ -954,13 +940,6 @@ static int ite7258_ts_probe(struct i2c_client *client,
                 goto exit_input_register_device_failed;
         }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-        ite7258_ts->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
-        ite7258_ts->early_suspend.suspend = ite7258_early_suspend;
-        ite7258_ts->early_suspend.resume  = ite7258_ts_late_resume;
-        register_early_suspend(&ite7258_ts->early_suspend);
-#endif
-
 #ifdef SYSFS_DEBUG
         ite7258_create_sysfs(client);
 #endif
@@ -1048,7 +1027,7 @@ static int ite7258_ts_remove(struct i2c_client *client)
         return 0;
 }
 
-#if defined(CONFIG_PM) && defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_PM)
 static const struct dev_pm_ops ite7258_ts_pm_ops = {
 	.suspend        = ite7258_ts_suspend,
 	.resume		= ite7258_ts_resume,
@@ -1069,7 +1048,7 @@ static struct i2c_driver ite7258_ts_driver = {
         .driver = {
                 .name = ITE7258_NAME,
                 .owner = THIS_MODULE,
-#if defined(CONFIG_PM) && defined(CONFIG_HAS_EARLYSUSPEND)
+#if defined(CONFIG_PM)
 		.pm	= &ite7258_ts_pm_ops,
 #endif
         },
