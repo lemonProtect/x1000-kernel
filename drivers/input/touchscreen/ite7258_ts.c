@@ -21,7 +21,6 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/interrupt.h>
-//#include <mach/irqs.h>
 #include <linux/kernel.h>
 #include <linux/semaphore.h>
 #include <linux/mutex.h>
@@ -38,6 +37,7 @@
 #include <linux/device.h>
 #include <linux/i2c/ite7258_tsc.h>
 #include <jz_notifier.h>
+#include <linux/fb.h>
 
 #include "ite7258_ts.h"
 
@@ -69,6 +69,7 @@ struct ite7258_ts_data {
 	struct workqueue_struct *workqueue;
 	char *vcc_name;
 	struct regulator *vcc_reg;
+	struct notifier_block tp_notif;
 };
 
 struct ite7258_update_data{
@@ -79,9 +80,13 @@ struct ite7258_update_data{
 	char *conf_buf;
 };
 
+
 static struct ite7258_update_data *update;
 
 static const struct attribute_group it7258_attr_group;
+
+extern int fb_register_client(struct notifier_block *nb);
+extern int fb_unregister_client(struct notifier_block *nb);
 
 /*
  *ite7258_i2c_Read-read data and write data by i2c
@@ -712,12 +717,9 @@ static int ite7258_print_version(struct i2c_client *client)
 
 }
 
-#if defined(CONFIG_PM)
-static int ite7258_ts_suspend(struct device *dev)
+static void ite7258_do_suspend(struct ite7258_ts_data *ts)
 {
-	struct ite7258_ts_data *ts = dev_get_drvdata(dev);
 
-	//flush_work(&ts->work);
 	printk("---------------TP suspend\n");
 	mutex_lock(&ts->lock);
 	flush_scheduled_work();
@@ -727,15 +729,10 @@ static int ite7258_ts_suspend(struct device *dev)
 	mutex_unlock(&ts->lock);
 	dev_dbg(&ts->client->dev, "[FTS]ite7258 suspend\n");
 
-	return 0;
 }
 
-static int ite7258_ts_resume(struct device *dev)
+static void ite7258_do_resume(struct ite7258_ts_data *ts)
 {
-	printk("ite7258 resume ---------\n");
-	struct ite7258_ts_data *ts = dev_get_drvdata(dev);
-
-	//mutex_lock(&ts->lock);
 	flush_scheduled_work();
 	gpio_direction_output(ts->rst, 1);
 	msleep(2);
@@ -746,13 +743,26 @@ static int ite7258_ts_resume(struct device *dev)
 	dev_dbg(&ts->client->dev, "[FTS]ite7258 resume.\n");
 	msleep(2);
 	gpio_direction_input(ts->client->irq);
-	//ite7258_idle_mode(ts->client);
 	ts->is_suspend = 0;
 
-	//msleep(10);
 	enable_irq(ts->irq);
 	printk("ite7258 resume ---------\n");
-	//mutex_unlock(&ts->lock);
+}
+
+#if defined(CONFIG_PM)
+static int ite7258_ts_suspend(struct device *dev)
+{
+	struct ite7258_ts_data *ts = dev_get_drvdata(dev);
+
+	ite7258_do_suspend(ts);
+	return 0;
+}
+
+static int ite7258_ts_resume(struct device *dev)
+{
+	struct ite7258_ts_data *ts = dev_get_drvdata(dev);
+
+	ite7258_do_resume(ts);
 	return 0;
 }
 #endif
@@ -869,6 +879,50 @@ static void ite7258_input_set(struct input_dev *input_dev, struct ite7258_ts_dat
 	input_dev->id.version = 10427;
 
 }
+static int tp_notifier_callback(struct notifier_block *self,unsigned long event, void *data)
+{
+	struct ite7258_ts_data *ite7258_ts;
+	struct device *dev;
+	struct fb_event *evdata = data;
+	int mode;
+
+	/* If we aren't interested in this event, skip it immediately ... */
+	switch (event) {
+		case FB_EVENT_BLANK:
+		case FB_EVENT_MODE_CHANGE:
+		case FB_EVENT_MODE_CHANGE_ALL:
+		case FB_EARLY_EVENT_BLANK:
+		case FB_R_EARLY_EVENT_BLANK:
+			break;
+		default:
+			return 0;
+	}
+
+	mode = *(int *)evdata->data;
+	ite7258_ts = container_of(self, struct ite7258_ts_data, tp_notif);
+
+	if(event == FB_EVENT_BLANK){
+		if(mode)
+			ite7258_do_suspend(ite7258_ts);
+		else
+			ite7258_do_resume(ite7258_ts);
+	}
+	return 0;
+}
+
+static void ite7258_register_notifier(struct ite7258_ts_data *ite7258_ts)
+{
+	memset(&ite7258_ts->tp_notif,0,sizeof(ite7258_ts->tp_notif));
+	ite7258_ts->tp_notif.notifier_call = tp_notifier_callback;
+
+	/* register on the fb notifier  and work with fb*/
+	fb_register_client(&ite7258_ts->tp_notif);
+}
+
+static void ite7258_unregister_notifier(struct ite7258_ts_data *ite7258_ts)
+{
+	fb_unregister_client(&ite7258_ts->tp_notif);
+}
 
 static int ite7258_ts_probe(struct i2c_client *client,
                 const struct i2c_device_id *id)
@@ -928,6 +982,8 @@ static int ite7258_ts_probe(struct i2c_client *client,
                 dev_err(&client->dev, "failed to allocate input device\n");
                 goto exit_input_dev_alloc_failed;
         }
+
+		ite7258_register_notifier(ite7258_ts);
 
         ite7258_ts->input_dev = input_dev;
         ite7258_input_set(input_dev, ite7258_ts);
@@ -1017,6 +1073,7 @@ static int ite7258_ts_remove(struct i2c_client *client)
         ft_rw_iic_drv_exit();
 #endif
         free_irq(ite7258_ts->irq, ite7258_ts);
+		ite7258_unregister_notifier(ite7258_ts);
         if (!IS_ERR(ite7258_ts->vcc_reg)) {
                 regulator_disable(ite7258_ts->vcc_reg);
                 regulator_put(ite7258_ts->vcc_reg);
