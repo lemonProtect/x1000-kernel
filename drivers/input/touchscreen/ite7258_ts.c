@@ -85,9 +85,6 @@ static struct ite7258_update_data *update;
 
 static const struct attribute_group it7258_attr_group;
 
-extern int fb_register_client(struct notifier_block *nb);
-extern int fb_unregister_client(struct notifier_block *nb);
-
 /*
  *ite7258_i2c_Read-read data and write data by i2c
  *@client: handle of i2c
@@ -720,33 +717,36 @@ static int ite7258_print_version(struct i2c_client *client)
 static void ite7258_do_suspend(struct ite7258_ts_data *ts)
 {
 
-	printk("---------------TP suspend\n");
-	mutex_lock(&ts->lock);
-	flush_scheduled_work();
-	disable_irq(ts->irq);
-	ts->is_suspend = 1;
-	regulator_disable(ts->vcc_reg);
-	mutex_unlock(&ts->lock);
-	dev_dbg(&ts->client->dev, "[FTS]ite7258 suspend\n");
-
+	if(ts->is_suspend == 0){
+		printk("---------------TP suspend\n");
+		mutex_lock(&ts->lock);
+		flush_scheduled_work();
+		disable_irq(ts->irq);
+		ts->is_suspend = 1;
+		regulator_disable(ts->vcc_reg);
+		mutex_unlock(&ts->lock);
+		dev_dbg(&ts->client->dev, "[FTS]ite7258 suspend\n");
+	}
 }
 
 static void ite7258_do_resume(struct ite7258_ts_data *ts)
 {
-	flush_scheduled_work();
-	gpio_direction_output(ts->rst, 1);
-	msleep(2);
-	gpio_direction_output(ts->rst, 0);
-	gpio_direction_output(ts->client->irq, 0);
-	msleep(10);
-	regulator_enable(ts->vcc_reg);
-	dev_dbg(&ts->client->dev, "[FTS]ite7258 resume.\n");
-	msleep(2);
-	gpio_direction_input(ts->client->irq);
-	ts->is_suspend = 0;
+	if(ts->is_suspend){
+		gpio_direction_output(ts->rst, 1);
+		msleep(2);
+		gpio_direction_output(ts->rst, 0);
+		gpio_direction_output(ts->client->irq, 0);
+		msleep(10);
+		regulator_enable(ts->vcc_reg);
+		dev_dbg(&ts->client->dev, "[FTS]ite7258 resume.\n");
+		msleep(2);
+		gpio_direction_input(ts->client->irq);
+		ts->is_suspend = 0;
 
-	enable_irq(ts->irq);
-	printk("ite7258 resume ---------\n");
+		enable_irq(ts->irq);
+		printk("ite7258 resume ---------\n");
+	}
+
 }
 
 #if defined(CONFIG_PM)
