@@ -108,7 +108,21 @@ static int wakeup_write(struct file *filp, const char *buf, size_t count, loff_t
 }
 static int wakeup_close(struct inode *inode, struct file *filp)
 {
-	//struct wakeup_dev *wakeup = filp->private_data;
+	struct wakeup_dev *wakeup = filp->private_data;
+	unsigned long flags;
+
+	wakeup_module_close(NORMAL_WAKEUP);
+
+	spin_lock_irqsave(&wakeup->wakeup_lock, flags);
+	if(wakeup->wakeup_pending == 1) {
+		wakeup->wakeup_pending = 0;
+		wakeup->wakeup_enable = 0;
+		wake_up(&wakeup->wakeup_wq);
+	}
+	spin_unlock_irqrestore(&wakeup->wakeup_lock, flags);
+
+	wakeup_module_wakeup_enable(0);
+	del_timer_sync(&wakeup->wakeup_timer);
 
 	return 0;
 }
@@ -137,8 +151,9 @@ static void wakeup_timer_handler(unsigned long data)
 {
 	struct wakeup_dev *wakeup = (struct wakeup_dev *)data;
 	unsigned long flags;
+
 	if(wakeup_module_process_data() == SYS_WAKEUP_OK) {
-		printk("sys wakeup ok!--%s():%d\n", __func__, __LINE__);
+		printk("sys wakeup ok!--%s():%d, wakeup_pending:%d\n", __func__, __LINE__, wakeup->wakeup_pending);
 		spin_lock_irqsave(&wakeup->wakeup_lock, flags);
 		if(wakeup->wakeup_pending == 1) {
 			wake_up(&wakeup->wakeup_wq);
@@ -214,7 +229,6 @@ static ssize_t wakeup_show(struct device *dev,
 	int ret;
 	char *t = buf;
 	unsigned long flags;
-
 	ret = wait_event_interruptible(wakeup->wakeup_wq, wakeup->wakeup_pending == 0);
 	if(ret && wakeup->wakeup_pending == 1) {
 		/* interrupted by signal , just return .*/
@@ -257,11 +271,15 @@ static int wakeup_suspend(void)
 	struct wakeup_dev * wakeup = g_wakeup;
 	struct sleep_buffer *sleep_buffer = &wakeup->sleep_buffer;
 	int i;
-
+	int ret;
 	if(wakeup->wakeup_enable == 0) {
 		return 0;
 	}
 
+	if(wakeup->wakeup_pending == 0) {
+		/* voice identified during suspend */
+		return -1;
+	}
 	sleep_buffer->nr_buffers = NR_BUFFERS;
 	sleep_buffer->total_len	 = SLEEP_BUFFER_SIZE;
 	for(i = 0; i < sleep_buffer->nr_buffers; i++) {
@@ -272,7 +290,7 @@ static int wakeup_suspend(void)
 		}
 	}
 	dma_cache_wback_inv(&sleep_buffer->buffer[0], sleep_buffer->total_len);
-	wakeup_module_set_sleep_buffer(&wakeup->sleep_buffer);
+	ret = wakeup_module_set_sleep_buffer(&wakeup->sleep_buffer);
 
 	return 0;
 

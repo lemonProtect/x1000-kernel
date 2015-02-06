@@ -295,6 +295,7 @@ int close(int mode)
 			REG32(0xB0001028) |= 1<< 0;
 			dmic_disable_tri();
 			wakeup_close();
+			dmic_ioctl(DMIC_IOCTL_SET_SAMPLERATE, 16000);
 			dump_voice_wakeup();
 		}
 		return 0;
