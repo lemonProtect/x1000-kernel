@@ -632,7 +632,7 @@ void i2s_replay_zero_for_flush_codec(struct i2s_device *i2s_dev)
 	__i2s_write_tfifo(i2s_dev, 0);
 	__i2s_write_tfifo(i2s_dev, 0);
 	__i2s_enable_replay(i2s_dev);
-	mdelay(2);
+	msleep(2);
 	__i2s_disable_replay(i2s_dev);
 }
 

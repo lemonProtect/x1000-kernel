@@ -2258,7 +2258,7 @@ long xb_snd_dsp_ioctl(struct file *file,
 #endif
 
 			if (dp->force_stop_dma == true)
-				mdelay(20);
+				msleep(20);
 			snd_release_node(dp);
 			dp->is_trans = false;
 			dp->wait_stop_dma = false;
