@@ -269,6 +269,13 @@ typedef struct _gcsPLATFORM
 
     gcsPLATFORM_OPERATIONS* ops;
 
+#if ENABLE_GPU_CLOCK_BY_DRIVER && defined(CONFIG_SOC_M200) && defined(CONFIG_GPU_DYNAMIC_CLOCK_POWER)
+    struct clk * clk_pwc_gpu;
+    struct clk * clk_gpu;
+    struct clk * clk_cgu_gpu;
+    int Power_ON;
+    int Clock_ON;
+#endif  /* CONFIG_SOC_M200 */
     void*                   priv;
 }
 gcsPLATFORM;

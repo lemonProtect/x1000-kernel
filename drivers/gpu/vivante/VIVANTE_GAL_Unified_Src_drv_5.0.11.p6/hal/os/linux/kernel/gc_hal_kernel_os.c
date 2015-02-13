@@ -6583,16 +6583,6 @@ gckOS_SetGPUPower(
 
     clockChange = (Clock != Os->clockStates[Core]);
 
-    if (powerChange && (Power == gcvTRUE))
-    {
-        if (platform && platform->ops->setPower)
-        {
-            gcmkVERIFY_OK(platform->ops->setPower(platform, Core, Power));
-        }
-
-        Os->powerStates[Core] = Power;
-    }
-
     if (clockChange)
     {
         mutex_lock(&Os->registerAccessLocks[Core]);
@@ -6607,7 +6597,7 @@ gckOS_SetGPUPower(
         mutex_unlock(&Os->registerAccessLocks[Core]);
     }
 
-    if (powerChange && (Power == gcvFALSE))
+    if (powerChange)
     {
         if (platform && platform->ops->setPower)
         {
