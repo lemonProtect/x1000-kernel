@@ -18,6 +18,7 @@
 #include <linux/power/jz4780-battery.h>
 #include <linux/i2c/ft6x06_ts.h>
 #include <linux/interrupt.h>
+#include <sound/jz-aic.h>
 #include "board.h"
 
 #ifdef CONFIG_KEYBOARD_GPIO
@@ -305,6 +306,49 @@ static struct jz_battery_info mensa_battery_pdata = {
 static struct jz_adc_platform_data adc_platform_data;
 #endif
 
+#ifdef CONFIG_SND_JZ_SOC_AIC_CORE
+/* For board info */
+#define JZ_AIC_AC97             \
+{                               \
+	.id     = -1,           \
+	.name   = "jz-aic-ac97",\
+	.platform_data  = NULL, \
+}
+
+#define JZ_AIC_I2S              \
+{                               \
+	.id     = -1,           \
+	.name   = "jz-aic-i2s",\
+	.platform_data  = NULL, \
+}
+
+#define JZ_AIC_SPDIF            \
+{                               \
+	.id     = -1,           \
+	.name   = "jz-aic-spdif",\
+	.platform_data  = NULL, \
+}
+
+#define JZ_AIC_DMA		\
+{				\
+	.id	= -1,		\
+	.name	= "jz-audio-dma",\
+	.platform_data	= NULL, \
+}
+
+struct jz_aic_subdev_info jz_aic_subdev_info[] = {
+	JZ_AIC_I2S,
+	JZ_AIC_AC97,
+	JZ_AIC_SPDIF,
+	JZ_AIC_DMA,
+};
+
+struct jz_aic_platform_data aic_platform_data = {
+
+	.num_subdevs    = ARRAY_SIZE(jz_aic_subdev_info),
+	.subdevs        = jz_aic_subdev_info,
+};
+#endif
 #if 0
 static struct resource	jz_mac_res[] = {
 	{ .flags = IORESOURCE_MEM,
@@ -762,6 +806,10 @@ static int __init board_init(void)
 #ifdef CONFIG_BATTERY_JZ4775
 	adc_platform_data.battery_info = mensa_battery_pdata;
 	jz_device_register(&jz_adc_device, &adc_platform_data);
+#endif
+
+#ifdef CONFIG_SND_JZ_SOC_AIC_CORE
+	jz_device_register(&jz_aic_device, &aic_platform_data);
 #endif
 
 /*IW8103_bcm4330*/

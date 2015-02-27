@@ -285,9 +285,9 @@ DEF_MSC(0);
 DEF_MSC(1);
 DEF_MSC(2);
 
-static u64 jz_i2c_dmamask =  ~(u32)0;
 #if (defined(CONFIG_I2C0_JZ4775) || defined(CONFIG_I2C1_JZ4775) ||	\
 		defined(CONFIG_I2C2_JZ4775))
+static u64 jz_i2c_dmamask =  ~(u32)0;
 
 #define DEF_I2C(NO)								\
 	static struct resource jz_i2c##NO##_resources[] = {			\
@@ -333,6 +333,7 @@ DEF_I2C(2);
 
 #if (defined(CONFIG_I2C0_DMA_JZ4775) || defined(CONFIG_I2C1_DMA_JZ4775) ||	\
 		defined(CONFIG_I2C2_DMA_JZ4775))
+static u64 jz_i2c_dmamask =  ~(u32)0;
 
 #define DEF_I2C_DMA(NO)								\
 	static struct resource jz_i2c##NO##_dma_resources[] = {			\
