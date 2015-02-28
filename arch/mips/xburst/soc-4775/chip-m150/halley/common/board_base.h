@@ -12,10 +12,10 @@ extern struct platform_device jz_led_RGB;
 extern struct snd_codec_data codec_data;
 #endif
 
-#ifdef CONFIG_MMC1_JZ4775
+#ifdef CONFIG_JZMMC_V11_MMC1
 extern struct jzmmc_platform_data tf_pdata;
 #endif
-#ifdef CONFIG_MMC2_JZ4775
+#ifdef CONFIG_JZMMC_V11_MMC2
 extern struct jzmmc_platform_data sdio_pdata;
 #endif
 

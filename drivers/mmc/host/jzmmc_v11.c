@@ -24,8 +24,12 @@
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
 
+#include <linux/init.h>
+#include <linux/slab.h>
+#include <linux/stat.h>
+#include <linux/module.h>
 #include <mach/jzmmc.h>
-#include "jz4775_mmc.h"
+#include "jzmmc_v11.h"
 
 /**
  * MMC driver parameters

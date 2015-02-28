@@ -53,10 +53,10 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_SERIAL_JZ47XX_UART3
 	DEF_DEVICE(&jz_uart3_device, 0, 0),
 #endif
-#ifdef CONFIG_MMC1_JZ4775
+#ifdef CONFIG_JZMMC_V11_MMC1
 	DEF_DEVICE(&jz_msc1_device,&tf_pdata,sizeof(struct jzmmc_platform_data)),
 #endif
-#ifdef CONFIG_MMC2_JZ4775
+#ifdef CONFIG_JZMMC_V11_MMC2
 	DEF_DEVICE(&jz_msc2_device,&sdio_pdata,sizeof(struct jzmmc_platform_data)),
 #endif
 #ifdef CONFIG_SOUND_JZ_PCM_V12
@@ -73,7 +73,7 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&jz_codec_device, &codec_data, sizeof(struct snd_codec_data)),
 #endif
 
-#ifdef CONFIG_USB_DWC2
+#ifdef CONFIG_USB_JZ_DWC2
 	DEF_DEVICE(&jz_dwc_otg_device,0,0),
 #endif
 

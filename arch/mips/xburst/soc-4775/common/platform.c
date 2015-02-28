@@ -27,25 +27,25 @@
 
 /* device IO define array */
 struct jz_gpio_func_def platform_devio_array[] = {
-#ifdef CONFIG_MMC0_JZ4775_PA_4BIT
+#ifdef CONFIG_JZMMC_V11_MMC0_PA_4BIT
 	MSC0_PORTA_4BIT,
 #endif
-#ifdef CONFIG_MMC0_JZ4775_PA_8BIT
+#ifdef CONFIG_JZMMC_V11_MMC0_PA_8BIT
 	MSC0_PORTA_8BIT,
 #endif
-#ifdef CONFIG_MMC0_JZ4775_PE_4BIT
+#ifdef CONFIG_JZMMC_V11_MMC0_PE_4BIT
 	MSC0_PORTE,
 #endif
-#ifdef CONFIG_MMC1_JZ4775_PD_4BIT
+#ifdef CONFIG_JZMMC_V11_MMC1_PD_4BIT
 	MSC1_PORTD,
 #endif
-#ifdef CONFIG_MMC1_JZ4775_PE_4BIT
+#ifdef CONFIG_JZMMC_V11_MMC1_PE_4BIT
 	MSC1_PORTE,
 #endif
-#ifdef CONFIG_MMC2_JZ4775_PB_4BIT
+#ifdef CONFIG_JZMMC_V11_MMC2_PB_4BIT
 	MSC2_PORTB,
 #endif
-#ifdef CONFIG_MMC2_JZ4775_PE_4BIT
+#ifdef CONFIG_JZMMC_V11_MMC2_PE_4BIT
 	MSC2_PORTE,
 #endif
 #if	(defined(CONFIG_I2C0_JZ4775) || defined(CONFIG_I2C0_DMA_JZ4775))
@@ -1004,7 +1004,7 @@ static struct resource jz_dwc_otg_resources[] = {
 };
 
 struct platform_device  jz_dwc_otg_device = {
-	.name = "jz4780-dwc2",
+	.name = "jz-dwc2",
 	.id = -1,
 	.num_resources	= ARRAY_SIZE(jz_dwc_otg_resources),
 	.resource	= jz_dwc_otg_resources,
