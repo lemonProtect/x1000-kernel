@@ -69,7 +69,7 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&bluesleep_device,0,0),
 #endif
 
-#ifdef CONFIG_JZ4775_INTERNAL_CODEC
+#ifdef CONFIG_JZ_INTERNAL_CODEC_V12
 	DEF_DEVICE(&jz_codec_device, &codec_data, sizeof(struct snd_codec_data)),
 #endif
 
