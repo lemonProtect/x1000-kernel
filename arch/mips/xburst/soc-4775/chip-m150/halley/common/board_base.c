@@ -37,8 +37,8 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	{ .pdevices = DEVICE,   \
 		.pdata = DATA, .size = SIZE,}
 
-#ifdef CONFIG_JZ_LED_RGB
-	DEF_DEVICE(&jz_led_RGB, 0, 0),
+#ifdef CONFIG_LEDS_GPIO
+	DEF_DEVICE(&jz_led_rgb, 0, 0),
 #endif
 
 #ifdef CONFIG_SERIAL_JZ47XX_UART0

@@ -4,12 +4,6 @@
 #include <soc/gpio.h>
 
 
-/* LED */
-#ifdef CONFIG_JZ_LED_RGB
-#define GPIO_JZ_LED_RGB_R    GPIO_PC(5)
-#define GPIO_JZ_LED_RGB_G    GPIO_PC(4)
-#define GPIO_JZ_LED_RGB_B    GPIO_PC(13)
-#endif
 
 #ifdef  CONFIG_BROADCOM_RFKILL
 #define BLUETOOTH_UART_GPIO_PORT        GPIO_PORT_D
@@ -32,6 +26,12 @@
 #define WL_WAKE_HOST        GPIO_PG(7)
 #define WL_REG_EN       GPIO_PG(8)
 
+/*wifi  LED */
+#ifdef CONFIG_LEDS_GPIO
+#define	WL_LED_R	GPIO_PC(5)
+#define	WL_LED_G	GPIO_PC(4)
+#define	WL_LED_B	GPIO_PC(13)
+#endif
 
 #ifdef CONFIG_SPI_GPIO
 #define GPIO_SPI_SCK  GPIO_PA(18)

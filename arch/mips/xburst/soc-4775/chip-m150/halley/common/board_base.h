@@ -4,8 +4,8 @@
 #include <board.h>
 #include <linux/spi/spi.h>
 
-#ifdef CONFIG_JZ_LED_RGB
-extern struct platform_device jz_led_RGB;
+#ifdef CONFIG_LEDS_GPIO
+extern struct platform_device jz_led_rgb;
 #endif
 
 #ifdef CONFIG_JZ4775_INTERNAL_CODEC

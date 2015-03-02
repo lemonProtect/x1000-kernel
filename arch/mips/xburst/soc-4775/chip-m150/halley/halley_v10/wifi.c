@@ -2,7 +2,7 @@
 #include <linux/gpio.h>
 #include <linux/fs.h>
 #include <linux/wlan_plat.h>
-
+#include <asm/uaccess.h>
 
 #include "board.h"
 static struct wifi_platform_data bcmdhd_wlan_pdata;
@@ -135,5 +135,5 @@ static int __init wlan_device_init(void)
 }
 
 late_initcall(wlan_device_init);
-MODULE_DESCRIPTION("Broadcomm wlan driver");
-MODULE_LICENSE("GPL");
+//MODULE_DESCRIPTION("Broadcomm wlan driver");
+//MODULE_LICENSE("GPL");
