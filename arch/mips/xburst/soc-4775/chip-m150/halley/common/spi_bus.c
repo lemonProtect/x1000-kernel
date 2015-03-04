@@ -39,21 +39,18 @@ struct mtd_partition jz_mtd_partition1[] = {
 #endif
 };
 #endif
-
-
-
 #ifdef CONFIG_JZ_SPI_NOR
 struct spi_nor_block_info flash_block_info[] = {
 	{
 		.blocksize      = 64 * 1024,
 		.cmd_blockerase = 0xD8,
-		.be_maxbusy     = 1200  /* 1.2s */
+		.be_maxbusy     = 1200,  /* 1.2s */
 	},
 
 	{
 		.blocksize      = 32 * 1024,
 		.cmd_blockerase = 0x52,
-		.be_maxbusy     = 1000  /* 1s */
+		.be_maxbusy     = 1000,  /* 1s */
 	},
 };
 
@@ -73,6 +70,7 @@ struct spi_nor_platform_data spi_nor_pdata = {
 	.ce_maxbusy     = 8 * 10000,    /* 80s */
 
 	.st_regnum      = 3,
+
 	.mtd_partition  = jz_mtd_partition1,
 	.num_partition_info = ARRAY_SIZE(jz_mtd_partition1),
 };
@@ -87,8 +85,8 @@ struct spi_board_info jz_spi0_board_info[]  = {
 		.max_speed_hz           = 12000000,
 		.bus_num                = 0,
 		.chip_select            = 0,
+
 	},
-#if 1
 	[1] ={
 		.modalias       =  "jz_nor",
 		.platform_data          = &spi_nor_pdata,
@@ -97,7 +95,6 @@ struct spi_board_info jz_spi0_board_info[]  = {
 		.bus_num                = 0,
 		.chip_select            = 1,
 	},
-#endif
 };
 int jz_spi0_devs_size = ARRAY_SIZE(jz_spi0_board_info);
 #endif

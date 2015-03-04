@@ -1059,10 +1059,11 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 	struct resource *res;
 	dma_cap_mask_t mask;
 	int err = 0;
+	int num_cs_got = 0;
 	char clkname[16];
+	int i;
 
 #ifdef CONFIG_JZ_SPI_BOARD_INFO_REGISTER
-	int i;
 	struct spi_board_info *bi;
 #endif
 
@@ -1109,7 +1110,7 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 #ifdef CONFIG_JZ_SPI_PIO_CE
 	for (i = 0; i < hw->pdata->num_chipselect; i++, num_cs_got = i) {
 		err = gpio_request(hw->pdata->chipselect[i], "JZ47XX_SPI_CS");
-		if(err) {
+		if(err && (!hw->pdata->allow_cs_same)) {
 			dev_err(&pdev->dev, "Request cs_gpio: %d is occupied\n",
 							hw->pdata->chipselect[i]);
 			goto err_cs_gpio;
@@ -1319,6 +1320,7 @@ err_nomem:
 static int __exit jz47xx_spi_remove(struct platform_device *dev)
 {
 	struct jz47xx_spi *hw = platform_get_drvdata(dev);
+	int i;
 
 	spi_master_put(hw->master);
 	spi_bitbang_stop(&hw->bitbang);

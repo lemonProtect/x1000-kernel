@@ -51,6 +51,14 @@ config AD525X_DPOT_SPI
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad525x_dpot-spi.
 
+config JZ_SPI_NOR
+	  tristate "Support SPI NOR at Ingenic"
+	  depends on JZRISC
+	  default n
+	  help
+		  Support SPI NOR Flash to JZ SOC.
+
+
 config ATMEL_PWM
 	tristate "Atmel AT32/AT91 PWM support"
 	depends on HAVE_CLK
