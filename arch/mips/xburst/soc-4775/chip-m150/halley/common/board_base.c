@@ -91,11 +91,11 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #endif
 
 #ifdef CONFIG_SPI_GPIO
-	DEF_DEVICE(&jz47xx_spi_gpio_device, 0,0),
+	DEF_DEVICE(&jz_spi_gpio_device, 0,0),
 #endif
 
-#ifdef CONFIG_SPI0_JZ47XX
-	DEF_DEVICE(&jz_ssi0_device, &spi0_info_cfg, sizeof(struct jz47xx_spi_info)),
+#ifdef CONFIG_JZ_SPI0
+	DEF_DEVICE(&jz_ssi0_device, &spi0_info_cfg, sizeof(struct jz_spi_info)),
 #endif
 #ifdef CONFIG_RTC_DRV_JZ
 	DEF_DEVICE(&jz_rtc_device, 0, 0),

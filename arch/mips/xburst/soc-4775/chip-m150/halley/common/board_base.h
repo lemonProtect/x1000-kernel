@@ -31,15 +31,15 @@ extern struct platform_device   jz_dwc_otg_device;
 extern struct platform_device jz_ohci_device;
 #endif
 
-#ifdef CONFIG_SPI0_JZ47XX
-extern struct jz47xx_spi_info spi0_info_cfg;
+#ifdef CONFIG_JZ_SPI0
+extern struct jz_spi_info spi0_info_cfg;
 #endif
 #ifdef CONFIG_JZ_SPI_NOR
 extern struct spi_board_info jz_spi0_board_info[];
 extern int jz_spi0_devs_size;
 #endif
 #ifdef CONFIG_SPI_GPIO
-extern struct platform_device jz47xx_spi_gpio_device;
+extern struct platform_device jz_spi_gpio_device;
 #endif
 
 #ifdef CONFIG_JZ4775_EFUSE

@@ -1,5 +1,5 @@
-#ifndef __LINUX_SPI_JZ47XX_H
-#define __LINUX_SPI_JZ47XX_H
+#ifndef __LINUX_SPI_JZ_H
+#define __LINUX_SPI_JZ_H
 
 #include <mach/jzdma.h>
 
@@ -159,7 +159,7 @@
 #define RXBUSY    (1<<2)
 #define TXBUSY    (1<<3)
 
-struct jz47xx_spi {
+struct jz_spi {
 	/* bitbang has to be first */
 	struct spi_bitbang	bitbang;
 	struct clk		*clk_gate;
@@ -210,13 +210,13 @@ struct jz47xx_spi {
 	enum jzdma_type     	 dma_type;
 	u32			 dma_flag;
 
-	void			(*set_cs)(struct jz47xx_spi_info *spi, u8 cs, unsigned int pol);
+	void			(*set_cs)(struct jz_spi_info *spi, u8 cs, unsigned int pol);
 
 	/* functions to deal with different size buffers */
-	u32 (*get_rx) (struct jz47xx_spi *);
-	u32 (*get_tx) (struct jz47xx_spi *);
+	u32 (*get_rx) (struct jz_spi *);
+	u32 (*get_tx) (struct jz_spi *);
 	int (*txrx_bufs)(struct spi_device *spi, struct spi_transfer *t);
-	irqreturn_t (*irq_callback)(struct jz47xx_spi *);
+	irqreturn_t (*irq_callback)(struct jz_spi *);
 
 #ifdef CONFIG_DMA_ENGINE
 	struct dma_chan 	*txchan;
@@ -233,7 +233,7 @@ struct jz47xx_spi {
 	struct resource		*ioarea;
 	struct spi_master	*master;
 	struct device		*dev;
-	struct jz47xx_spi_info *pdata;
+	struct jz_spi_info *pdata;
 //	struct spi_board_info *pdata;
 };
 
@@ -262,19 +262,19 @@ struct jz_intr_cnt{
 #define MAX_SPI_CHIPSELECT_NUM 		MAX_GPIO_NUM
 
 
-static inline void spi_writel(struct jz47xx_spi *spi,
+static inline void spi_writel(struct jz_spi *spi,
 			      unsigned short offset, u32 value)
 {
 	writel(value, spi->iomem + offset);
 }
 
-static inline u32 spi_readl(struct jz47xx_spi *spi,
+static inline u32 spi_readl(struct jz_spi *spi,
 				      unsigned short offset)
 {
 	return readl(spi->iomem + offset);
 }
 
-static inline void set_frmhl(struct jz47xx_spi *spi, unsigned int frmhl)
+static inline void set_frmhl(struct jz_spi *spi, unsigned int frmhl)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR1);
@@ -282,7 +282,7 @@ static inline void set_frmhl(struct jz47xx_spi *spi, unsigned int frmhl)
 	spi_writel(spi, SSI_CR1, tmp);
 }
 
-static inline void set_spi_clock_phase(struct jz47xx_spi *spi, unsigned int cpha)
+static inline void set_spi_clock_phase(struct jz_spi *spi, unsigned int cpha)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR1);
@@ -290,7 +290,7 @@ static inline void set_spi_clock_phase(struct jz47xx_spi *spi, unsigned int cpha
 	spi_writel(spi, SSI_CR1, tmp);
 }
 
-static inline void set_spi_clock_polarity(struct jz47xx_spi *spi,
+static inline void set_spi_clock_polarity(struct jz_spi *spi,
 					  unsigned int cpol)
 {
 	u32 tmp;
@@ -299,7 +299,7 @@ static inline void set_spi_clock_polarity(struct jz47xx_spi *spi,
 	spi_writel(spi, SSI_CR1, tmp);
 }
 
-static inline void set_tx_msb(struct jz47xx_spi *spi)
+static inline void set_tx_msb(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -307,7 +307,7 @@ static inline void set_tx_msb(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void set_tx_lsb(struct jz47xx_spi *spi)
+static inline void set_tx_lsb(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -315,7 +315,7 @@ static inline void set_tx_lsb(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void set_rx_msb(struct jz47xx_spi *spi)
+static inline void set_rx_msb(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -323,7 +323,7 @@ static inline void set_rx_msb(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void set_rx_lsb(struct jz47xx_spi *spi)
+static inline void set_rx_lsb(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -331,7 +331,7 @@ static inline void set_rx_lsb(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void enable_loopback(struct jz47xx_spi *spi)
+static inline void enable_loopback(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -339,7 +339,7 @@ static inline void enable_loopback(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void disable_loopback(struct jz47xx_spi *spi)
+static inline void disable_loopback(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -347,12 +347,12 @@ static inline void disable_loopback(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void transmit_data(struct jz47xx_spi *spi, u32 value)
+static inline void transmit_data(struct jz_spi *spi, u32 value)
 {
 	spi_writel(spi, SSI_DR, value);
 }
 
-static inline void set_frame_length(struct jz47xx_spi *spi, u32 len)
+static inline void set_frame_length(struct jz_spi *spi, u32 len)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR1);
@@ -360,7 +360,7 @@ static inline void set_frame_length(struct jz47xx_spi *spi, u32 len)
 	spi_writel(spi, SSI_CR1, tmp);
 }
 
-static inline void set_tx_trigger(struct jz47xx_spi *spi, u32 val)
+static inline void set_tx_trigger(struct jz_spi *spi, u32 val)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR1);
@@ -368,7 +368,7 @@ static inline void set_tx_trigger(struct jz47xx_spi *spi, u32 val)
 	spi_writel(spi, SSI_CR1, tmp);
 }
 
-static inline void set_rx_trigger(struct jz47xx_spi *spi, u32 val)
+static inline void set_rx_trigger(struct jz_spi *spi, u32 val)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR1);
@@ -376,7 +376,7 @@ static inline void set_rx_trigger(struct jz47xx_spi *spi, u32 val)
 	spi_writel(spi, SSI_CR1, tmp);
 }
 
-static inline void enable_txfifo_half_empty_intr(struct jz47xx_spi *spi)
+static inline void enable_txfifo_half_empty_intr(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -384,7 +384,7 @@ static inline void enable_txfifo_half_empty_intr(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void disable_txfifo_half_empty_intr(struct jz47xx_spi *spi)
+static inline void disable_txfifo_half_empty_intr(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -392,7 +392,7 @@ static inline void disable_txfifo_half_empty_intr(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void enable_rxfifo_half_full_intr(struct jz47xx_spi *spi)
+static inline void enable_rxfifo_half_full_intr(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -400,7 +400,7 @@ static inline void enable_rxfifo_half_full_intr(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void disable_rxfifo_half_full_intr(struct jz47xx_spi *spi)
+static inline void disable_rxfifo_half_full_intr(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -408,7 +408,7 @@ static inline void disable_rxfifo_half_full_intr(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void enable_tx_intr(struct jz47xx_spi *spi)
+static inline void enable_tx_intr(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -416,7 +416,7 @@ static inline void enable_tx_intr(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void disable_tx_intr(struct jz47xx_spi *spi)
+static inline void disable_tx_intr(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -424,7 +424,7 @@ static inline void disable_tx_intr(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void enable_rx_intr(struct jz47xx_spi *spi)
+static inline void enable_rx_intr(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -432,7 +432,7 @@ static inline void enable_rx_intr(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void disable_rx_intr(struct jz47xx_spi *spi)
+static inline void disable_rx_intr(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -440,7 +440,7 @@ static inline void disable_rx_intr(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void enable_tx_error_intr(struct jz47xx_spi *spi)
+static inline void enable_tx_error_intr(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -448,7 +448,7 @@ static inline void enable_tx_error_intr(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void disable_tx_error_intr(struct jz47xx_spi *spi)
+static inline void disable_tx_error_intr(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -456,7 +456,7 @@ static inline void disable_tx_error_intr(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void enable_rx_error_intr(struct jz47xx_spi *spi)
+static inline void enable_rx_error_intr(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -464,7 +464,7 @@ static inline void enable_rx_error_intr(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void disable_rx_error_intr(struct jz47xx_spi *spi)
+static inline void disable_rx_error_intr(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -472,7 +472,7 @@ static inline void disable_rx_error_intr(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void underrun_auto_clear(struct jz47xx_spi *spi)
+static inline void underrun_auto_clear(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -480,7 +480,7 @@ static inline void underrun_auto_clear(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void clear_errors(struct jz47xx_spi *spi)
+static inline void clear_errors(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_SR);
@@ -488,7 +488,7 @@ static inline void clear_errors(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_SR, tmp);
 }
 
-static inline void set_spi_format(struct jz47xx_spi *spi)
+static inline void set_spi_format(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR1);
@@ -502,7 +502,7 @@ static inline void set_spi_format(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR1, tmp);
 }
 
-static inline void enable_receive(struct jz47xx_spi *spi)
+static inline void enable_receive(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -510,7 +510,7 @@ static inline void enable_receive(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void disable_receive(struct jz47xx_spi *spi)
+static inline void disable_receive(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -518,7 +518,7 @@ static inline void disable_receive(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void flush_fifo(struct jz47xx_spi *spi)
+static inline void flush_fifo(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -526,7 +526,7 @@ static inline void flush_fifo(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void finish_transmit(struct jz47xx_spi *spi)
+static inline void finish_transmit(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR1);
@@ -534,7 +534,7 @@ static inline void finish_transmit(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR1, tmp);
 }
 
-static inline void start_transmit(struct jz47xx_spi *spi)
+static inline void start_transmit(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR1);
@@ -542,17 +542,17 @@ static inline void start_transmit(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR1, tmp);
 }
 
-static inline int rxfifo_empty(struct jz47xx_spi *spi)
+static inline int rxfifo_empty(struct jz_spi *spi)
 {
 	return spi_readl(spi, SSI_SR) & SR_RFE;
 }
 
-static inline int ssi_busy(struct jz47xx_spi *spi)
+static inline int ssi_busy(struct jz_spi *spi)
 {
 	return spi_readl(spi, SSI_SR) & SR_BUSY;
 }
 
-static inline void ssi_disable(struct jz47xx_spi *spi)
+static inline void ssi_disable(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -560,7 +560,7 @@ static inline void ssi_disable(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void ssi_enable(struct jz47xx_spi *spi)
+static inline void ssi_enable(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -568,12 +568,12 @@ static inline void ssi_enable(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline u32 get_rxfifo_count(struct jz47xx_spi *spi)
+static inline u32 get_rxfifo_count(struct jz_spi *spi)
 {
 	return (spi_readl(spi, SSI_SR) & SR_RFIFONUM_MASK) >> SR_RFIFONUM_BIT;
 }
 
-static inline void flush_txfifo(struct jz47xx_spi *spi)
+static inline void flush_txfifo(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -581,7 +581,7 @@ static inline void flush_txfifo(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void flush_rxfifo(struct jz47xx_spi *spi)
+static inline void flush_rxfifo(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -589,52 +589,52 @@ static inline void flush_rxfifo(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline int ssi_underrun(struct jz47xx_spi *spi)
+static inline int ssi_underrun(struct jz_spi *spi)
 {
 	return spi_readl(spi, SSI_SR) & SR_UNDR;
 }
 
-static inline int ssi_overrun(struct jz47xx_spi *spi)
+static inline int ssi_overrun(struct jz_spi *spi)
 {
 	return spi_readl(spi, SSI_SR) & SR_OVER;
 }
 
-static inline int ssi_transfer_end(struct jz47xx_spi *spi)
+static inline int ssi_transfer_end(struct jz_spi *spi)
 {
 	return spi_readl(spi, SSI_SR) & SR_END;
 }
 
-static inline int tx_error_intr(struct jz47xx_spi *spi)
+static inline int tx_error_intr(struct jz_spi *spi)
 {
 	return spi_readl(spi, SSI_CR0) & CR0_TEIE;
 }
 
-static inline int rx_error_intr(struct jz47xx_spi *spi)
+static inline int rx_error_intr(struct jz_spi *spi)
 {
 	return spi_readl(spi, SSI_CR0) & CR0_REIE;
 }
 
-static inline int rxfifo_half_full(struct jz47xx_spi *spi)
+static inline int rxfifo_half_full(struct jz_spi *spi)
 {
 	return spi_readl(spi, SSI_SR) & SR_RFHF;
 }
 
-static inline int txfifo_half_empty(struct jz47xx_spi *spi)
+static inline int txfifo_half_empty(struct jz_spi *spi)
 {
 	return spi_readl(spi, SSI_SR) & SR_TFHE;
 }
 
-static inline int txfifo_half_empty_intr(struct jz47xx_spi *spi)
+static inline int txfifo_half_empty_intr(struct jz_spi *spi)
 {
 	return spi_readl(spi, SSI_CR0) & CR0_TIE;
 }
 
-static inline int rxfifo_half_full_intr(struct jz47xx_spi *spi)
+static inline int rxfifo_half_full_intr(struct jz_spi *spi)
 {
 	return spi_readl(spi, SSI_CR0) & CR0_RIE;
 }
 
-static inline void select_ce(struct jz47xx_spi *spi)
+static inline void select_ce(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -642,7 +642,7 @@ static inline void select_ce(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void select_ce2(struct jz47xx_spi *spi)
+static inline void select_ce2(struct jz_spi *spi)
 {
 	u32 tmp;
 	tmp = spi_readl(spi, SSI_CR0);
@@ -650,7 +650,7 @@ static inline void select_ce2(struct jz47xx_spi *spi)
 	spi_writel(spi, SSI_CR0, tmp);
 }
 
-static inline void dump_spi_reg(struct jz47xx_spi *spi)
+static inline void dump_spi_reg(struct jz_spi *spi)
 {
 //	printk("SSI_DR	:%08x\n", spi_readl(spi, SSI_DR	));
 	printk("SSI_CR0	:%08x\n", spi_readl(spi, SSI_CR0 ));
@@ -662,4 +662,4 @@ static inline void dump_spi_reg(struct jz47xx_spi *spi)
 	printk("SSI_RCNT:%08x\n", spi_readl(spi, SSI_RCNT));
 }
 
-#endif /* __LINUX_SPI_JZ47XX_H */
+#endif /* __LINUX_SPI_JZ_H */

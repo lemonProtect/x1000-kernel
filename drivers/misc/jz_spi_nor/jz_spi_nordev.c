@@ -14,7 +14,7 @@
 #include <linux/gpio.h>
 #include <linux/spi/spi.h>
 
-#include "jz47xx_spi_nor.h"
+#include "jz_spi_nor.h"
 
 enum nordev_ioctl_cmd {
 	NOR_GET_CHIPID = 1,
@@ -225,7 +225,7 @@ static int __init jz_nordev_init(void)
 	jz_nordev = kzalloc(sizeof(struct jz_nordev_data), GFP_KERNEL);
 	if (!jz_nordev)
 		return -ENOMEM;
-		
+
 
 	jz_nordev->flash = dev_get_drvdata(dev);
 #ifdef CONFIG_JZ4775_EFUSE

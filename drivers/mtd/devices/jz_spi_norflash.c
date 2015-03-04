@@ -451,7 +451,7 @@ static int jz_spi_norflash_probe(struct spi_device *spi)
 	int num_partition_info = 0;
 
 	jz_mtd_partition = pdata->mtd_partition;
-	num_partition_info = pdata->num_partition_info; 
+	num_partition_info = pdata->num_partition_info;
 	chip_id = pdata->id;
 	flash = kzalloc(sizeof(struct jz_spi_norflash), GFP_KERNEL);
 	if (!flash) {

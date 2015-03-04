@@ -99,8 +99,8 @@ struct spi_board_info jz_spi0_board_info[]  = {
 int jz_spi0_devs_size = ARRAY_SIZE(jz_spi0_board_info);
 #endif
 
-#ifdef CONFIG_SPI0_JZ47XX
-struct jz47xx_spi_info spi0_info_cfg = {
+#ifdef CONFIG_JZ_SPI0
+struct jz_spi_info spi0_info_cfg = {
 	.chnl = 0,
 	.bus_num = 0,
 	.max_clk = 54000000,
@@ -111,7 +111,7 @@ struct jz47xx_spi_info spi0_info_cfg = {
 #endif
 
 #ifdef CONFIG_SPI_GPIO
-static struct spi_gpio_platform_data jz47xx_spi_gpio_data = {
+static struct spi_gpio_platform_data jz_spi_gpio_data = {
 
 	.sck	= GPIO_SPI_SCK,
 	.mosi	= GPIO_SPI_MOSI,
@@ -119,10 +119,10 @@ static struct spi_gpio_platform_data jz47xx_spi_gpio_data = {
 	.num_chipselect = 1,
 };
 
-struct platform_device jz47xx_spi_gpio_device = {
+struct platform_device jz_spi_gpio_device = {
 	.name   = "spi_gpio",
 	.dev    = {
-		.platform_data = &jz47xx_spi_gpio_data,
+		.platform_data = &jz_spi_gpio_data,
 	},
 };
 #endif

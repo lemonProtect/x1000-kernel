@@ -34,7 +34,7 @@ struct spi_nor_platform_data {
 	int num_partition_info;
 };
 
-struct jz47xx_spi_info {
+struct jz_spi_info {
 	u8	chnl;				/* the chanel of SSI controller */
 	u16	bus_num;			/* spi_master.bus_num */
 	unsigned is_pllclk:1;			/* source clock: 1---pllclk;0---exclk */
@@ -45,7 +45,7 @@ struct jz47xx_spi_info {
 	u32	 allow_cs_same;
 	unsigned int chipselect[2];
 
-	void (*set_cs)(struct jz47xx_spi_info *spi, u8 cs,unsigned int pol); /* be defined by spi devices driver user */
+	void (*set_cs)(struct jz_spi_info *spi, u8 cs,unsigned int pol); /* be defined by spi devices driver user */
 	void (*pins_config)(void);		/* configure spi function pins (CLK,DR,RT) by user if need. */
 };
 

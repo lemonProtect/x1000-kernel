@@ -1,4 +1,4 @@
-/* linux/drivers/spi/spi_jz47xx.c
+/* linux/drivers/spi/jz_spi.c
  *
  * SSI controller for SPI protocol,use FIFO and DMA;
  * base-to: linux/drivers/spi/spi_bitbang.c
@@ -33,7 +33,7 @@
 
 #include <mach/jzssi.h>
 
-#include "spi_jz47xx.h"
+#include "jz_spi.h"
 
 //#define SSI_DEGUG
 #ifdef SSI_DEGUG
@@ -43,8 +43,8 @@
 #define  print_dbg(format,arg...)
 #endif
 
-#define JZ47XX_SPI_RX_BUF(type) 				\
-u32 jz47xx_spi_rx_buf_##type(struct jz47xx_spi *hw) 		\
+#define JZ_SPI_RX_BUF(type) 				\
+u32 jz_spi_rx_buf_##type(struct jz_spi *hw) 		\
 {								\
 	u32 data  = spi_readl(hw, SSI_DR);			\
 	type * rx = (type *)hw->rx;				\
@@ -53,8 +53,8 @@ u32 jz47xx_spi_rx_buf_##type(struct jz47xx_spi *hw) 		\
 	return (u32)data;					\
 }
 
-#define JZ47XX_SPI_TX_BUF(type)					\
-u32 jz47xx_spi_tx_buf_##type(struct jz47xx_spi *hw)		\
+#define JZ_SPI_TX_BUF(type)					\
+u32 jz_spi_tx_buf_##type(struct jz_spi *hw)		\
 {								\
 	u32 data;						\
 	const type * tx = (type *)hw->tx;			\
@@ -64,20 +64,20 @@ u32 jz47xx_spi_tx_buf_##type(struct jz47xx_spi *hw)		\
 	return (u32)data;					\
 }
 
-JZ47XX_SPI_RX_BUF(u8)
-JZ47XX_SPI_TX_BUF(u8)
+JZ_SPI_RX_BUF(u8)
+JZ_SPI_TX_BUF(u8)
 
-JZ47XX_SPI_RX_BUF(u16)
-JZ47XX_SPI_TX_BUF(u16)
+JZ_SPI_RX_BUF(u16)
+JZ_SPI_TX_BUF(u16)
 
-JZ47XX_SPI_RX_BUF(u32)
-JZ47XX_SPI_TX_BUF(u32)
+JZ_SPI_RX_BUF(u32)
+JZ_SPI_TX_BUF(u32)
 
 /* the spi->mode bits understood by this driver: */
 #define MODEBITS (SPI_CPOL | SPI_CPHA | SPI_CS_HIGH | SPI_LSB_FIRST | SPI_LOOP)
 #define SPI_BITS_SUPPORT  (SPI_BITS_8 | SPI_BITS_16 | SPI_BITS_32)
 
-static void jz47xx_spi_cs(struct jz47xx_spi_info *spi, u8 cs, unsigned int pol)
+static void jz_spi_cs(struct jz_spi_info *spi, u8 cs, unsigned int pol)
 {
 #ifdef CONFIG_JZ_SPI_PIO_CE
 	u32 pin_value = *(spi->chipselect + cs);
@@ -85,9 +85,9 @@ static void jz47xx_spi_cs(struct jz47xx_spi_info *spi, u8 cs, unsigned int pol)
 #endif
 }
 
-static void jz47xx_spi_chipsel(struct spi_device *spi, int value)
+static void jz_spi_chipsel(struct spi_device *spi, int value)
 {
-	struct jz47xx_spi *hw = spi_master_get_devdata(spi->master);
+	struct jz_spi *hw = spi_master_get_devdata(spi->master);
 	unsigned int cspol = spi->mode & SPI_CS_HIGH ? 1 : 0;
 
 	switch (value) {
@@ -130,16 +130,16 @@ static void jz47xx_spi_chipsel(struct spi_device *spi, int value)
 }
 
 /*************************************************************
- * jz47xx_spi_set_clk: set the SPI_CLK.
+ * jz_spi_set_clk: set the SPI_CLK.
  * The min clock is 23438Hz, and the max clock is defined
  * by max_clk or max_speed_hz(it is 54MHz for JZ4780, and
  * the test max clock is 30MHz).
  ************************************************************* */
-static int jz47xx_spi_set_clk(struct spi_device *spi, u32 hz)
+static int jz_spi_set_clk(struct spi_device *spi, u32 hz)
 {
 	u16 cgv;
 	unsigned long cpm_rate_a, cpm_rate_b;
-	struct jz47xx_spi *hw = spi_master_get_devdata(spi->master);
+	struct jz_spi *hw = spi_master_get_devdata(spi->master);
 
 	if (hz > hw->pdata->max_clk) {
 		pr_err("The max_speed_hz can not more than max_clk\n");
@@ -181,10 +181,10 @@ static int jz47xx_spi_set_clk(struct spi_device *spi, u32 hz)
 	return 0;
 }
 
-static u32 jz47xx_spi_get_clk(struct spi_device *spi)
+static u32 jz_spi_get_clk(struct spi_device *spi)
 {
 	u16 cgv;
-	struct jz47xx_spi *hw = spi_master_get_devdata(spi->master);
+	struct jz_spi *hw = spi_master_get_devdata(spi->master);
 
 	cgv = spi_readl(hw, SSI_GR);
 
@@ -193,7 +193,7 @@ static u32 jz47xx_spi_get_clk(struct spi_device *spi)
 
 static void dma_tx_callback(void *data)
 {
-	struct jz47xx_spi *hw = data;
+	struct jz_spi *hw = data;
 
 	dma_unmap_sg(hw->txchan->device->dev, hw->sg_tx, 1, DMA_TO_DEVICE);
 	complete(&hw->done_tx_dma);
@@ -201,17 +201,17 @@ static void dma_tx_callback(void *data)
 
 static void dma_rx_callback(void *data)
 {
-	struct jz47xx_spi *hw = data;
+	struct jz_spi *hw = data;
 
 	dma_unmap_sg(hw->txchan->device->dev, hw->sg_tx, 1, DMA_TO_DEVICE);
 	dma_unmap_sg(hw->rxchan->device->dev, hw->sg_rx, 1, DMA_FROM_DEVICE);
 	complete(&hw->done_rx_dma);
 }
 
-static int jz47xx_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
+static int jz_spi_dma_txrx(struct spi_device *spi, struct spi_transfer *t)
 {
 	int ret;
-	struct jz47xx_spi *hw = spi_master_get_devdata(spi->master);
+	struct jz_spi *hw = spi_master_get_devdata(spi->master);
 	struct dma_slave_config rx_config, tx_config;
 	struct dma_async_tx_descriptor *rxdesc;
 	struct dma_async_tx_descriptor *txdesc;
@@ -449,7 +449,7 @@ err_tx_sgmap:
 	return -ENOMEM;
 }
 
-static irqreturn_t jz47xx_spi_dma_irq_callback(struct jz47xx_spi *hw)
+static irqreturn_t jz_spi_dma_irq_callback(struct jz_spi *hw)
 {
 	struct jz_intr_cnt *g_jz_intr = hw->g_jz_intr;
 	print_dbg("%s: status register: %08x\n", __func__, spi_readl(hw, SSI_SR));
@@ -480,7 +480,7 @@ irq_done:
 	return IRQ_HANDLED;
 }
 
-static inline u32 cpu_read_rxfifo(struct jz47xx_spi *hw)
+static inline u32 cpu_read_rxfifo(struct jz_spi *hw)
 {
 	u8 unit_size = hw->transfer_unit_size;
 	u32 cnt, dat;
@@ -512,7 +512,7 @@ static inline u32 cpu_read_rxfifo(struct jz47xx_spi *hw)
 	return (hw->rlen - cnt);
 }
 
-static inline u32 cpu_write_txfifo(struct jz47xx_spi *hw, u32 entries)
+static inline u32 cpu_write_txfifo(struct jz_spi *hw, u32 entries)
 {
 	u8 unit_size = hw->transfer_unit_size;
 	u32 i, cnt, count;
@@ -542,7 +542,7 @@ static inline u32 cpu_write_txfifo(struct jz47xx_spi *hw, u32 entries)
 	return count;
 }
 
-static int jz_spi_cpu_transfer(struct jz47xx_spi *hw, long length)
+static int jz_spi_cpu_transfer(struct jz_spi *hw, long length)
 {
 	unsigned char int_flag = 0, last_flag = 0;
 	u32 entries = 0, send_entries = 0;
@@ -661,9 +661,9 @@ static int jz_spi_cpu_transfer(struct jz47xx_spi *hw, long length)
 	return 0;
 }
 
-static int jz47xx_spi_pio_txrx(struct spi_device *spi, struct spi_transfer *t)
+static int jz_spi_pio_txrx(struct spi_device *spi, struct spi_transfer *t)
 {
-	struct jz47xx_spi *hw = spi_master_get_devdata(spi->master);
+	struct jz_spi *hw = spi_master_get_devdata(spi->master);
 	struct jz_intr_cnt *g_jz_intr = hw->g_jz_intr;
 	u32 entries;
 	int status;
@@ -732,7 +732,7 @@ static int jz47xx_spi_pio_txrx(struct spi_device *spi, struct spi_transfer *t)
 	return hw->rlen;
 }
 
-static irqreturn_t jz47xx_spi_pio_irq_callback(struct jz47xx_spi *hw)
+static irqreturn_t jz_spi_pio_irq_callback(struct jz_spi *hw)
 {
 	struct jz_intr_cnt *g_jz_intr = hw->g_jz_intr;
 	long left_count = hw->len - hw->count;
@@ -824,9 +824,9 @@ irq_done:
 }
 
 /* every spi_transfer could call this routine to setup itself */
-static int jz47xx_spi_setupxfer(struct spi_device *spi, struct spi_transfer *t)
+static int jz_spi_setupxfer(struct spi_device *spi, struct spi_transfer *t)
 {
-	struct jz47xx_spi *hw = spi_master_get_devdata(spi->master);
+	struct jz_spi *hw = spi_master_get_devdata(spi->master);
 	u8  bpw, fifo_width;
 	u32 hz;
 
@@ -846,28 +846,28 @@ static int jz47xx_spi_setupxfer(struct spi_device *spi, struct spi_transfer *t)
 	}
 
 	if (hw->use_dma) {
-		hw->txrx_bufs = &jz47xx_spi_dma_txrx;
-		hw->irq_callback = &jz47xx_spi_dma_irq_callback;
+		hw->txrx_bufs = &jz_spi_dma_txrx;
+		hw->irq_callback = &jz_spi_dma_irq_callback;
 	} else {
-		hw->txrx_bufs = &jz47xx_spi_pio_txrx;
-		hw->irq_callback = &jz47xx_spi_pio_irq_callback;
+		hw->txrx_bufs = &jz_spi_pio_txrx;
+		hw->irq_callback = &jz_spi_pio_irq_callback;
 	}
 
 	hw->bits_per_word = bpw;
 	if (bpw <= 8) {
 		hw->transfer_unit_size = SPI_8BITS;
-		hw->get_rx = jz47xx_spi_rx_buf_u8;
-		hw->get_tx = jz47xx_spi_tx_buf_u8;
+		hw->get_rx = jz_spi_rx_buf_u8;
+		hw->get_tx = jz_spi_tx_buf_u8;
 		fifo_width = FIFO_W8;
 	} else if (bpw <= 16) {
 		hw->transfer_unit_size = SPI_16BITS;
-		hw->get_rx = jz47xx_spi_rx_buf_u16;
-		hw->get_tx = jz47xx_spi_tx_buf_u16;
+		hw->get_rx = jz_spi_rx_buf_u16;
+		hw->get_tx = jz_spi_tx_buf_u16;
 		fifo_width = FIFO_W16;
 	} else {
 		hw->transfer_unit_size = SPI_32BITS;
-		hw->get_rx = jz47xx_spi_rx_buf_u32;
-		hw->get_tx = jz47xx_spi_tx_buf_u32;
+		hw->get_rx = jz_spi_rx_buf_u32;
+		hw->get_tx = jz_spi_tx_buf_u32;
 		fifo_width = FIFO_W32;
 	}
 
@@ -883,8 +883,8 @@ static int jz47xx_spi_setupxfer(struct spi_device *spi, struct spi_transfer *t)
 		set_rx_msb(hw);
 	}
 
-	jz47xx_spi_set_clk(spi, hz);
-	dev_dbg(&spi->dev, "The real SPI CLK is %d Hz\n", jz47xx_spi_get_clk(spi));
+	jz_spi_set_clk(spi, hz);
+	dev_dbg(&spi->dev, "The real SPI CLK is %d Hz\n", jz_spi_get_clk(spi));
 
 	spin_lock(&hw->bitbang.lock);
 	if (!hw->bitbang.busy) {
@@ -896,9 +896,9 @@ static int jz47xx_spi_setupxfer(struct spi_device *spi, struct spi_transfer *t)
 	return 0;
 }
 
-static int jz47xx_spi_setup(struct spi_device *spi)
+static int jz_spi_setup(struct spi_device *spi)
 {
-	struct jz47xx_spi *hw = spi_master_get_devdata(spi->master);
+	struct jz_spi *hw = spi_master_get_devdata(spi->master);
 	unsigned long flags;
 
 	spin_lock_irqsave(&hw->lock, flags);
@@ -969,7 +969,7 @@ static int jz47xx_spi_setup(struct spi_device *spi)
 }
 
 /**
- * jz47xx_spi_txrx - functions which will handle transfer data
+ * jz_spi_txrx - functions which will handle transfer data
  * @spi: spi device on which data transfer to be done
  * @t: spi transfer in which transfer info is filled
  *
@@ -977,9 +977,9 @@ static int jz47xx_spi_setup(struct spi_device *spi)
  * of SPI controller and then wait until the completion will be marked
  * by the IRQ Handler.
  */
-static int jz47xx_spi_txrx(struct spi_device * spi, struct spi_transfer *t)
+static int jz_spi_txrx(struct spi_device * spi, struct spi_transfer *t)
 {
-	struct jz47xx_spi * hw = spi_master_get_devdata(spi->master);
+	struct jz_spi * hw = spi_master_get_devdata(spi->master);
 	unsigned int	ret;
 	unsigned long	flags;
 
@@ -1001,14 +1001,14 @@ static int jz47xx_spi_txrx(struct spi_device * spi, struct spi_transfer *t)
 	return ret;
 }
 
-static irqreturn_t jz47xx_spi_irq(int irq, void *dev)
+static irqreturn_t jz_spi_irq(int irq, void *dev)
 {
-	struct jz47xx_spi *hw = dev;
+	struct jz_spi *hw = dev;
 
 	return hw->irq_callback(hw);
 }
 
-static int jz47xx_spi_init_setup(struct jz47xx_spi *hw)
+static int jz_spi_init_setup(struct jz_spi *hw)
 {
 	if (!clk_is_enabled(hw->clk_gate))
 		clk_enable(hw->clk_gate);
@@ -1047,14 +1047,14 @@ static int jz47xx_spi_init_setup(struct jz47xx_spi *hw)
 
 static bool spi_dma_chan_filter(struct dma_chan *chan, void *param)
 {
-	struct jz47xx_spi *hw = param;
+	struct jz_spi *hw = param;
 
 	return hw->dma_type == (int)chan->private;
 }
 
-static int __init jz47xx_spi_probe(struct platform_device *pdev)
+static int __init jz_spi_probe(struct platform_device *pdev)
 {
-	struct jz47xx_spi *hw;
+	struct jz_spi *hw;
 	struct spi_master *master;
 	struct resource *res;
 	dma_cap_mask_t mask;
@@ -1067,7 +1067,7 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 	struct spi_board_info *bi;
 #endif
 
-	master = spi_alloc_master(&pdev->dev, sizeof(struct jz47xx_spi));
+	master = spi_alloc_master(&pdev->dev, sizeof(struct jz_spi));
 	if (master == NULL) {
 		dev_err(&pdev->dev, "No memory for spi_master\n");
 		err = -ENOMEM;
@@ -1078,7 +1078,7 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 	master->mode_bits = MODEBITS;
 
 	hw = spi_master_get_devdata(master);
-	memset(hw, 0, sizeof(struct jz47xx_spi));
+	memset(hw, 0, sizeof(struct jz_spi));
 
 	hw->g_jz_intr = kzalloc(sizeof(struct jz_intr_cnt),GFP_KERNEL);
 	if(hw->g_jz_intr == NULL)
@@ -1109,7 +1109,7 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_JZ_SPI_PIO_CE
 	for (i = 0; i < hw->pdata->num_chipselect; i++, num_cs_got = i) {
-		err = gpio_request(hw->pdata->chipselect[i], "JZ47XX_SPI_CS");
+		err = gpio_request(hw->pdata->chipselect[i], "JZ_SPI_CS");
 		if(err && (!hw->pdata->allow_cs_same)) {
 			dev_err(&pdev->dev, "Request cs_gpio: %d is occupied\n",
 							hw->pdata->chipselect[i]);
@@ -1183,10 +1183,10 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 
 	/* setup the state for the bitbang driver */
 	hw->bitbang.master         = hw->master;
-	hw->bitbang.setup_transfer = jz47xx_spi_setupxfer;
-	hw->bitbang.chipselect     = jz47xx_spi_chipsel;
-	hw->bitbang.txrx_bufs      = jz47xx_spi_txrx;
-	hw->bitbang.master->setup  = jz47xx_spi_setup;
+	hw->bitbang.setup_transfer = jz_spi_setupxfer;
+	hw->bitbang.chipselect     = jz_spi_chipsel;
+	hw->bitbang.txrx_bufs      = jz_spi_txrx;
+	hw->bitbang.master->setup  = jz_spi_setup;
 
 	dev_dbg(hw->dev, "bitbang at %p\n", &hw->bitbang);
 
@@ -1237,7 +1237,7 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 	}
 
 	/* request SSI irq */
-	err = request_irq(hw->irq, jz47xx_spi_irq, 0, pdev->name, hw);
+	err = request_irq(hw->irq, jz_spi_irq, 0, pdev->name, hw);
 	if (err) {
 		dev_err(&pdev->dev, "Cannot claim IRQ\n");
 		goto err_no_irq;
@@ -1250,10 +1250,10 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 	hw->fifodepth = JZ_SSI_MAX_FIFO_ENTRIES;
 
 	/* setup chipselect */
-	hw->set_cs = &jz47xx_spi_cs;
+	hw->set_cs = &jz_spi_cs;
 
 	/* SSI controller initializations for SPI */
-	jz47xx_spi_init_setup(hw);
+	jz_spi_init_setup(hw);
 
 	/* register our spi controller */
 	err = spi_bitbang_start(&hw->bitbang);
@@ -1276,7 +1276,7 @@ static int __init jz47xx_spi_probe(struct platform_device *pdev)
 #endif
 
 	printk(KERN_INFO
-	       "JZ47xx SSI Controller for SPI channel %d driver register\n",hw->chnl);
+	       "JZ SSI Controller for SPI channel %d driver register\n",hw->chnl);
 
 	return 0;
 
@@ -1317,9 +1317,9 @@ err_nomem:
 	return err;
 }
 
-static int __exit jz47xx_spi_remove(struct platform_device *dev)
+static int __exit jz_spi_remove(struct platform_device *dev)
 {
-	struct jz47xx_spi *hw = platform_get_drvdata(dev);
+	struct jz_spi *hw = platform_get_drvdata(dev);
 	int i;
 
 	spi_master_put(hw->master);
@@ -1361,15 +1361,15 @@ static int __exit jz47xx_spi_remove(struct platform_device *dev)
 	kfree(hw->g_jz_intr);
 	kfree(hw);
 	printk(KERN_INFO
-	       "JZ47xx SSI Controller for SPI channel %d driver removed\n",hw->chnl);
+	       "JZ SSI Controller for SPI channel %d driver removed\n",hw->chnl);
 
 	return 0;
 }
 
 #ifdef CONFIG_PM
-static int jz47xx_spi_suspend(struct platform_device *pdev, pm_message_t msg)
+static int jz_spi_suspend(struct platform_device *pdev, pm_message_t msg)
 {
-	struct jz47xx_spi *hw = platform_get_drvdata(pdev);
+	struct jz_spi *hw = platform_get_drvdata(pdev);
 	unsigned long flags;
 
 	spin_lock_irqsave(&hw->lock, flags);
@@ -1396,9 +1396,9 @@ static int jz47xx_spi_suspend(struct platform_device *pdev, pm_message_t msg)
 	return 0;
 }
 
-static int jz47xx_spi_resume(struct platform_device *pdev)
+static int jz_spi_resume(struct platform_device *pdev)
 {
-	struct jz47xx_spi *hw = platform_get_drvdata(pdev);
+	struct jz_spi *hw = platform_get_drvdata(pdev);
 	unsigned long	flags;
 
 	if(hw->clk_flag == 1) {
@@ -1416,35 +1416,35 @@ static int jz47xx_spi_resume(struct platform_device *pdev)
 }
 
 #else
-#define jz47xx_spi_suspend NULL
-#define jz47xx_spi_resume  NULL
+#define jz_spi_suspend NULL
+#define jz_spi_resume  NULL
 #endif
 
 MODULE_ALIAS("jz_ssi");			/* for platform bus hotplug */
-static struct platform_driver jz47xx_spidrv = {
-	.remove		= __exit_p(jz47xx_spi_remove),
-	.suspend	= jz47xx_spi_suspend,
-	.resume		= jz47xx_spi_resume,
+static struct platform_driver jz_spidrv = {
+	.remove		= __exit_p(jz_spi_remove),
+	.suspend	= jz_spi_suspend,
+	.resume		= jz_spi_resume,
 	.driver		= {
 		.name	= "jz-ssi",
 		.owner	= THIS_MODULE,
 	},
 };
 
-static int __init jz47xx_spi_init(void)
+static int __init jz_spi_init(void)
 {
-        return platform_driver_probe(&jz47xx_spidrv, jz47xx_spi_probe);
+        return platform_driver_probe(&jz_spidrv, jz_spi_probe);
 }
 
-static void __exit jz47xx_spi_exit(void)
+static void __exit jz_spi_exit(void)
 {
-        platform_driver_unregister(&jz47xx_spidrv);
-		printk(KERN_INFO "JZ47xx SSI Controller Module EXIT\n");
+        platform_driver_unregister(&jz_spidrv);
+		printk(KERN_INFO "JZ SSI Controller Module EXIT\n");
 
 }
 
-module_init(jz47xx_spi_init);
-module_exit(jz47xx_spi_exit);
+module_init(jz_spi_init);
+module_exit(jz_spi_exit);
 
-MODULE_DESCRIPTION("JZ47XX SPI Driver");
+MODULE_DESCRIPTION("JZ SPI Driver");
 MODULE_LICENSE("GPL");

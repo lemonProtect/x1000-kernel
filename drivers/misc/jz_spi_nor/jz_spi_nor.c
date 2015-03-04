@@ -15,7 +15,7 @@
 #include <linux/module.h>
 #include <linux/spi/spi.h>
 
-#include "jz47xx_spi_nor.h"
+#include "jz_spi_nor.h"
 
 /**
  * jz_nor_wel_setup - Enable/Disable SPI NOR Write Enable Latch
@@ -88,7 +88,7 @@ static u8 jz_nor_read_status(struct jz_nor_local *flash, int regnum)
  * jz_nor_wait_busy - Wait SPI NOR Write In Process finished
  * @flash:		jz_nor_read_status needed.
  * @max_busytime:	Max Busy times, unit: ms.
- * 
+ *
  * SPI NOR WIP bit only be set 1, while nor WRSR, PP, CE, SE and BE.
  */
 static int jz_nor_wait_busy(struct jz_nor_local *flash, u32 max_busytime)
@@ -215,7 +215,7 @@ static size_t jz_nor_write_page(struct jz_nor_local *flash,
 	x++;
 	spi_node_write_setup(x, flash->spi, buf, len);
 	spi_message_add_tail(x, &msg);
-	
+
 	retlen = len;
 	dev_dbg(&flash->spi->dev, "%s, spi bus write len: %d\n", __FUNCTION__, retlen);
 	ret = spi_sync(flash->spi, &msg);
