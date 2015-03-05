@@ -58,7 +58,7 @@ struct ft6x06_platform_data ft6x06_tsc_pdata = {
 };
 #endif
 
-#ifdef CONFIG_TOUCHSCREEN_FT5336
+#if defined(CONFIG_TOUCHSCREEN_FT5336) || defined(CONFIG_TOUCHSCREEN_FT5336_MODULE)
 #include <linux/i2c/ft5336_ts.h>
 static struct ft5336_platform_data ft5336_tsc_pdata = {
 	.x_max          = 540,
@@ -95,7 +95,7 @@ struct i2c_board_info jz_i2c0_devs[] __initdata = {
 	},
 #endif
 
-#ifdef CONFIG_TOUCHSCREEN_FT5336
+#if defined(CONFIG_TOUCHSCREEN_FT5336) || defined(CONFIG_TOUCHSCREEN_FT5336_MODULE)
 	{
 		I2C_BOARD_INFO("ft5336_ts", 0x38),
 		.platform_data = &ft5336_tsc_pdata,
