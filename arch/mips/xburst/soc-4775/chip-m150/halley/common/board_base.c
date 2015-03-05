@@ -126,7 +126,7 @@ static int __init board_base_init(void)
 					platform_devices_array[i].pdata, platform_devices_array[i].size);
 		platform_device_register(platform_devices_array[i].pdevices);
 	}
-#if defined(CONFIG_SPI0_JZ47XX) | defined(CONFIG_SPI_GPIO)
+#if defined(CONFIG_JZ_SPI0) | defined(CONFIG_SPI_GPIO)
 	spi_register_board_info(jz_spi0_board_info, jz_spi0_devs_size);
 #endif
 	return 0;
