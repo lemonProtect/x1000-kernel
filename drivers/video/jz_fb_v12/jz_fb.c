@@ -2630,7 +2630,7 @@ static int jzfb_probe(struct platform_device *pdev)
 		goto err_free_file;
 	}
 
-	if (uboot_inited) {
+	if (lcd_display_inited_by_uboot()) {
 		printk("#######lcd is enabled by uboot, keep par!!\n");
 		/* remain uboot logo, set blank state, keep clk
 		 * but what if uboot's par is different with kernel's.
