@@ -825,7 +825,8 @@ struct dsi_device * jzdsi_init(struct jzdsi_data *pdata)
 
 		/*checkout phy clk lock and  clklane, datalane stopstate  */
 		while ((mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS) & st_mask) !=
-				st_mask && retry--) {
+				st_mask && retry) {
+			retry--;
 			pr_info("phy status = %08x\n", mipi_dsih_read_word(dsi, R_DSI_HOST_PHY_STATUS));
 		}
 
