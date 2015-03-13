@@ -2353,6 +2353,14 @@ static int codec_set_device(enum snd_device_t device)
 
 	printk("codec_set_device %d \n",device);
 	switch (device) {
+	case SND_DEVICE_DEFAULT:
+		if (codec_platform_data && codec_platform_data->replay_def_route.route) {
+			ret = codec_set_board_route(&(codec_platform_data->replay_def_route));
+			if(ret != codec_platform_data->replay_def_route.route) {
+				return -1;
+			}
+		}
+		break;
 	case SND_DEVICE_HEADSET:
 	case SND_DEVICE_HEADPHONE:
 		if (codec_platform_data && codec_platform_data->replay_headset_route.route) {
@@ -3040,13 +3048,13 @@ static int jz_codec_probe(struct platform_device *pdev)
 
 	codec_platform_data->codec_sys_clk = SYS_CLK_12M;
 
-#if defined(CONFIG_JZ_HP_DETECT_CODEC)
+#if defined(CONFIG_JZ_HP_DETECT_CODEC_V12)
 	jz_set_hp_detect_type(SND_SWITCH_TYPE_CODEC,NULL,
 			      &codec_platform_data->gpio_mic_detect,
 			      &codec_platform_data->gpio_mic_detect_en,
 			      &codec_platform_data->gpio_buildin_mic_select,
 			      codec_platform_data->hook_active_level);
-#elif  defined(CONFIG_JZ_HP_DETECT_GPIO)
+#elif  defined(CONFIG_JZ_HP_DETECT_GPIO_V12)
 	jz_set_hp_detect_type(SND_SWITCH_TYPE_GPIO,
 			      &codec_platform_data->gpio_hp_detect,
 			      &codec_platform_data->gpio_mic_detect,
