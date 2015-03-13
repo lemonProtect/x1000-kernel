@@ -477,6 +477,7 @@ static const struct snd_kcontrol_new icdc_d1_snd_controls[] = {
 	SOC_ENUM("ADC Wind Noise Filter Switch", icdc_d1_enum[5]),
 	SOC_SINGLE("Mic1 Diff Switch", DLV_REG_CR_MIC1, 6, 1, 0),
 	SOC_SINGLE("Mic Stereo Switch", DLV_REG_CR_MIC1, 7, 1, 0),
+	SOC_SINGLE("ADC Stereo Switch", DLV_REG_CR_ADC, 5, 1, 1),
 	SOC_SINGLE("Bypass1 Diff Switch", DLV_REG_CR_LI1, 6, 1, 0),
 	SOC_SINGLE("Mic1 Bias Switch", DLV_REG_CR_MIC1, 5, 1, 1),	/*some times we want open micbias first*/
 	SOC_SINGLE("Mic2 Bias Switch", DLV_REG_CR_MIC2, 5, 1, 1),
@@ -915,7 +916,7 @@ static int icdc_d1_probe(struct snd_soc_codec *codec)
 
 	/*codec mixer in input normal default*/
 	snd_soc_write(codec, DLV_EXREG_MIX0, 0x50);	/*AIDACX_SEL should be configured to 01 in normal mode*/
-	snd_soc_write(codec, DLV_EXREG_MIX3, 0x50);	/*MIXADCX_SEL should be configured to 01 in normal mode*/
+	snd_soc_write(codec, DLV_EXREG_MIX2, 0x10);	/*MIXADCX_SEL should be configured to 01 in normal mode*/
 
 	/*codec generated IRQ is a high level */
 	snd_soc_update_bits(codec, DLV_REG_ICR, DLV_ICR_INT_FORM_MASK, 0);

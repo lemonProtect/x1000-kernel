@@ -33,6 +33,7 @@
 
 static int asoc_dma_debug = 0;
 module_param(asoc_dma_debug, int, 0644);
+
 #define DMA_DEBUG_MSG(msg...)			\
 	do {					\
 		if (asoc_dma_debug)		\
@@ -49,7 +50,20 @@ struct jz_pcm_runtime_data {
 	ktime_t expires;
 	atomic_t stopped;
 #endif
+
+	/* debug interface
+	 * WARNNING:
+	 *	May not record the complete audio steam,
+	 *	Also may affect the integrity of the original audio stream*/
+	void *copy_start;
+	unsigned int copy_length;
+	struct file *file;
+	loff_t file_offset;
+	mm_segment_t old_fs;
+	char* file_name;
+	struct work_struct debug_work;
 };
+
 /*
  * fake using a continuous buffer
  */
@@ -58,21 +72,6 @@ snd_pcm_get_ptr(struct snd_pcm_substream *substream, unsigned int ofs)
 {
 	return substream->runtime->dma_area + ofs;
 }
-
-static size_t
-snd_pcm_get_pos_algin_period(struct snd_pcm_substream *substream, dma_addr_t addr)
-{
-	return (addr - substream->runtime->dma_addr -
-			(addr - substream->runtime->dma_addr)%
-			snd_pcm_lib_period_bytes(substream));
-}
-
-static size_t
-snd_pcm_get_pos(struct snd_pcm_substream *substream, dma_addr_t addr)
-{
-	return (addr - substream->runtime->dma_addr);
-}
-
 
 static int jz_pcm_hw_params(struct snd_pcm_substream *substream,
 		struct snd_pcm_hw_params *params)
@@ -110,22 +109,53 @@ static int jz_pcm_hw_params(struct snd_pcm_substream *substream,
 	return snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
 }
 
+static void debug_work(struct work_struct *debug_work)
+{
+	struct jz_pcm_runtime_data *prtd =
+		container_of(debug_work, struct jz_pcm_runtime_data, debug_work);
+	struct snd_pcm_substream *substream = prtd->substream;
+
+	if (!IS_ERR_OR_NULL(prtd->file)) {
+		prtd->old_fs = get_fs();
+		set_fs(KERNEL_DS);
+		vfs_write(prtd->file, prtd->copy_start,
+				prtd->copy_length,
+				&prtd->file_offset);
+		prtd->file_offset = prtd->file->f_pos;
+		set_fs(prtd->old_fs);
+	}
+#if defined(CONFIG_JZ_ASOC_DMA_AUTO_CLR_DRT_MEM)
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		memset(prtd->copy_start, 0, prtd->copy_length);
+	}
+#endif
+}
+
 #ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 static void jz_asoc_dma_callback(void *data)
 {
 	struct snd_pcm_substream *substream = data;
 	struct jz_pcm_runtime_data *prtd = substream->runtime->private_data;
+	void* old_pos_addr = snd_pcm_get_ptr(substream, prtd->pos);
 	DMA_DEBUG_MSG("%s enter\n", __func__);
+
+	if (!IS_ERR_OR_NULL(prtd->file) && !work_pending(&prtd->debug_work)) {
+		prtd->copy_start = old_pos_addr;
+		prtd->copy_length = snd_pcm_lib_period_bytes(substream);
+		schedule_work(&prtd->debug_work);
+	} else {
 #if defined(CONFIG_JZ_ASOC_DMA_AUTO_CLR_DRT_MEM)
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		DMA_DEBUG_MSG("dma start %x pos %x size %d\n",
-				substream->runtime->dma_addr,
-				snd_pcm_get_ptr(substream, prtd->pos),
-				snd_pcm_lib_period_bytes(substream));
-		memset(snd_pcm_get_ptr(substream, prtd->pos),
-				0, snd_pcm_lib_period_bytes(substream));
-	}
+		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+			DMA_DEBUG_MSG("dma start %x pos %p size %d\n",
+					substream->runtime->dma_addr,
+					old_pos_addr,
+					snd_pcm_lib_period_bytes(substream));
+			memset(old_pos_addr, 0,
+					snd_pcm_lib_period_bytes(substream));
+		}
 #endif
+	}
+
 	prtd->pos += snd_pcm_lib_period_bytes(substream);
 	if (prtd->pos >= snd_pcm_lib_buffer_bytes(substream))
 		prtd->pos = 0;
@@ -133,6 +163,22 @@ static void jz_asoc_dma_callback(void *data)
 	return;
 }
 #else	/*CONFIG_JZ_ASOC_DMA_HRTIMER_MODE*/
+
+static size_t
+snd_pcm_get_pos_algin_period(struct snd_pcm_substream *substream, dma_addr_t addr)
+{
+	return (addr - substream->runtime->dma_addr -
+			(addr - substream->runtime->dma_addr)%
+			snd_pcm_lib_period_bytes(substream));
+}
+
+static size_t
+snd_pcm_get_pos(struct snd_pcm_substream *substream, dma_addr_t addr)
+{
+	return (addr - substream->runtime->dma_addr);
+}
+
+
 static enum hrtimer_restart jz_asoc_hrtimer_callback(struct hrtimer *hr_timer) {
 	struct jz_pcm_runtime_data *prtd = container_of(hr_timer,
 			struct jz_pcm_runtime_data, hr_timer);
@@ -306,6 +352,11 @@ static int jz_pcm_open(struct snd_pcm_substream *substream)
 	struct dma_chan *chan = jz_pcm->chan[substream->stream];
 	struct jz_pcm_runtime_data *prtd = NULL;
 	int ret;
+#ifdef CONFIG_ANDROID
+	char *file_dir = "/data";
+#else
+	char *file_dir = "/tmp";
+#endif
 
 	DMA_DEBUG_MSG("%s enter\n", __func__);
 	ret = snd_soc_set_runtime_hwparams(substream, &jz_pcm_hardware);
@@ -329,6 +380,30 @@ static int jz_pcm_open(struct snd_pcm_substream *substream)
 	prtd->dma_chan = chan;
 	prtd->substream = substream;
 	substream->runtime->private_data = prtd;
+
+	prtd->file_name = kzalloc(40*sizeof(char), GFP_KERNEL);
+	if (prtd->file_name) {
+		sprintf(prtd->file_name, "%s/%sd%is%i.pcm",
+				file_dir,
+				substream->stream == SNDRV_PCM_STREAM_PLAYBACK ?
+				"replay" : "record",
+				substream->pcm->device,
+				substream->number);
+		dev_dbg(rtd->dev, "open debug file %s \n", prtd->file_name);
+		prtd->file = filp_open(prtd->file_name,
+				O_RDWR | O_APPEND, S_IRUSR | S_IWUSR | O_CREAT);
+		if (IS_ERR_OR_NULL(prtd->file)) {
+			prtd->file = NULL;
+			goto out_pcm_open;
+		}
+		dev_warn(rtd->dev,"open debug %s success (Poor performance)\n",
+				prtd->file_name);
+		prtd->file_offset =prtd->file->f_pos;
+		INIT_WORK(&prtd->debug_work, debug_work);
+out_pcm_open:
+		kfree(prtd->file_name);
+		prtd->file_name = NULL;
+	}
 	return 0;
 }
 
@@ -338,6 +413,12 @@ static int jz_pcm_close(struct snd_pcm_substream *substream)
 
 	DMA_DEBUG_MSG("%s enter\n", __func__);
 	substream->runtime->private_data = NULL;
+	if (prtd->file_name)
+		kfree(prtd->file_name);
+	if (!IS_ERR_OR_NULL(prtd->file)) {
+		flush_work(&prtd->debug_work);
+		filp_close(prtd->file, NULL);
+	}
 	kfree(prtd);
 	return 0;
 }

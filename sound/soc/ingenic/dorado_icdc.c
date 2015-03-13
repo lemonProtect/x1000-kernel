@@ -147,7 +147,7 @@ static struct snd_soc_dai_link dorado_dais[] = {
 		.ops = &dorado_i2s_ops,
 	},
 	[1] = {
-		.name = "DORADO-PCMBT",
+		.name = "DORADO PCMBT",
 		.stream_name = "DORADO PCMBT",
 		.platform_name = "jz-asoc-pcm-dma",
 		.cpu_dai_name = "jz-asoc-pcm",
@@ -158,6 +158,7 @@ static struct snd_soc_dai_link dorado_dais[] = {
 
 static struct snd_soc_card dorado = {
 	.name = "dorado",
+	.owner = THIS_MODULE,
 	.dai_link = dorado_dais,
 	.num_links = ARRAY_SIZE(dorado_dais),
 };
