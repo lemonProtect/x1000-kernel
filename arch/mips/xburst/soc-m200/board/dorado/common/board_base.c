@@ -203,21 +203,21 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_JZ_PWM
        DEF_DEVICE(&jz_pwm_device, 0, 0),
 #endif
-#ifdef CONFIG_SND_ASOC_JZ_AIC
+#if defined(CONFIG_SND_ASOC_JZ_AIC) || defined(CONFIG_SND_ASOC_JZ_AIC_MODULE)
        DEF_DEVICE(&jz_aic_device, NULL, 0),
        DEF_DEVICE(&jz_aic_dma_device, NULL, 0),
 #endif
-#ifdef CONFIG_SND_ASOC_JZ_ICDC_D1
+#if defined(CONFIG_SND_ASOC_JZ_ICDC_D1) || defined(CONFIG_SND_ASOC_JZ_ICDC_D1_MODULE)
        DEF_DEVICE(&jz_icdc_device, NULL, 0),
 #endif
-#ifdef CONFIG_SND_ASOC_JZ_PCM
+#if defined(CONFIG_SND_ASOC_JZ_PCM) || defined(CONFIG_SND_ASOC_JZ_PCM_MODULE)
        DEF_DEVICE(&jz_pcm_device, NULL, 0),
        DEF_DEVICE(&jz_pcm_dma_device, NULL, 0),
 #endif
-#ifdef CONFIG_SND_ASOC_JZ_DUMP_CDC
+#if defined(CONFIG_SND_ASOC_JZ_DUMP_CDC) || defined(CONFIG_SND_ASOC_JZ_DUMP_CDC_MODULE)
        DEF_DEVICE(&jz_dump_cdc_device, NULL, 0),
 #endif
-#ifdef CONFIG_SND_ASOC_INGENIC_DORADO_ICDC
+#if defined(CONFIG_SND_ASOC_INGENIC_DORADO_ICDC) || defined(CONFIG_SND_ASOC_JZ_ICDC_D1_MODULE)
        DEF_DEVICE(&snd_dorado_device, NULL, 0),
 #endif
 };

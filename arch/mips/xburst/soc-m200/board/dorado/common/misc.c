@@ -51,7 +51,7 @@ struct jz_adc_platform_data adc_platform_data = {
 };
 #endif
 
-#if defined(CONFIG_SND_ASOC_INGENIC) && defined(CONFIG_SND_ASOC_INGENIC_DORADO_ICDC)
+#if defined(CONFIG_SND_ASOC_INGENIC_DORADO_ICDC) || defined(CONFIG_SND_ASOC_INGENIC_DORADO_ICDC_MODULE)
 struct platform_device snd_dorado_device = {
 	.name = "ingenic-dorado",
 };

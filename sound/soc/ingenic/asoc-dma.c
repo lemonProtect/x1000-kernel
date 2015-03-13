@@ -454,8 +454,8 @@ static void jz_pcm_free(struct snd_pcm *pcm)
 			continue;
 		if (jz_pcm && jz_pcm->chan[i])
 			dma_release_channel(jz_pcm->chan[i]);
-		snd_pcm_lib_preallocate_free(substream);
 	}
+	snd_pcm_lib_preallocate_free_for_all(pcm);
 	return;
 }
 
