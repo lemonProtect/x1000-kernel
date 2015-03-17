@@ -2469,6 +2469,35 @@ static int codec_set_device(enum snd_device_t device)
 			}
 		}
 		break;
+	case SND_DEVICE_LINEIN_RECORD:
+		if (codec_platform_data && codec_platform_data->record_linein_route.route) {
+			ret = codec_set_board_route(&(codec_platform_data->record_linein_route));
+			if(ret != codec_platform_data->record_linein_route.route) {
+				return -1;
+			}
+		}
+		break;
+
+	case SND_DEVICE_LINEIN1_RECORD:
+		if (codec_platform_data && codec_platform_data->record_linein1_route.route) {
+			ret = codec_set_board_route(&(codec_platform_data->record_linein1_route));
+			if(ret != codec_platform_data->record_linein1_route.route) {
+				return -1;
+			}
+		}
+		break;
+	case SND_DEVICE_LINEIN2_RECORD:
+		if (codec_platform_data && codec_platform_data->record_linein2_route.route) {
+			ret = codec_set_board_route(&(codec_platform_data->record_linein2_route));
+			if(ret != codec_platform_data->record_linein2_route.route) {
+				return -1;
+			}
+		}
+		break;
+	case SND_DEVICE_LINEIN3_RECORD:
+		ret = -1;
+		printk("JZ CODEC: our internal codec not have linein3!\n");
+		break;
 	default:
 		iserror = 1;
 		printk("JZ CODEC: Unkown ioctl argument %d in SND_SET_DEVICE\n",device);

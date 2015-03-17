@@ -35,6 +35,18 @@ struct snd_codec_data codec_data = {
 	.replay_headset_route = {.route = REPLAY_HP_STEREO_WITH_CAP,
 					.gpio_hp_mute_stat = STATE_DISABLE,
 					.gpio_spk_en_stat = STATE_DISABLE},
+
+	.record_linein_route = {.route = BYPASS_LINEIN_TO_HP_WITH_CAP,
+					.gpio_hp_mute_stat = STATE_DISABLE,
+					.gpio_spk_en_stat = STATE_DISABLE},
+
+	.record_linein1_route = {.route = BYPASS_LINEIN_TO_LINEOUT,
+					.gpio_hp_mute_stat = STATE_ENABLE,
+					.gpio_spk_en_stat = STATE_ENABLE},
+	.record_linein2_route = {.route= RECORD_STEREO_MIC_DIFF_WITH_BIAS_BYPASS_MIXER_MIC2_TO_HP_CAP_LESS,
+					.gpio_hp_mute_stat = STATE_ENABLE,
+					.gpio_spk_en_stat = STATE_DISABLE},
+
 	.gpio_spk_en = {.gpio = GPIO_SPEAKER_EN, .active_level = GPIO_SPEAKER_EN_LEVEL},
 	.gpio_hp_mute = {.gpio = GPIO_HP_MUTE, .active_level = GPIO_HP_MUTE_LEVEL},
 	.gpio_hp_detect = {.gpio = GPIO_HP_DETECT, .active_level = GPIO_HP_INSERT_LEVEL},

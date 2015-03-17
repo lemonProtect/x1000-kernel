@@ -99,6 +99,12 @@ struct snd_codec_data {
 	struct snd_board_route record_headset_mic_route;
 	struct snd_board_route record_buildin_mic_route;
 
+	struct snd_board_route record_linein_route;
+	struct snd_board_route record_linein1_route;
+	struct snd_board_route record_linein2_route;
+	struct snd_board_route record_linein3_route;
+    struct snd_board_route record_linein4_route;
+
 	/* device <-> route map replay*/
 	struct snd_board_route replay_headset_route;
 	struct snd_board_route replay_headphone_route;
