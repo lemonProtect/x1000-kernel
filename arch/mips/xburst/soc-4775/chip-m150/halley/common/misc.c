@@ -12,7 +12,7 @@
 #include <mach/jzsnd.h>
 #include <mach/jzmmc.h>
 #include <mach/jzssi.h>
-#include <mach/jz4780_efuse.h>
+#include <mach/jz_efuse.h>
 #include <gpio.h>
 #include <linux/jz_dwc.h>
 #include <linux/interrupt.h>
@@ -20,7 +20,7 @@
 #include "board_base.h"
 #include <board.h>
 
-#ifdef CONFIG_JZ4775_EFUSE
+#ifdef CONFIG_JZ_EFUSE_V11
 struct jz_efuse_platform_data jz_efuse_pdata = {
 	    /* supply 2.5V to VDDQ */
 	    .gpio_vddq_en_n = GPIO_EFUSE_VDDQ,

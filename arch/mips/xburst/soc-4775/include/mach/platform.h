@@ -177,7 +177,7 @@ extern struct platform_device jz_vpu_device;
 extern struct platform_device jz_x2d_device;
 extern struct platform_device jz_dwc_otg_device;
 
-#ifdef CONFIG_JZ4775_EFUSE
+#ifdef CONFIG_JZ_EFUSE_V11
 extern struct platform_device jz_efuse_device;
 #endif
 #ifdef CONFIG_I2C_GPIO /*CONFIG_I2C_GPIO*/

@@ -1,16 +1,9 @@
 #include <linux/platform_device.h>
-#if 0
-#include <linux/power/jz_battery.h>
-#include <linux/power/li_ion_charger.h>
-#include <linux/jz_adc.h>
-#endif
 #include <linux/i2c.h>
 #include <linux/i2c-gpio.h>
 #include <linux/input.h>
-//#include <linux/tsc.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_gpio.h>
-//#include <linux/android_pmem.h>
 #include <linux/interrupt.h>
 #include <linux/jz_dwc.h>
 #include <linux/delay.h>
@@ -20,7 +13,7 @@
 #include <mach/jzmmc.h>
 #include <mach/jzssi.h>
 #include <gpio.h>
-#include <mach/jz4780_efuse.h>
+#include <mach/jz_efuse.h>
 #include "board_base.h"
 
 
@@ -100,7 +93,7 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_RTC_DRV_JZ
 	DEF_DEVICE(&jz_rtc_device, 0, 0),
 #endif
-#ifdef CONFIG_JZ4775_EFUSE
+#ifdef CONFIG_JZ_EFUSE_V11
 	DEF_DEVICE(&jz_efuse_device, &jz_efuse_pdata, sizeof(struct jz_efuse_platform_data)),
 #endif
 #ifdef	CONFIG_I2C1_V12_JZ
