@@ -745,12 +745,12 @@ struct dsi_device * jzdsi_init(struct jzdsi_data *pdata)
 	dsi->video_config->h_polarity = pdata->modes->sync & FB_SYNC_HOR_HIGH_ACT;
 	dsi->video_config->h_active_pixels = pdata->modes->xres;
 	dsi->video_config->h_sync_pixels = pdata->modes->hsync_len;
-	dsi->video_config->h_back_porch_pixels = pdata->modes->right_margin;
+	dsi->video_config->h_back_porch_pixels = pdata->modes->left_margin;
 	dsi->video_config->h_total_pixels = pdata->modes->xres + pdata->modes->hsync_len + pdata->modes->left_margin + pdata->modes->right_margin;
 	dsi->video_config->v_active_lines = pdata->modes->yres;
 	dsi->video_config->v_polarity =  pdata->modes->sync & FB_SYNC_VERT_HIGH_ACT;
 	dsi->video_config->v_sync_lines = pdata->modes->vsync_len;
-	dsi->video_config->v_back_porch_lines = pdata->modes->lower_margin;
+	dsi->video_config->v_back_porch_lines = pdata->modes->upper_margin;
 	dsi->video_config->v_total_lines = pdata->modes->yres + pdata->modes->upper_margin + pdata->modes->lower_margin + pdata->modes->vsync_len;
 	dsi->master_ops = &jz_master_ops;
 
