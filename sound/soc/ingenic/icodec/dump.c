@@ -29,14 +29,14 @@ static struct snd_soc_dai_driver dump_codec_dai = {
 	.playback = {
 		.channels_min = 1,
 		.channels_max = 1,
-		.rates = SNDRV_PCM_RATE_192000,
+		.rates = SNDRV_PCM_RATE_8000_192000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S18_3LE | SNDRV_PCM_FMTBIT_S20_3LE |
 			SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S8,
 	},
 	.capture = {
 		.channels_min = 1,
 		.channels_max = 1,
-		.rates = SNDRV_PCM_RATE_192000,
+		.rates = SNDRV_PCM_RATE_8000_192000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S18_3LE | SNDRV_PCM_FMTBIT_S20_3LE |
 			SNDRV_PCM_FMTBIT_S24_LE | SNDRV_PCM_FMTBIT_S8,
 	},

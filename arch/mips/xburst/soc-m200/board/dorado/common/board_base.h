@@ -7,9 +7,6 @@
 #ifdef CONFIG_KEYBOARD_GPIO
 extern struct platform_device jz_button_device;
 #endif
-#ifdef CONFIG_TOUCHSCREEN_FT6X06
-extern struct ft6x06_platform_data ft6x06_tsc_pdata;
-#endif
 #ifdef CONFIG_VIDEO_OVISP
 extern struct ovisp_camera_platform_data ovisp_camera_info;
 #endif

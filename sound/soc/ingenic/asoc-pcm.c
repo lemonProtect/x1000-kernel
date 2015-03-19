@@ -61,7 +61,15 @@ static int jz_pcm_startup(struct snd_pcm_substream *substream,
 	if (!jz_pcm->pcm_mode) {
 		clk_enable(jz_pcm->clk_gate);
 		__pcm_reset(dev);
+#if 1
 		__pcm_as_slaver(dev);
+#else
+		clk_set_rate(jz_pcm->clk, 9600000);
+		clk_enable(jz_pcm->clk);
+		__pcm_as_master(dev);
+		__pcm_set_clkdiv(dev, 9600000/20/8000 - 1);
+		__pcm_set_syndiv(dev, 20 - 1);
+#endif
 		__pcm_set_msb_one_shift_in(dev);
 		__pcm_set_msb_one_shift_out(dev);
 		__pcm_play_lastsample(dev);

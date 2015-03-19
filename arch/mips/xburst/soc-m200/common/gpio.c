@@ -281,7 +281,6 @@ int jz_gpio_set_func(int gpio, enum gpio_function func)
 	return 0;
 }
 
-
 int jzgpio_ctrl_pull(enum gpio_port port, int enable_pull,unsigned long pins)
 {
 	struct jzgpio_chip *jz = &jz_gpio_chips[port];
@@ -296,6 +295,7 @@ int jzgpio_ctrl_pull(enum gpio_port port, int enable_pull,unsigned long pins)
 
 	return 0;
 }
+EXPORT_SYMBOL(jzgpio_ctrl_pull);
 
 /* Functions followed for GPIOLIB */
 static int jz_gpio_set_pull(struct gpio_chip *chip,

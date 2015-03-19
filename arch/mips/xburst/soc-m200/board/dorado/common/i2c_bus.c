@@ -45,9 +45,9 @@ static struct ft6x0x_platform_data ft6x0x_tsc_pdata = {
 
 #endif
 
-#ifdef CONFIG_TOUCHSCREEN_FT6X06
+#if defined(CONFIG_TOUCHSCREEN_FT6X06) || defined(CONFIG_TOUCHSCREEN_FT6X06_MODULE)
 #include <linux/input/ft6x06_ts.h>
-struct ft6x06_platform_data ft6x06_tsc_pdata = {
+static struct ft6x06_platform_data ft6x06_tsc_pdata = {
 	.x_max          = 300,
 	.y_max          = 540,
 	.va_x_max	= 300,
@@ -81,7 +81,7 @@ struct i2c_board_info jz_i2c0_devs[] __initdata = {
 	},
 #endif
 
-#ifdef CONFIG_TOUCHSCREEN_FT6X06
+#if defined(CONFIG_TOUCHSCREEN_FT6X06) || defined(CONFIG_TOUCHSCREEN_FT6X06_MODULE)
 	{
 		I2C_BOARD_INFO("ft6x06_ts", 0x38),
 		.platform_data = &ft6x06_tsc_pdata,
@@ -117,7 +117,7 @@ struct i2c_board_info jz_i2c0_devs[] __initdata = {
 };
 #endif
 
-#if     defined(CONFIG_SOFT_I2C0_GPIO_V12_JZ) || defined(CONFIG_I2C0_V12_JZ)
+#if defined(CONFIG_SOFT_I2C0_GPIO_V12_JZ) || defined(CONFIG_I2C0_V12_JZ)
 int jz_i2c0_devs_size = ARRAY_SIZE(jz_i2c0_devs);
 #endif
 
