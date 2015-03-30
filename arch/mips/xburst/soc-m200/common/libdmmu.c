@@ -46,6 +46,7 @@ struct pmd_node {
 };
 
 struct map_node {
+	struct device *dev;
 	unsigned long start;
 	unsigned long len;
 	struct list_head list;
@@ -72,9 +73,10 @@ static struct map_node *check_map(struct dmmu_handle *h,unsigned long vaddr,unsi
 	return NULL;
 }
 
-static void handle_add_map(struct dmmu_handle *h,unsigned long vaddr,unsigned long len)
+static void handle_add_map(struct device *dev,struct dmmu_handle *h,unsigned long vaddr,unsigned long len)
 {
 	struct map_node *n = kmalloc(sizeof(*n),GFP_KERNEL);
+	n->dev = dev;
 	n->start = vaddr;
 	n->len = len;
 	INIT_LIST_HEAD(&n->list);
@@ -281,7 +283,7 @@ static void dmmu_cache_wback(struct dmmu_handle *h)
 
 static void dmmu_dump_handle(struct seq_file *m, void *v, struct dmmu_handle *h);
 
-unsigned long dmmu_map(unsigned long vaddr,unsigned long len)
+unsigned long dmmu_map(struct device *dev,unsigned long vaddr,unsigned long len)
 {
 	int end = vaddr + len;
 	struct dmmu_handle *h;
@@ -309,7 +311,7 @@ unsigned long dmmu_map(unsigned long vaddr,unsigned long len)
 		return 0;
 	}
 
-	handle_add_map(h,vaddr,len);
+	handle_add_map(dev,h,vaddr,len);
 
 	while(vaddr < end) {
 		node = find_node(h,vaddr);
@@ -329,7 +331,7 @@ unsigned long dmmu_map(unsigned long vaddr,unsigned long len)
 	return dmmu_v2pfn(h->pdg);
 }
 
-int dmmu_unmap(unsigned long vaddr, int len)
+int dmmu_unmap(struct device *dev,unsigned long vaddr, int len)
 {
 	unsigned long end = vaddr + len;
 	struct dmmu_handle *h;
@@ -349,6 +351,11 @@ int dmmu_unmap(unsigned long vaddr, int len)
 		mutex_unlock(&h->lock);
 		return -EAGAIN;
 	}
+	if(n->dev != dev) {
+		mutex_unlock(&h->lock);
+		return -EAGAIN;
+	}
+
 	list_del(&n->list);
 	kfree(n);
 
@@ -374,7 +381,7 @@ int dmmu_unmap(unsigned long vaddr, int len)
 	return 0;
 }
 
-int dmmu_unmap_all(void)
+int dmmu_free_all(struct device *dev)
 {
 	struct dmmu_handle *h;
 	struct pmd_node *node;
@@ -386,9 +393,6 @@ int dmmu_unmap_all(void)
 		return 0;
 
 	mutex_lock(&h->lock);
-#ifdef DEBUG
-	printk("dmmu_unmap_all\n");
-#endif
 	list_for_each_safe(pos, next, &h->pmd_list) {
 		node = list_entry(pos, struct pmd_node, list);
 		unmap_node(node,0,0,0);
@@ -411,6 +415,31 @@ int dmmu_unmap_all(void)
 	}
 
 	mutex_unlock(&h->lock);
+	return 0;
+}
+
+int dmmu_unmap_all(struct device *dev)
+{
+	struct dmmu_handle *h;
+	struct map_node *cn;
+	struct list_head *pos, *next;
+
+#ifdef DEBUG
+	printk("dmmu_unmap_all\n");
+#endif
+	h = find_handle();
+	if(!h)
+		return 0;
+
+	list_for_each_safe(pos, next, &h->map_list) {
+		cn = list_entry(pos, struct map_node, list);
+		if(dev == cn->dev)
+			dmmu_unmap(dev,cn->start,cn->len);
+	}
+
+
+	if(list_empty(&h->map_list))
+		dmmu_free_all(dev);
 	return 0;
 }
 
@@ -467,12 +496,13 @@ static int dmmu_proc_show(struct seq_file *m, void *v)
 {
 	struct list_head *pos, *next;
 	struct dmmu_handle *h;
-
-	list_for_each_safe(pos, next, &handle_list) {
-		h = list_entry(pos, struct dmmu_handle, list);
+	volatile unsigned long flags;
+	local_irq_save(flags);
+		list_for_each_safe(pos, next, &handle_list) {
+			h = list_entry(pos, struct dmmu_handle, list);
 			dmmu_dump_handle(m, v, h);
-	}
-
+		}
+	local_irq_restore(flags);
 	return 0;
 }
 

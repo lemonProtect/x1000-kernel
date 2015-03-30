@@ -2458,7 +2458,7 @@ static int isp_tlb_map_one_vaddr(struct isp_device *isp, unsigned int vaddr, uns
 {
 	int ret = 0;
 
-	ret = dmmu_map(vaddr, size);
+	ret = dmmu_map(isp->dev,vaddr, size);
 	if(isp->tlb_flag == 0){
 		if(ret){
 			isp_s_tlb_base(isp,ret);
@@ -2471,7 +2471,7 @@ static int isp_tlb_map_one_vaddr(struct isp_device *isp, unsigned int vaddr, uns
 }
 static int isp_tlb_unmap_all_vaddr(struct isp_device *isp)
 {
-	dmmu_unmap_all();
+	dmmu_unmap_all(isp->dev);
 	isp->tlb_flag = 0;
 	return 0;
 }
