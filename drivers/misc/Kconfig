@@ -581,6 +581,10 @@ config JZ_EFUSE_V11
 	  bool "JZ V11 EFUSE Driver"
 	  default n
 
+config JZ_IRDA_V11
+	  bool "JZ V11_IRDA Driver"
+	  default n
+
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"

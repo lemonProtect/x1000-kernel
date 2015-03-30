@@ -4,10 +4,8 @@
 #include <linux/gpio_keys.h>
 #include <linux/input.h>
 #include <linux/leds.h>
-//#include <linux/tsc.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi_gpio.h>
-//#include <linux/android_pmem.h>
 #include <mach/platform.h>
 #include <mach/jzsnd.h>
 #include <mach/jzmmc.h>
@@ -16,9 +14,13 @@
 #include <gpio.h>
 #include <linux/jz_dwc.h>
 #include <linux/interrupt.h>
-//#include <sound/jz-aic.h>
 #include "board_base.h"
 #include <board.h>
+#include <gpio.h>
+
+#include <soc/gpio.h>
+#include <soc/base.h>
+#include <soc/irq.h>
 
 #ifdef CONFIG_JZ_EFUSE_V11
 struct jz_efuse_platform_data jz_efuse_pdata = {
@@ -60,5 +62,26 @@ struct platform_device jz_led_rgb = {
 	.dev        = {
 		.platform_data  = &jz_led_pdata,
 	}
+};
+#endif
+#ifdef CONFIG_JZ_IRDA_V11
+static struct resource jz_uart2_resources[] = {
+	[0] = {
+		.start          = UART2_IOBASE,
+		.end            = UART2_IOBASE + 0x1000 - 1,
+		.flags          = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start          = IRQ_UART2,
+		.end            = IRQ_UART2,
+		.flags          = IORESOURCE_IRQ,
+	},
+};
+struct platform_device jz_irda_device  = {
+	.name = "jz-irda",
+	.id = 2 ,
+	.num_resources  = ARRAY_SIZE(jz_uart2_resources),
+	.resource       = jz_uart2_resources,
+
 };
 #endif

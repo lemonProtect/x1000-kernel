@@ -33,6 +33,8 @@
 	{ .name = "uart1", .port = GPIO_PORT_D, .func = GPIO_FUNC_0, .pins = 0xf<<26, }
 #define UART2_PORTC							\
 	{ .name = "uart2", .port = GPIO_PORT_C, .func = GPIO_FUNC_2, .pins = 1<<10 | 1<<20, }
+#define UART2_PORTF							\
+	{ .name = "uart2", .port = GPIO_PORT_F, .func = GPIO_FUNC_1, .pins = 0x3 << 4, }
 /*******************************************************************************************************************/
 
 #define MSC0_PORTA_4BIT							\
@@ -177,6 +179,9 @@ extern struct platform_device jz_vpu_device;
 extern struct platform_device jz_x2d_device;
 extern struct platform_device jz_dwc_otg_device;
 
+#ifdef CONFIG_JZ_IRDA_V11
+extern struct platform_device jz_irda_device;
+#endif
 #ifdef CONFIG_JZ_EFUSE_V11
 extern struct platform_device jz_efuse_device;
 #endif
