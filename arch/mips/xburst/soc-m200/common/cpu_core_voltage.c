@@ -37,7 +37,7 @@
 #include "./clk/clk.h"
 
 #define MIN_VOLTAGE	(1025000)
-#define MAX_VOLTAGE	(1150000)
+#define MAX_VOLTAGE	(1200000)
 #define CPU_CORE_NAME	"cpu_core"
 
 static struct cpu_core_voltage {
@@ -65,7 +65,7 @@ static struct vol_freq {
 	{1050000, 300000},
 	{1075000, 600000},
 	{1100000, 800000},
-        {1125000, 1008000},
+        {1150000, 1008000},
 };
 
 static unsigned int get_vol_from_freq(struct cpu_core_voltage *pcore,
