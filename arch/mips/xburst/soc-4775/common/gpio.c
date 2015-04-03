@@ -156,7 +156,7 @@ int jzgpio_set_func(enum gpio_port port,
 {
 	struct jzgpio_chip *jz = &jz_gpio_chips[port];
 
-	if (~jz->dev_map[0] & pins)
+	if (jz->dev_map[0] & pins)
 		return -EINVAL;
 
 	gpio_set_func(jz,func,pins);
@@ -191,7 +191,7 @@ int jzgpio_ctrl_pull(enum gpio_port port, int enable_pull,unsigned long pins)
 {
 	struct jzgpio_chip *jz = &jz_gpio_chips[port];
 
-	if (~jz->dev_map[0] & pins)
+	if (jz->dev_map[0] & pins)
 		return -EINVAL;
 
 	if (enable_pull)

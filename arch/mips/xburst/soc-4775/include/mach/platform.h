@@ -179,6 +179,9 @@ extern struct platform_device jz_vpu_device;
 extern struct platform_device jz_x2d_device;
 extern struct platform_device jz_dwc_otg_device;
 
+#ifdef CONFIG_KEYBOARD_GPIO
+extern struct platform_device jz_button_device;
+#endif
 #ifdef CONFIG_JZ_IRDA_V11
 extern struct platform_device jz_irda_device;
 #endif

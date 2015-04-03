@@ -108,6 +108,9 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_JZ_IRDA_V11
 	DEF_DEVICE(&jz_irda_device, 0, 0),
 #endif
+#ifdef CONFIG_KEYBOARD_GPIO
+	DEF_DEVICE(&jz_button_device,0,0),
+#endif
 
 };
 

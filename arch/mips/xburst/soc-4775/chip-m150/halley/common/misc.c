@@ -85,3 +85,60 @@ struct platform_device jz_irda_device  = {
 
 };
 #endif
+
+#ifdef CONFIG_KEYBOARD_GPIO
+struct gpio_keys_button __attribute__((weak)) board_buttons[] = {
+
+#ifdef GPIO_PLAY_KEY
+	{
+		.gpio       = GPIO_PLAY_KEY,
+		.code       = KEY_PLAYPAUSE,
+		.desc       = "play key",
+		.active_low = ACTIVE_LOW_PLAY,
+		.gpio_pullup = 1, // need gpio inter pull up
+	},
+#endif
+#ifdef GPIO_AP_STA_KEY
+	{
+		.gpio       = GPIO_AP_STA_KEY,
+		.code       = KEY_SELECT,
+		.desc       = "mode key",
+		.active_low = ACTIVE_LOW_AP_STA,
+		.gpio_pullup = 1,
+	},
+#endif
+#ifdef GPIO_VOLUMEUP_KEY
+	{
+		.gpio       = GPIO_VOLUMEUP_KEY,
+		.code       = KEY_VOLUMEUP,
+		.desc       = "volume up key",
+		.active_low = ACTIVE_LOW_VOLUMEUP,
+		.gpio_pullup = 1,
+	},
+#endif
+#ifdef GPIO_VOLUMEDOWN_KEY
+	{
+		.gpio       = GPIO_VOLUMEDOWN_KEY,
+		.code       = KEY_VOLUMEDOWN,
+		.desc       = "volum down key",
+		.active_low = ACTIVE_LOW_VOLUMEDOWN,
+		.gpio_pullup = 1,
+	},
+#endif
+
+
+};
+static struct gpio_keys_platform_data board_button_data = {
+	.buttons    = board_buttons,
+	.nbuttons   = ARRAY_SIZE(board_buttons),
+};
+
+struct platform_device jz_button_device = {
+	.name       = "gpio-keys",
+	.id     = -1,
+	.num_resources  = 0,
+	.dev        = {
+		.platform_data  = &board_button_data,
+	}
+};
+#endif
