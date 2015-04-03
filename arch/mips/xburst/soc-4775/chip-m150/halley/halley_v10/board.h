@@ -20,6 +20,20 @@
 #define BLUETOOTH_UPORT_NAME  "ttyS1"
 #endif
 
+/* KEY gpio */
+#define GPIO_VOLUMEDOWN_KEY			GPIO_PC(9)
+#define GPIO_VOLUMEUP_KEY			GPIO_PC(2)
+#define GPIO_PLAY_KEY               GPIO_PC(3)
+#define GPIO_AP_STA_KEY             GPIO_PC(12)
+//#define GPIO_POWER               GPIO_PA(30)
+
+#define ACTIVE_LOW_VOLUMEDOWN    1
+#define ACTIVE_LOW_VOLUMEUP      1
+#define ACTIVE_LOW_PLAY          1
+#define ACTIVE_LOW_AP_STA        1
+//#define ACTIVE_LOW_POWER         1
+
+
 
 /*wifi*/
 #define GPIO_WLAN_PW_EN     -1//GPIO_PD(24)
