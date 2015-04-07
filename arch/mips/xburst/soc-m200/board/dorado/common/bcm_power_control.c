@@ -160,7 +160,7 @@ extern int jzmmc_manual_detect(int index, int on);
 extern int jzmmc_clk_ctrl(int index, int on);
 extern int bcm_power_on(void);
 extern int bcm_power_down(void);
-#if defined(CONFIG_BCM43341) || defined(CONFIG_BCM43341_MODULE)
+#if IS_ENABLED(CONFIG_BCM43341)
 static struct resource wlan_resources[] = {
 	[0] = {
 		.start = WL_WAKE_HOST,

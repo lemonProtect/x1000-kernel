@@ -357,7 +357,7 @@ static int jz_i2s_platfrom_probe(struct platform_device *pdev)
 	struct jz_i2s *jz_i2s;
 	int i = 0, ret, buswidth = DMA_SLAVE_BUSWIDTH_2_BYTES;
 
-	jz_i2s = kzalloc(sizeof(struct jz_i2s), GFP_KERNEL);
+	jz_i2s = devm_kzalloc(&pdev->dev, sizeof(struct jz_i2s), GFP_KERNEL);
 	if (!jz_i2s)
 		return -ENOMEM;
 
@@ -387,12 +387,9 @@ static int jz_i2s_platfrom_probe(struct platform_device *pdev)
 
 static int jz_i2s_platfom_remove(struct platform_device *pdev)
 {
-	struct jz_i2s *jz_i2s = platform_get_drvdata(pdev);
 	int i;
 	for (i = 0; i < ARRAY_SIZE(jz_i2s_sysfs_attrs); i++)
 		device_remove_file(&pdev->dev, &jz_i2s_sysfs_attrs[i]);
-	if (jz_i2s)
-		kfree(jz_i2s);
 	platform_set_drvdata(pdev, NULL);
 	snd_soc_unregister_component(&pdev->dev);
 	return 0;

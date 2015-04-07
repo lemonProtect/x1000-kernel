@@ -585,7 +585,7 @@ config JZ_IRDA_V11
 	  bool "JZ V11_IRDA Driver"
 	  default n
 
-
+source "drivers/misc/efuse/Kconfig"
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

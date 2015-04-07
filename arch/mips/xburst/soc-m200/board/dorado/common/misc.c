@@ -5,15 +5,15 @@
 #include <linux/power/li_ion_charger.h>
 #include <linux/jz_adc.h>
 #endif
-#ifdef CONFIG_JZ_EFUSE_V12
-#include <mach/jz_efuse.h>
-#endif
+
 #include "board_base.h"
 
-#ifdef CONFIG_JZ_EFUSE_V12
+#if IS_ENABLED(CONFIG_JZ_EFUSE_V12)
+#include <mach/jz_efuse.h>
 struct jz_efuse_platform_data jz_efuse_pdata = {
 	/* supply 2.5V to VDDQ */
-	.gpio_vddq_en_n = GPIO_EFUSE_VDDQ,
+	.gpio_vddq_en = GPIO_EFUSE_VDDQ,
+	.gpio_vddq_en_level = GPIO_EFUSE_VDDQ_EN_LEVEL,
 };
 #endif
 
@@ -51,7 +51,7 @@ struct jz_adc_platform_data adc_platform_data = {
 };
 #endif
 
-#if defined(CONFIG_SND_ASOC_INGENIC_DORADO_ICDC) || defined(CONFIG_SND_ASOC_INGENIC_DORADO_ICDC_MODULE)
+#if IS_ENABLED(CONFIG_SND_ASOC_INGENIC_DORADO_ICDC)
 struct platform_device snd_dorado_device = {
 	.name = "ingenic-dorado",
 };

@@ -20,6 +20,7 @@
 #include <sound/pcm_params.h>
 #include <sound/initval.h>
 #include <linux/clk.h>
+#include <linux/io.h>
 #include <sound/soc.h>
 #include <sound/soc-dai.h>
 #include <linux/slab.h>
@@ -287,46 +288,41 @@ static int jz_pcm_platfrom_probe(struct platform_device *pdev)
 	struct resource *res = NULL;
 	int i = 0, ret;
 
-	jz_pcm = kzalloc(sizeof(struct jz_pcm), GFP_KERNEL);
-	if (!jz_pcm) {
-		dev_err(&pdev->dev, "Failed to allocate memory for driver struct\n");
+	jz_pcm = devm_kzalloc(&pdev->dev, sizeof(struct jz_pcm), GFP_KERNEL);
+	if (!jz_pcm)
 		return -ENOMEM;
-	}
-	jz_pcm->dev = &pdev->dev;
 
+	jz_pcm->dev = &pdev->dev;
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		ret = -ENOENT;
-		dev_err(&pdev->dev, "Failed to get platform mmio resource\n");
-		goto err_get_iomem_res;
-	}
-	if (request_mem_region(res->start, resource_size(res),
-				pdev->name) == NULL) {
-		ret = -EBUSY;
-		dev_err(&pdev->dev, "Failed to request mmio memory region\n");
-		goto err_mem_region;
-	}
+	if (!res)
+		return -ENOENT;
+	if (!devm_request_mem_region(&pdev->dev,
+				res->start, resource_size(res),
+				pdev->name))
+		return -EBUSY;
+
 	jz_pcm->res_start = res->start;
 	jz_pcm->res_size = resource_size(res);
-	jz_pcm->vaddr_base = ioremap_nocache(jz_pcm->res_start, jz_pcm->res_size);
+	jz_pcm->vaddr_base = devm_ioremap_nocache(&pdev->dev,
+			jz_pcm->res_start, jz_pcm->res_size);
 	if (!jz_pcm->vaddr_base) {
-		ret = -ENOMEM;
 		dev_err(&pdev->dev, "Failed to ioremap mmio memory\n");
-		goto err_ioremap;
+		return -ENOMEM;
 	}
 
-	jz_pcm->clk_gate = clk_get(&pdev->dev, "pcm");
+	jz_pcm->clk_gate = devm_clk_get(&pdev->dev, "pcm");
 	if (IS_ERR_OR_NULL(jz_pcm->clk_gate)) {
 		ret = PTR_ERR(jz_pcm->clk_gate);
 		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
-		goto err_clk_gate_get;
+		return ret;
 	}
-	jz_pcm->clk = clk_get(&pdev->dev, "cgu_pcm");
+	jz_pcm->clk = devm_clk_get(&pdev->dev, "cgu_pcm");
 	if (IS_ERR_OR_NULL(jz_pcm->clk)) {
 		ret = PTR_ERR(jz_pcm->clk);
 		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
-		goto err_clk_get;
+		return ret;
 	}
+
 	jz_pcm->pcm_mode = 0;
 	jz_pcm->tx_dma_data.dma_addr = (dma_addr_t)jz_pcm->res_start + PCMDP;
 	jz_pcm->rx_dma_data.dma_addr = (dma_addr_t)jz_pcm->res_start + PCMDP;
@@ -338,45 +334,22 @@ static int jz_pcm_platfrom_probe(struct platform_device *pdev)
 			dev_warn(&pdev->dev,"attribute %s create failed %x",
 					attr_name(jz_pcm_sysfs_attrs[i]), ret);
 	}
+
 	ret = snd_soc_register_component(&pdev->dev, &jz_pcm_component,
 			&jz_pcm_dai, 1);
-	if (ret)
-		goto err_reg_compnent;
-
+	if (ret) {
+		platform_set_drvdata(pdev, NULL);
+		return ret;
+	}
 	dev_info(&pdev->dev, "pcm platform probe success\n");
-	return ret;
-err_reg_compnent:
-	platform_set_drvdata(pdev, NULL);
-	clk_put(jz_pcm->clk);
-err_clk_get:
-	clk_put(jz_pcm->clk_gate);
-err_clk_gate_get:
-	iounmap(jz_pcm->vaddr_base);
-err_ioremap:
-	release_mem_region(jz_pcm->res_start, jz_pcm->res_size);
-err_mem_region:
-err_get_iomem_res:
-	kfree(jz_pcm);
 	return ret;
 }
 
 static int jz_pcm_platfom_remove(struct platform_device *pdev)
 {
-	struct jz_pcm *jz_pcm = platform_get_drvdata(pdev);
 	int i;
 	for (i = 0; i < ARRAY_SIZE(jz_pcm_sysfs_attrs); i++)
 		device_remove_file(&pdev->dev, &jz_pcm_sysfs_attrs[i]);
-
-	if (jz_pcm) {
-		if (!IS_ERR_OR_NULL(jz_pcm->clk))
-			clk_put(jz_pcm->clk);
-		if (IS_ERR_OR_NULL(jz_pcm->clk_gate))
-			clk_put(jz_pcm->clk_gate);
-		if (jz_pcm->vaddr_base)
-			iounmap(jz_pcm->vaddr_base);
-		release_mem_region(jz_pcm->res_start, jz_pcm->res_size);
-		kfree(jz_pcm);
-	}
 	platform_set_drvdata(pdev, NULL);
 	snd_soc_unregister_component(&pdev->dev);
 	return 0;

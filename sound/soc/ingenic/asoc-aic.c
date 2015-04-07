@@ -21,7 +21,9 @@
 #include <linux/platform_device.h>
 #include <linux/interrupt.h>
 #include <linux/mm.h>
+#include <linux/io.h>
 #include <linux/dmaengine.h>
+#include <linux/dma-mapping.h>
 #include <linux/delay.h>
 #include "asoc-aic.h"
 
@@ -79,14 +81,18 @@ static int jzaic_add_subdevs(struct jz_aic *jz_aic)
 do { \
 	jz_aic->psubdev_##name = platform_device_register_data(jz_aic->dev, \
 			"jz-asoc-aic-"#name,	\
-			  -1,	\
+			PLATFORM_DEVID_NONE,	\
 			(void *)&jz_aic->subdev_pdata,	\
 			sizeof(struct jz_aic_subdev_pdata));	\
 	if (IS_ERR(jz_aic->psubdev_##name)) {	\
 		ret = PTR_ERR(jz_aic->psubdev_##name);	\
 		dev_err(jz_aic->dev, "add %s device errno %ld\n", "jz-asoc-aic-"#name,	\
 				PTR_ERR(jz_aic->psubdev_##name));	\
-		goto err_add_##name##_dev;	\
+		jz_aic->psubdev_##name	= NULL;\
+	} else {	\
+		dma_set_coherent_mask(&jz_aic->psubdev_##name->dev, jz_aic->dev->coherent_dma_mask);	\
+		jz_aic->psubdev_##name->dev.dma_mask    = jz_aic->dev->dma_mask;	\
+		jz_aic->psubdev_##name->dev.dma_parms	= jz_aic->dev->dma_parms;	\
 	}	\
 } while (0)
 
@@ -94,15 +100,6 @@ do { \
 	/*AIC_REGISTER_SUBDEV(spdif);
 	AIC_REGISTER_SUBDEV(ac97);*/
 	return 0;
-
-/*err_add_ac97_dev:
-	platform_device_unregister(jz_aic->psubdev_spdif);
-	jz_aic->psubdev_spdif = NULL;
-err_add_spdif_dev:
-	platform_device_unregister(jz_aic->psubdev_i2s);
-	jz_aic->psubdev_i2s = NULL;*/
-err_add_i2s_dev:
-	return ret;
 }
 
 static void jzaic_del_subdevs(struct jz_aic *jz_aic)
@@ -172,111 +169,73 @@ static int jz_aic_probe(struct platform_device *pdev)
 	struct resource *res = NULL;
 	int ret;
 
-	jz_aic = kzalloc(sizeof(struct jz_aic), GFP_KERNEL);
-	if (!jz_aic) {
-		dev_err(&pdev->dev, "Failed to allocate memory for driver struct\n");
+	jz_aic = devm_kzalloc(&pdev->dev, sizeof(struct jz_aic), GFP_KERNEL);
+	if (!jz_aic)
 		return -ENOMEM;
-	}
 	jz_aic->dev = &pdev->dev;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res) {
-		ret = -ENOENT;
-		dev_err(&pdev->dev, "Failed to get platform mmio resource\n");
-		goto err_get_iomem_res;
-	}
-	if (request_mem_region(res->start, resource_size(res),
-				pdev->name) == NULL) {
-		ret = -EBUSY;
-		dev_err(&pdev->dev, "Failed to request mmio memory region\n");
-		goto err_mem_region;
-	}
+	if (!res)
+		return -ENOENT;
+	if (!devm_request_mem_region(&pdev->dev, res->start,
+				resource_size(res),
+				pdev->name))
+		return -EBUSY;
 	jz_aic->res_start = res->start;
 	jz_aic->res_size = resource_size(res);
-	jz_aic->vaddr_base = ioremap_nocache(jz_aic->res_start, jz_aic->res_size);
-	if (!jz_aic->vaddr_base) {
-		ret = -ENOMEM;
-		dev_err(&pdev->dev, "Failed to ioremap mmio memory\n");
-		goto err_ioremap;
-	}
+	jz_aic->vaddr_base = devm_ioremap_nocache(&pdev->dev,
+			jz_aic->res_start, jz_aic->res_size);
+	if (!jz_aic->vaddr_base)
+		return -ENOMEM;
 
-	jz_aic->clk_gate = clk_get(&pdev->dev, "aic");
+	jz_aic->clk_gate = devm_clk_get(&pdev->dev, "aic");
 	if (IS_ERR_OR_NULL(jz_aic->clk_gate)) {
 		ret = PTR_ERR(jz_aic->clk_gate);
 		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
-		goto err_clk_gate_get;
+		return ret;
 	}
-	jz_aic->clk = clk_get(&pdev->dev, "cgu_i2s");
+
+	jz_aic->clk = devm_clk_get(&pdev->dev, "cgu_i2s");
 	if (IS_ERR_OR_NULL(jz_aic->clk)) {
 		ret = PTR_ERR(jz_aic->clk);
 		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
-		goto err_clk_get;
+		return ret;
 	}
 	clk_set_rate(jz_aic->clk, 12000000);		/*set default rate*/
 	clk_enable(jz_aic->clk);
 	clk_enable(jz_aic->clk_gate);
 
 	spin_lock_init(&jz_aic->mode_lock);
-
 	jz_aic->irqno = -1;
 	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
 	if (res) {
 		jz_aic->irqno = res->start;
 		jz_aic->irqflags = res->flags & IORESOURCE_IRQ_SHAREABLE ? IRQF_SHARED : 0;
-		ret = request_threaded_irq(jz_aic->irqno, jz_aic_irq_handler,
-				jz_aic_irq_thread, jz_aic->irqflags,
-				pdev->name, (void *)jz_aic);
-		if (ret) {
-			dev_err(&pdev->dev, "Failed to request irq: %d\n", jz_aic->irqno);
+		ret = devm_request_threaded_irq(&pdev->dev, jz_aic->irqno,
+				jz_aic_irq_handler, jz_aic_irq_thread,
+				jz_aic->irqflags, pdev->name, (void *)jz_aic);
+		if (ret)
 			jz_aic->irqno = -1;
-		}
 	} else {
 		dev_err(&pdev->dev, "Failed to get platform irq resource\n");
 	}
 
 	platform_set_drvdata(pdev, (void *)jz_aic);
 	ret = jzaic_add_subdevs(jz_aic);
-	if (ret)
-		goto err_add_subdevs;
-
+	if (ret) {
+		platform_set_drvdata(pdev, NULL);
+		return ret;
+	}
 	dev_info(&pdev->dev, "Aic core probe success\n");
 	return 0;
-
-err_add_subdevs:
-	platform_set_drvdata(pdev, NULL);
-	if (jz_aic->irqno != -1)
-		free_irq(jz_aic->irqno, (void *)jz_aic);
-	clk_put(jz_aic->clk);
-err_clk_get:
-	clk_put(jz_aic->clk_gate);
-err_clk_gate_get:
-	iounmap(jz_aic->vaddr_base);
-err_ioremap:
-	release_mem_region(jz_aic->res_start, jz_aic->res_size);
-err_mem_region:
-err_get_iomem_res:
-	kfree(jz_aic);
-
-	return ret;
 }
 
 static int jz_aic_remove(struct platform_device *pdev)
 {
 	struct jz_aic * jz_aic = platform_get_drvdata(pdev);
-
-	if (!jz_aic)
-		return 0;
+	if (!jz_aic) return 0;
 	jzaic_del_subdevs(jz_aic);
-	if (jz_aic->irqno != -1)
-		free_irq(jz_aic->irqno, (void *)jz_aic);
-	clk_disable(jz_aic->clk_gate);
-	clk_put(jz_aic->clk_gate);
-	clk_disable(jz_aic->clk);
-	clk_put(jz_aic->clk);
 	platform_set_drvdata(pdev, NULL);
-	iounmap(jz_aic->vaddr_base);
-	release_mem_region(jz_aic->res_start, jz_aic->res_size);
-	kfree(jz_aic);
 	return 0;
 }
 

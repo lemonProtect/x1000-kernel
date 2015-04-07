@@ -777,9 +777,9 @@ struct platform_device jz_codec_device = {
 };
 #endif
 
-#if defined(CONFIG_SND) && (defined(CONFIG_SND_ASOC_INGENIC) || defined(CONFIG_SND_ASOC_INGENIC_MODULE))
+#if defined(CONFIG_SND) && IS_ENABLED(CONFIG_SND_ASOC_INGENIC)
 static u64 jz_asoc_dmamask =  ~(u64)0;
-#if defined(CONFIG_SND_ASOC_JZ_AIC) || defined(CONFIG_SND_ASOC_JZ_AIC_MODULE)
+#if IS_ENABLED(CONFIG_SND_ASOC_JZ_AIC)
 static struct resource jz_aic_dma_resources[] = {
 	[0] = {
 		.start          = JZDMA_REQ_I2S0,
@@ -817,7 +817,7 @@ struct platform_device jz_aic_device = {
 	.num_resources  = ARRAY_SIZE(jz_aic_resources),
 };
 #endif
-#if defined(CONFIG_SND_ASOC_JZ_PCM) || defined(CONFIG_SND_ASOC_JZ_PCM_MODULE)
+#if IS_ENABLED(CONFIG_SND_ASOC_JZ_PCM)
 static struct resource jz_pcm_dma_resources[] = {
 	[0] = {
 		.start          = JZDMA_REQ_PCM0,
@@ -856,7 +856,7 @@ struct platform_device jz_pcm_device = {
 };
 #endif
 
-#if defined(CONFIG_SND_ASOC_JZ_ICDC_D1) || defined(CONFIG_SND_ASOC_JZ_ICDC_D1_MODULE)
+#if IS_ENABLED(CONFIG_SND_ASOC_JZ_ICDC_D1)
 static struct resource jz_icdc_resources[] = {
 	[0] = {
 		.start          = AIC0_IOBASE + 0xA0,
@@ -878,7 +878,7 @@ struct platform_device jz_icdc_device = {	/*jz internal codec*/
 };
 #endif
 
-#if defined(CONFIG_SND_ASOC_JZ_DUMP_CDC) || defined(CONFIG_SND_ASOC_JZ_DUMP_CDC_MODULE)
+#if IS_ENABLED(CONFIG_SND_ASOC_JZ_DUMP_CDC)
 struct platform_device jz_dump_cdc_device = {	/*jz dump codec*/
 	.name		= "dump",
 	.id		= -1,
@@ -994,10 +994,10 @@ struct platform_device jz_rtc_device = {
 };
 #endif
 
-#ifdef CONFIG_JZ_EFUSE_V12
+#if IS_ENABLED(CONFIG_JZ_EFUSE_V12)
 /* efuse */
 struct platform_device jz_efuse_device = {
-       .name = "jz-efuse-v12",
+       .name = "efuse",
 };
 #endif
 

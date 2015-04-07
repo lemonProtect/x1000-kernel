@@ -21,7 +21,6 @@
 
 #define OTG_CLK_NAME		"otg1"
 #define VBUS_REG_NAME		"vbus"
-#define OTG_CGU_CLK_NAME	"cgu_usb"
 
 struct dwc2_jz {
 	struct platform_device  dwc2;
@@ -48,7 +47,7 @@ struct dwc2_jz {
 #define DWC2_HOST_ID_TIMER_INTERVAL (HZ / 2)
 #define DWC2_HOST_ID_MAX_DOG_COUNT  3
 	struct regulator 	*vbus;
-	struct mutex             vbus_lock;
+	spinlock_t       vbus_lock;
 	struct input_dev	*input;
 #endif	/* DWC2_HOST_MODE_ENABLE */
 };
@@ -228,8 +227,9 @@ int dwc2_get_drvvbus_level(struct dwc2 *dwc)
 int dwc2_host_vbus_is_extern(struct dwc2 *dwc) {
 	struct dwc2_jz	*jz = container_of(dwc->pdev, struct dwc2_jz, dwc2);
 
-	mutex_lock(&jz->vbus_lock);
-	if (jz->dete_pin && gpio_is_valid(jz->dete_pin->num) && get_detect_pin_status(dwc)) {
+	spin_lock(&jz->vbus_lock);
+	dwc->extern_vbus_mode = 0;
+	if (gpio_is_valid(jz->dete_pin->num) && get_detect_pin_status(dwc)) {
 		if (!dwc2_get_id_level(dwc) ||
 				(dwc2_clk_is_enabled(dwc) && dwc2_is_host_mode(dwc))) {
 			if (gpio_is_valid(jz->drvvbus_pin->num) && !dwc2_get_drvvbus_level(dwc)) {
@@ -241,10 +241,8 @@ int dwc2_host_vbus_is_extern(struct dwc2 *dwc) {
 				dwc->extern_vbus_mode = 1;
 			}
 		}
-	} else {
-		dwc->extern_vbus_mode = 0;
 	}
-	mutex_unlock(&jz->vbus_lock);
+	spin_unlock(&jz->vbus_lock);
 	return dwc->extern_vbus_mode;
 }
 
@@ -326,7 +324,7 @@ void jz_set_vbus(struct dwc2 *dwc, int is_on)
 			old_is_on ? "on" : "off",
 			dwc2_is_host_mode(dwc) ? "host" : "device");
 
-	mutex_lock(&jz->vbus_lock);
+	spin_lock(&jz->vbus_lock);
 	if (!IS_ERR_OR_NULL(jz->vbus)) {
 		if (is_on && !regulator_is_enabled(jz->vbus))
 			regulator_enable(jz->vbus);
@@ -340,7 +338,7 @@ void jz_set_vbus(struct dwc2 *dwc, int is_on)
 			gpio_direction_output(jz->drvvbus_pin->num,
 					jz->drvvbus_pin->enable_level == LOW_ENABLE);
 	}
-	mutex_unlock(&jz->vbus_lock);
+	spin_unlock(&jz->vbus_lock);
 }
 
 static ssize_t jz_vbus_show(struct device *dev,
@@ -533,7 +531,7 @@ static int dwc2_jz_probe(struct platform_device *pdev) {
 	} else {
 		jz->drvvbus_pin->num = -1;
 	}
-	mutex_init(&jz->vbus_lock);
+	spin_lock_init(&jz->vbus_lock);
 	jz->id_pin = &dwc2_id_pin;
 	jz->id_irq = -1;
 	ret = gpio_request_one(jz->id_pin->num,
@@ -669,7 +667,6 @@ static int dwc2_jz_remove(struct platform_device *pdev) {
 	if (!IS_ERR_OR_NULL(jz->vbus))
 		regulator_put(jz->vbus);
 #endif
-
 	clk_disable(jz->clk);
 	clk_put(jz->clk);
 
