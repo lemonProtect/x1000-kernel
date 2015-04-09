@@ -459,7 +459,7 @@ static void jz_mipi_update_cfg(struct dsi_device *dsi)
 {
 	int ret;
 	int st_mask = 0;
-	int retry = 20;
+	int retry = 25;
 	dsi->state = NOT_INITIALIZED;
 	ret = jz_dsi_phy_open(dsi);
 	if (ret) {
@@ -483,7 +483,7 @@ static void jz_mipi_update_cfg(struct dsi_device *dsi)
 		pr_err("phy configigure failed!\n");
 	}
 
-#if 0
+#if 1
 	if (dsi->video_config->no_of_lanes == 2)
 		st_mask = 0x95;
 	else
