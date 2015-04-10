@@ -513,45 +513,31 @@ static int jz_pcm_platform_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret;
 
-	jz_pcm  = kzalloc(sizeof(*jz_pcm), GFP_KERNEL);
+	jz_pcm  = devm_kzalloc(&pdev->dev, sizeof(*jz_pcm), GFP_KERNEL);
 	if (!jz_pcm)
 		return -ENOMEM;
 
 	res = platform_get_resource(pdev, IORESOURCE_DMA, 0);
-	if (!res) {
-		ret = -ENOENT;
-		dev_err(&pdev->dev, "Failed to get platfrom dma resource\n");
-		goto err_get_dma_res;
-	}
+	if (!res)
+		return -ENOENT;
 	jz_pcm->dma_type = GET_MAP_TYPE(res->start);
 
 	platform_set_drvdata(pdev, jz_pcm);
-
 	ret = snd_soc_register_platform(&pdev->dev, &jz_pcm_platform);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register platfrom\n");
-		goto err_register_platform;
+		platform_set_drvdata(pdev, NULL);
+		return ret;
 	}
-
 	dev_info(&pdev->dev, "Audio dma platfrom probe success\n");
-
 	return 0;
-
-err_register_platform:
-	platform_set_drvdata(pdev, NULL);
-err_get_dma_res:
-	kfree(jz_pcm);
-	return ret;
 }
 
 static int jz_pcm_platform_remove(struct platform_device *pdev)
 {
-	struct jz_dma_pcm *jz_pcm = platform_get_drvdata(pdev);
-
 	dev_info(&pdev->dev, "Audio dma platfrom removed\n");
 	snd_soc_unregister_platform(&pdev->dev);
 	platform_set_drvdata(pdev, NULL);
-	kfree(jz_pcm);
 	return 0;
 }
 

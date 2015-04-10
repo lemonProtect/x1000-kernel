@@ -142,6 +142,12 @@ void jz_otg_phy_init(otg_mode_t mode)
 	usbpcr1 |= (ref_clk_div << 24);
 	cpm_outl(usbpcr1, CPM_USBPCR1);
 
+	/*unsuspend*/
+	cpm_set_bit(7, CPM_OPCR);
+	udelay(45);
+	cpm_clear_bit(USBPCR_SIDDQ, CPM_USBPCR);
+
+
 	/* fil */
 	cpm_outl(0, CPM_USBVBFIL);
 
@@ -197,9 +203,11 @@ void jz_otg_phy_suspend(int suspend)
 	if (!suspend && jz_otg_phy_is_suspend()) {
 		printk("EN PHY\n");
 		cpm_set_bit(7, CPM_OPCR);
+		udelay(45);
 	} else if (suspend && !jz_otg_phy_is_suspend()) {
 		printk("DIS PHY\n");
 		cpm_clear_bit(7, CPM_OPCR);
+		udelay(5);
 	}
 }
 EXPORT_SYMBOL(jz_otg_phy_suspend);
