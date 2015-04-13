@@ -483,7 +483,7 @@ static void jz_mipi_update_cfg(struct dsi_device *dsi)
 		pr_err("phy configigure failed!\n");
 	}
 
-#if 1
+#if 0
 	if (dsi->video_config->no_of_lanes == 2)
 		st_mask = 0x95;
 	else
