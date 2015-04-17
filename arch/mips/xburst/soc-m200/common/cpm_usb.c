@@ -162,6 +162,7 @@ void jz_otg_phy_init(otg_mode_t mode)
 		cpm_clear_bit(USBPCR_USB_MODE, CPM_USBPCR);
 		cpm_clear_bit(USBPCR_OTG_DISABLE, CPM_USBPCR);
 		cpm_clear_bit(USBPCR_SIDDQ, CPM_USBPCR);
+		cpm_set_bit(USBPCR_COMMONONN, CPM_USBPCR);
 	} else {
 		unsigned int tmp;
 		pr_info("DWC IN OTG MODE\n");
