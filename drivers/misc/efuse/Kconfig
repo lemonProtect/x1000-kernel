@@ -3,7 +3,7 @@ menuconfig JZ_EFUSE
 	bool "ingenic efuse support"
 	default n
 if JZ_EFUSE
-config  CONFIG_JZ_EFUSE_V12
+config  JZ_EFUSE_V12
 	tristate "jz efuse version 1.2 support"
 	depends on SOC_M200
 	default n
