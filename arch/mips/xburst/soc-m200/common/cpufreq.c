@@ -40,18 +40,25 @@
 #include <linux/syscalls.h>
 #include <linux/kthread.h>
 #include <linux/slab.h>
+#include <linux/suspend.h>
 #include <jz_notifier.h>
 #include "./clk/clk.h"
 
+/* For Debug */
+static int cpufreq_debug_en = 0;
+module_param(cpufreq_debug_en, int, 0644);
+
 #define CPUFRQ_MIN  (12000)
 
-/* 40ms for latency. FIXME: what's the actual transition time? */
+/* 40ms(4 jiffies) for latency. FIXME: what's the actual transition time? */
 #define TRANSITION_LATENCY (40 * 1000)
 
 extern struct cpufreq_frequency_table *init_freq_table(unsigned int max_freq,
 						       unsigned int min_freq);
 
 static struct jz_cpufreq {
+	unsigned int is_suspended;
+	unsigned int sleep_freq;
 	struct mutex mutex;
 	struct clk *cpu_clk;
 	struct cpufreq_frequency_table *freq_table;
@@ -80,22 +87,13 @@ static unsigned int m200_getavg(struct cpufreq_policy *policy,
 	return policy->cur;
 }
 
-static int m200_target(struct cpufreq_policy *policy,
-			 unsigned int target_freq,
-			 unsigned int relation)
+static int m200_update_cpu_speed(struct cpufreq_policy *policy,
+		unsigned int target_freq)
 {
-	int index;
 	int ret = 0;
 	struct cpufreq_freqs freqs;
-	ret = cpufreq_frequency_table_target(policy, jz_cpufreq->freq_table,
-			target_freq, relation, &index);
-	if (ret) {
-		pr_err("%s: cpu%d: no freq match for %d(ret=%d)\n",
-		       __func__, policy->cpu, target_freq, ret);
-		return ret;
-	}
 
-	freqs.new = jz_cpufreq->freq_table[index].frequency;
+	freqs.new = target_freq;
 	freqs.old = m200_getspeed(policy->cpu);
 	freqs.cpu = policy->cpu;
 
@@ -119,6 +117,56 @@ static int m200_target(struct cpufreq_policy *policy,
 
 	return ret;
 }
+
+static int m200_target(struct cpufreq_policy *policy,
+			 unsigned int target_freq,
+			 unsigned int relation)
+{
+	int index;
+	int ret = 0;
+
+	if (jz_cpufreq->is_suspended) {
+		return -EBUSY;
+	}
+
+	ret = cpufreq_frequency_table_target(policy, jz_cpufreq->freq_table,
+			target_freq, relation, &index);
+	if (ret) {
+		pr_err("%s: cpu%d: no freq match for %d(ret=%d)\n",
+		       __func__, policy->cpu, target_freq, ret);
+		return ret;
+	}
+
+	ret = m200_update_cpu_speed(policy, jz_cpufreq->freq_table[index].frequency);
+
+	return ret;
+}
+
+static DEFINE_MUTEX(m200_cpu_lock);
+
+static int m200_pm_notify(struct notifier_block *nb, unsigned long event,
+		void *dummy)
+{
+	mutex_lock(&m200_cpu_lock);
+	if (event == PM_SUSPEND_PREPARE) {
+		struct cpufreq_policy *policy = cpufreq_cpu_get(0);
+		jz_cpufreq->is_suspended = true;
+		pr_info("Tegra cpufreq suspend: setting frequency to %d kHz\n",
+				jz_cpufreq->sleep_freq);
+		m200_update_cpu_speed(policy, jz_cpufreq->sleep_freq);
+		cpufreq_cpu_put(policy);
+	} else if (event == PM_POST_SUSPEND) {
+		jz_cpufreq->is_suspended = false;
+	}
+	mutex_unlock(&m200_cpu_lock);
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block cpufreq_sleep_pm_notifier = {
+	.notifier_call = m200_pm_notify,
+	.priority = 1,
+};
 
 static void freq_down_timer(unsigned long data)
 {
@@ -166,6 +214,8 @@ static int __cpuinit m200_cpu_init(struct cpufreq_policy *policy)
 		goto freq_table_err;
 	}
 
+	jz_cpufreq->sleep_freq = max_freq;
+
 	jz_cpufreq->freq_table = init_freq_table(max_freq, CPUFRQ_MIN);
 	if(!jz_cpufreq->freq_table) {
 		pr_err("get freq table error!!\n");
@@ -206,6 +256,8 @@ static int __cpuinit m200_cpu_init(struct cpufreq_policy *policy)
 	jz_cpufreq->freq_up_change.msg = JZ_CLK_CHANGING;
 	jz_cpufreq->cur_policy = policy;
 	jz_notifier_register(&jz_cpufreq->freq_up_change, NOTEFY_PROI_NORMAL);
+
+	register_pm_notifier(&cpufreq_sleep_pm_notifier);
 
 	pr_debug("cpu freq init ok!\n");
 	return 0;

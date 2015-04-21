@@ -245,35 +245,6 @@ static int clk_prechange_notify(struct jz_notifier *notify,void *v)
 	return NOTIFY_OK;
 }
 
-static int cpu_core_sleep_pm_callback(struct notifier_block *nfb,unsigned long action,void *ignored)
-{
-	struct cpu_core_voltage *pcore = &cpu_core_vol;
-	unsigned int max_vol = MAX_VOLTAGE;
-
-	switch (action) {
-	case PM_SUSPEND_PREPARE:
-		pcore->is_suspend = 1;
-		cancel_delayed_work_sync(&pcore->vol_down_work);
-		mutex_lock(&pcore->mutex);
-		regulator_set_voltage(pcore->core_vcc, max_vol, max_vol);
-		regulator_put(pcore->core_vcc);
-		mutex_unlock(&pcore->mutex);
-		break;
-	case PM_POST_SUSPEND:
-		mutex_lock(&pcore->mutex);
-		pcore->is_suspend = 0;
-		pcore->core_vcc = regulator_get(NULL, CPU_CORE_NAME);
-		mutex_unlock(&pcore->mutex);
-		break;
-	}
-	return NOTIFY_OK;
-}
-
-static struct notifier_block cpu_core_sleep_pm_notifier = {
-	.notifier_call = cpu_core_sleep_pm_callback,
-	.priority = 0,
-};
-
 static int __init cpu_core_voltage_init(void)
 {
 	struct clk *cpu_clk;
@@ -317,8 +288,6 @@ static int __init cpu_core_voltage_init(void)
 	pcore->clkgate_change.level = NOTEFY_PROI_HIGH;
 	pcore->clkgate_change.msg = JZ_CLKGATE_CHANGE;
 	jz_notifier_register(&pcore->clkgate_change, NOTEFY_PROI_HIGH);
-
-	register_pm_notifier(&cpu_core_sleep_pm_notifier);
 
 	return 0;
 }
