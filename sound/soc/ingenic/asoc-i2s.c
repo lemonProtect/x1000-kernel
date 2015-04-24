@@ -135,17 +135,7 @@ static int jz_i2s_hw_params(struct snd_pcm_substream *substream,
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		/* channel */
-		if (channels == 1)
-			__i2s_m2s_enable(aic);
-		else
-			__i2s_m2s_disable(aic);
-
-		__i2s_channel(aic, 2);
-
-		/*if (fmt_width == 16)
-			__i2s_aic_packet16(aic);
-		else
-			__i2s_aic_unpacket16(aic);*/
+		__i2s_channel(aic, channels);
 
 		/* format */
 		if (fmt_width == 8)
@@ -228,7 +218,12 @@ static void jz_i2s_stop_substream(struct snd_pcm_substream *substream,
 		if (__i2s_transmit_dma_is_enable(aic)) {
 			__i2s_disable_transmit_dma(aic);
 			__aic_clear_tur(aic);
+#ifdef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
+			/*hrtime mode: stop will be happen in any where, make sure there is
+			 *	no data transfer on ahb bus before stop dma
+			 */
 			while(!__aic_test_tur(aic));
+#endif
 		}
 		__i2s_disable_replay(aic);
 		__aic_clear_tur(aic);
@@ -237,7 +232,9 @@ static void jz_i2s_stop_substream(struct snd_pcm_substream *substream,
 		if (__i2s_receive_dma_is_enable(aic)) {
 			__i2s_disable_receive_dma(aic);
 			__aic_clear_ror(aic);
+#ifdef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 			while(!__aic_test_ror(aic));
+#endif
 		}
 		__i2s_disable_record(aic);
 		__aic_clear_ror(aic);
@@ -248,6 +245,9 @@ static void jz_i2s_stop_substream(struct snd_pcm_substream *substream,
 
 static int jz_i2s_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_soc_dai *dai)
 {
+#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
+	struct jz_pcm_runtime_data *prtd = substream->runtime->private_data;
+#endif
 	I2S_DEBUG_MSG("enter %s, substream = %s cmd = %d\n",
 		      __func__,
 		      (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? "playback" : "capture",
@@ -257,15 +257,24 @@ static int jz_i2s_trigger(struct snd_pcm_substream *substream, int cmd, struct s
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
+		if (atomic_read(&prtd->stopped_pending))
+			return -EPIPE;
+#endif
+		printk(KERN_DEBUG"i2s start\n");
 		jz_i2s_start_substream(substream, dai);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
+		if (atomic_read(&prtd->stopped_pending))
+			return 0;
+#endif
+		printk(KERN_DEBUG"i2s stop\n");
 		jz_i2s_stop_substream(substream, dai);
 		break;
 	}
-	/*dump_registers(aic);*/
 	return 0;
 }
 

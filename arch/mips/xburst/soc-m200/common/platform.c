@@ -132,7 +132,7 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	I2S_PORTDE,
 #endif
 #endif
-#ifdef CONFIG_SOUND_JZ_PCM_V12
+#if defined(CONFIG_SOUND_JZ_PCM_V12) || IS_ENABLED(CONFIG_SND_ASOC_JZ_AIC_I2S)
 	PCM_PORTF,
 #endif
 

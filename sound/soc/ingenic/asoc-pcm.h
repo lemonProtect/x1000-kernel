@@ -101,7 +101,7 @@ static unsigned int inline pcm_read_reg(struct device *dev, unsigned int reg)
 	pcm_set_reg(dev,PCMCTL,0,PCM_EREC_MASK,PCM_EREC_OFFSET)
 
 #define __pcm_flush_fifo(dev)            \
-	pcm_set_reg(PCMCTL,1,PCM_FLUSH_MASK,PCM_FLUSH_OFFSET)
+	pcm_set_reg(dev, PCMCTL,1,PCM_FLUSH_MASK,PCM_FLUSH_OFFSET)
 
 #define __pcm_reset(dev)                  \
 	pcm_set_reg(dev,PCMCTL,1,PCM_RST_MASK,PCM_RST_OFFSET)

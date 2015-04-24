@@ -29,6 +29,7 @@
 #include <sound/soc-dai.h>
 #include <sound/pcm_params.h>
 #include <mach/jzdma.h>
+#include <linux/delay.h>
 #include "asoc-dma.h"
 
 static int asoc_dma_debug = 0;
@@ -39,30 +40,16 @@ module_param(asoc_dma_debug, int, 0644);
 		if (asoc_dma_debug)		\
 			printk(KERN_DEBUG"ADMA: " msg);	\
 	} while(0)
-
-struct jz_pcm_runtime_data {
-	struct snd_pcm_substream *substream;
-	struct dma_chan *dma_chan;
-	dma_cookie_t cookie;
-	unsigned int pos;
-#ifdef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
-	struct hrtimer hr_timer;
-	ktime_t expires;
-	atomic_t stopped;
-#endif
-
-	/* debug interface
-	 * WARNNING:
-	 *	May not record the complete audio steam,
-	 *	Also may affect the integrity of the original audio stream*/
-	void *copy_start;
-	unsigned int copy_length;
-	struct file *file;
-	loff_t file_offset;
-	mm_segment_t old_fs;
-	char* file_name;
-	struct work_struct debug_work;
-};
+#define DMA_SUBSTREAM_MSG(substream, msg...)	\
+	do {					\
+		if (asoc_dma_debug) {		\
+			printk(KERN_DEBUG"ADMA[%s][%s]:", \
+					substream->stream == SNDRV_PCM_STREAM_PLAYBACK ? \
+					"replay" : "record",	\
+					substream->pcm->id);	\
+			printk(KERN_DEBUG msg);		\
+		} \
+	} while(0)
 
 /*
  * fake using a continuous buffer
@@ -83,7 +70,7 @@ static int jz_pcm_hw_params(struct snd_pcm_substream *substream,
 	struct dma_slave_config slave_config;
 	int ret;
 
-	DMA_DEBUG_MSG("%s enter\n", __func__);
+	DMA_SUBSTREAM_MSG(substream, "%s enter\n", __func__);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		slave_config.direction = DMA_TO_DEVICE;
@@ -94,17 +81,20 @@ static int jz_pcm_hw_params(struct snd_pcm_substream *substream,
 	}
 	slave_config.dst_addr_width = dma_params->buswidth;
 	slave_config.dst_maxburst = dma_params->max_burst;
-	slave_config.src_addr_width = dma_params->buswidth;	/*jz dmaengine soft buge*/
+	slave_config.src_addr_width = dma_params->buswidth;	/*jz dmaengine needed*/
 	slave_config.src_maxburst = dma_params->max_burst;
 	ret = dmaengine_slave_config(prtd->dma_chan, &slave_config);
 	if (ret)
 		return ret;
+
 #ifdef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 	{
 		unsigned long long time_ns;
 		time_ns = 1000 * 1000 * 1000 * params_period_size(params)/params_rate(params);
 		prtd->expires = ns_to_ktime(time_ns);
 	}
+#else
+	prtd->delayed_jiffies =  2 * (params_period_size(params) * HZ /params_rate(params));
 #endif
 	return snd_pcm_lib_malloc_pages(substream, params_buffer_bytes(params));
 }
@@ -113,8 +103,9 @@ static void debug_work(struct work_struct *debug_work)
 {
 	struct jz_pcm_runtime_data *prtd =
 		container_of(debug_work, struct jz_pcm_runtime_data, debug_work);
+#if defined(CONFIG_JZ_ASOC_DMA_AUTO_CLR_DRT_MEM)
 	struct snd_pcm_substream *substream = prtd->substream;
-
+#endif
 	if (!IS_ERR_OR_NULL(prtd->file)) {
 		prtd->old_fs = get_fs();
 		set_fs(KERNEL_DS);
@@ -132,12 +123,43 @@ static void debug_work(struct work_struct *debug_work)
 }
 
 #ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
+static void dma_stop_watchdog(struct work_struct *work)
+{
+	struct jz_pcm_runtime_data *prtd =
+		container_of(work, struct jz_pcm_runtime_data, dwork_stop_dma.work);
+	struct snd_pcm_substream *substream = prtd->substream;
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+
+	if (atomic_read(&prtd->stopped_pending)) {
+		DMA_SUBSTREAM_MSG(substream,"stop real\n");
+		atomic_set(&prtd->stopped_pending, 0);
+		dmaengine_terminate_all(prtd->dma_chan);
+		if (cpu_dai->driver->ops->trigger)
+			cpu_dai->driver->ops->trigger(substream, prtd->stopped_cmd, cpu_dai);
+	}
+}
+
 static void jz_asoc_dma_callback(void *data)
 {
 	struct snd_pcm_substream *substream = data;
 	struct jz_pcm_runtime_data *prtd = substream->runtime->private_data;
 	void* old_pos_addr = snd_pcm_get_ptr(substream, prtd->pos);
-	DMA_DEBUG_MSG("%s enter\n", __func__);
+
+	DMA_SUBSTREAM_MSG(substream,"%s enter stopped_pending == %d\n", __func__,
+			atomic_read(&prtd->stopped_pending));
+
+	if (atomic_read(&prtd->stopped_pending)) {
+		struct snd_soc_pcm_runtime *rtd = substream->private_data;
+		struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+		DMA_SUBSTREAM_MSG(substream,"stop real\n");
+		atomic_set(&prtd->stopped_pending, 0);
+		cancel_delayed_work(&prtd->dwork_stop_dma);
+		dmaengine_terminate_all(prtd->dma_chan);
+		if (cpu_dai->driver->ops->trigger)
+			cpu_dai->driver->ops->trigger(substream, prtd->stopped_cmd, cpu_dai);
+		return;
+	}
 
 	if (!IS_ERR_OR_NULL(prtd->file) && !work_pending(&prtd->debug_work)) {
 		prtd->copy_start = old_pos_addr;
@@ -217,7 +239,6 @@ static enum hrtimer_restart jz_asoc_hrtimer_callback(struct hrtimer *hr_timer) {
 			goto out;
 		prtd->pos = curr_pos;
 	}
-	//printk(KERN_DEBUG"curr_pos = %d buffer_bytes = %d\n", curr_pos, buffer_bytes);
 	snd_pcm_period_elapsed(substream);
 out:
 	return HRTIMER_NORESTART;
@@ -229,11 +250,12 @@ static int jz_asoc_dma_prepare_and_submit(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = snd_pcm_substream_chip(substream);
 	struct jz_pcm_runtime_data *prtd = substream->runtime->private_data;
 	struct dma_async_tx_descriptor *desc;
+	unsigned long flags = DMA_CTRL_ACK;
 	enum dma_transfer_direction direction =
 		(substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ?
 		DMA_MEM_TO_DEV:
 		DMA_DEV_TO_MEM;
-	unsigned long flags = DMA_CTRL_ACK;
+
 	prtd->pos = 0;
 	desc = prtd->dma_chan->device->device_prep_dma_cyclic(prtd->dma_chan,
 			substream->runtime->dma_addr,
@@ -246,10 +268,11 @@ static int jz_asoc_dma_prepare_and_submit(struct snd_pcm_substream *substream)
 		dev_err(rtd->dev, "cannot prepare slave dma\n");
 		return -EINVAL;
 	}
+
 #ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 	desc->callback = jz_asoc_dma_callback;
-#endif
 	desc->callback_param = substream;
+#endif
 	prtd->cookie = dmaengine_submit(desc);
 	return 0;
 }
@@ -257,16 +280,25 @@ static int jz_asoc_dma_prepare_and_submit(struct snd_pcm_substream *substream)
 static int jz_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 {
 	struct jz_pcm_runtime_data *prtd = substream->runtime->private_data;
+#ifdef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+#endif
+#ifdef CONFIG_JZ_ASOC_DMA_AUTO_CLR_DRT_MEM
 	size_t buffer_bytes = snd_pcm_lib_buffer_bytes(substream);
+#endif
 	int ret;
 
-	DMA_DEBUG_MSG("%s enter cmd %d\n", __func__, cmd);
+	DMA_SUBSTREAM_MSG(substream,"%s enter cmd %d\n", __func__, cmd);
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
+		if (atomic_read(&prtd->stopped_pending))
+			return -EPIPE;
+#endif
+		DMA_SUBSTREAM_MSG(substream,"start trigger\n");
 		ret = jz_asoc_dma_prepare_and_submit(substream);
 		if (ret)
 			return ret;
@@ -279,13 +311,11 @@ static int jz_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+		DMA_SUBSTREAM_MSG(substream,"stop trigger\n");
 #ifdef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 		atomic_set(&prtd->stopped, 1);
-#endif
-		/* For JZ DMA we stop i2s dma request
-		 * and wait tur or ror happen to
-		 * make sure dma is not transfer data on AHB bus,
-		 * then we can stop the dma.
+		/* To make sure there is not data transfer on AHB bus,
+		 * then we can stop the dma, Wait tur or ror happen
 		 */
 		if (cpu_dai->driver->ops->trigger) {
 			ret = cpu_dai->driver->ops->trigger(substream, cmd, cpu_dai);
@@ -293,6 +323,16 @@ static int jz_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 				return ret;
 		}
 		dmaengine_terminate_all(prtd->dma_chan);
+#else
+		/* To make sure there is not data transfer on AHB bus,
+		 * then we can stop the dma, Wait dma callback happen
+		 */
+		if (dmaengine_terminate_all(prtd->dma_chan)) {
+			prtd->stopped_cmd = cmd;
+			atomic_set(&prtd->stopped_pending, 1);
+			schedule_delayed_work(&prtd->dwork_stop_dma, prtd->delayed_jiffies);
+		}
+#endif
 #ifdef CONFIG_JZ_ASOC_DMA_AUTO_CLR_DRT_MEM
 		printk(KERN_DEBUG"show the time memset1 %d\n", buffer_bytes);
 		memset(snd_pcm_get_ptr(substream, 0), 0, buffer_bytes);
@@ -338,9 +378,9 @@ static const struct snd_pcm_hardware jz_pcm_hardware = {
 	.channels_min           = 1,
 	.channels_max           = 2,
 	.buffer_bytes_max       = JZ_DMA_BUFFERSIZE,
-	.period_bytes_min       = PAGE_SIZE,      /* 4K */
+	.period_bytes_min       = PAGE_SIZE/4,     /* 1K */
 	.period_bytes_max       = PAGE_SIZE * 16, /* 64K */
-	.periods_min            = 2,
+	.periods_min            = 4,
 	.periods_max            = 256,
 	.fifo_size              = 0,
 };
@@ -376,6 +416,9 @@ static int jz_pcm_open(struct snd_pcm_substream *substream)
 	atomic_set(&prtd->stopped, 0);
 	hrtimer_init(&prtd->hr_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	prtd->hr_timer.function = jz_asoc_hrtimer_callback;
+#else
+	atomic_set(&prtd->stopped_pending, 0);
+	INIT_DELAYED_WORK(&prtd->dwork_stop_dma, dma_stop_watchdog);
 #endif
 	prtd->dma_chan = chan;
 	prtd->substream = substream;
@@ -412,6 +455,11 @@ static int jz_pcm_close(struct snd_pcm_substream *substream)
 	struct jz_pcm_runtime_data *prtd = substream->runtime->private_data;
 
 	DMA_DEBUG_MSG("%s enter\n", __func__);
+#ifdef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
+	hrtimer_cancel(&prtd->hr_timer);
+#else
+	flush_delayed_work(&prtd->dwork_stop_dma);
+#endif
 	substream->runtime->private_data = NULL;
 	if (prtd->file_name)
 		kfree(prtd->file_name);

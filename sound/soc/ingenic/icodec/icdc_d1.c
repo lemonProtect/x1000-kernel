@@ -407,7 +407,7 @@ static struct snd_soc_dai_driver  icdc_d1_codec_dai = {
 	.name = "icdc-d1-hifi",
 	.playback = {
 		.stream_name = "Playback",
-		.channels_min = 2,
+		.channels_min = 1,
 		.channels_max = 2,
 #if defined(CONFIG_SOC_4780)
 		.rates = SNDRV_PCM_RATE_8000_96000,

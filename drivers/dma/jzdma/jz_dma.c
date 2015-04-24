@@ -85,7 +85,7 @@ static inline unsigned get_max_tsz(unsigned long val, unsigned long *dcmp)
 	return ord == 3 ? 4 : 1 << ord;
 }
 
-#if 0
+#if 1
 static void dump_dma_desc(struct jzdma_channel *dmac)
 {
 	struct dma_desc *desc = dmac->desc;
@@ -141,6 +141,8 @@ void jzdma_dump(struct dma_chan *chan)
 }
 EXPORT_SYMBOL_GPL(jzdma_dump);
 #else
+void jzdma_dump(struct dma_chan *chan) {return 0;}
+EXPORT_SYMBOL_GPL(jzdma_dump);
 #define dump_dma_desc(A) (void)(0)
 #define dump_dma(A) (void)(0)
 #endif
@@ -599,6 +601,7 @@ static struct dma_async_tx_descriptor *jzdma_prep_dma_cyclic(struct dma_chan
 
 	/* use 8-word descriptors */
 	writel(1 << 30, dmac->iomem + CH_DCS);
+	dev_dbg(chan2dev(&dmac->chan),"CH_DCS = %x\n", readl(dmac->iomem + CH_DCS));
 
 	/* tx descriptor can reused before dma finished. */
 	dmac->tx_desc.flags &= ~DMA_CTRL_ACK;
@@ -764,8 +767,8 @@ static void jzdma_issue_pending(struct dma_chan *chan)
 	/* DCS.CTE = 1 */
 	set_bit(0, dmac->iomem + CH_DCS);
 
-	dump_dma_desc(dmac);
-	dump_dma(dmac->master);
+	//dump_dma_desc(dmac);
+	//dump_dma(dmac->master);
 }
 
 static void jzdma_terminate_all(struct dma_chan *chan)
@@ -795,7 +798,12 @@ static int jzdma_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 
 	switch (cmd) {
 	case DMA_TERMINATE_ALL:
-		jzdma_terminate_all(chan);
+		if (dmac->fake_cyclic & FAKECYCLIC_ACTIVE) {
+			dmac->fake_cyclic = 0;		/*for alsa audio*/
+			return -EPIPE;
+		} else {
+			jzdma_terminate_all(chan);
+		}
 		break;
 
 	case DMA_SLAVE_CONFIG:
@@ -903,12 +911,8 @@ irqreturn_t jzdma_int_handler(int irq, void *dev)
 			dmac->fake_cyclic |= idx;
 			ndesc += idx * sizeof(struct dma_desc);
 			writel(ndesc, dmac->iomem + CH_DDA);
-			//printk(KERN_DEBUG"dma enter interrupt aic fifo level %d\n",
-			//		((*(volatile unsigned int volatile *)(0xb0020014)) >> 8) & 0x3f);
 			writel(BIT(dmac->id), dmac->master->iomem + DDRS);
 			writel((1 << 30) | (1 << 0), dmac->iomem + CH_DCS);
-			//printk(KERN_DEBUG"dma leave interrupt aic fifo level %d\n",
-			//		((*(volatile unsigned int volatile *)(0xb0020014)) >> 8) & 0x3f);
 		}
 		tasklet_schedule(&dmac->tasklet);
 	}
@@ -1076,6 +1080,24 @@ static void restore_gpio0_irq_chip(void)
 	}
 }
 #endif /* CONFIG_NAND */
+
+static ssize_t jz_regs_store(struct device *dev,
+		struct device_attribute *attr, char *buf,
+		size_t count)
+{
+	struct jzdma_master *dma = dev_get_drvdata(dev);
+	struct jzdma_channel *dmac = NULL;
+	unsigned long channel = simple_strtoul(buf, NULL, 10);
+	printk("dma channel %d register:\n", channel);
+
+	dmac = &dma->channel[channel];
+	dump_dma_desc(dmac);
+	dump_dma(dma);
+	return count;
+}
+
+DEVICE_ATTR(dma_regs, S_IWUGO, NULL, jz_regs_store);
+
 static int __init jzdma_probe(struct platform_device *pdev)
 {
 	struct jzdma_master *dma;
@@ -1238,7 +1260,7 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	jzdma_mcu_init(dma);
 	save_and_replace_gpio0_irq_chip();
 #endif
-
+	device_create_file(&pdev->dev, &dev_attr_dma_regs);
 	platform_set_drvdata(pdev, dma);
 	dev_info(dma->dev, "JZ SoC DMA initialized\n");
 	return 0;

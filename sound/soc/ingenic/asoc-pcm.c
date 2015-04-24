@@ -61,7 +61,6 @@ static int jz_pcm_startup(struct snd_pcm_substream *substream,
 
 	if (!jz_pcm->pcm_mode) {
 		clk_enable(jz_pcm->clk_gate);
-		__pcm_reset(dev);
 #if 1
 		__pcm_as_slaver(dev);
 #else
@@ -131,7 +130,7 @@ static int jz_pcm_hw_params(struct snd_pcm_substream *substream,
 	} else {
 		jz_pcm->rx_dma_data.buswidth = buswidth;
 		jz_pcm->rx_dma_data.max_burst = (PCM_RFIFO_DEPTH * buswidth)/2;
-		trigger = jz_pcm->tx_dma_data.max_burst/(int)buswidth;
+		trigger = jz_pcm->rx_dma_data.max_burst/(int)buswidth;
 		__pcm_set_iss_sample_size(dev, fmt_width == 8 ? 0 : 1);
 		__pcm_set_receive_trigger(dev, trigger);
 		snd_soc_dai_set_dma_data(dai, substream, (void *)&jz_pcm->rx_dma_data);
@@ -169,7 +168,14 @@ static void jz_pcm_stop_substream(struct snd_pcm_substream *substream,
 		if (__pcm_transmit_dma_is_enable(dev)) {
 			__pcm_disable_transmit_dma(dev);
 			__pcm_clear_tur(dev);
+#ifdef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
+			/* Hrtimer mode: stop will be happen in any where, make sure there is
+			 *	no data transfer on ahb bus before stop dma
+			 * Harzard:
+			 *	In pcm slave mode, the clk maybe stop before here, we will dead here
+			 */
 			while(!__pcm_test_tur(dev));
+#endif
 		}
 		__pcm_disable_replay(dev);
 		__pcm_clear_tur(dev);
@@ -177,17 +183,21 @@ static void jz_pcm_stop_substream(struct snd_pcm_substream *substream,
 		if (__pcm_receive_dma_is_enable(dev)) {
 			__pcm_disable_receive_dma(dev);
 			__pcm_clear_ror(dev);
+#ifdef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 			while(!__pcm_test_ror(dev));
+#endif
 		}
 		__pcm_disable_record(dev);
 		__pcm_clear_ror(dev);
 	}
-
 	return;
 }
 
 static int jz_pcm_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_soc_dai *dai)
 {
+#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
+	struct jz_pcm_runtime_data *prtd = substream->runtime->private_data;
+#endif
 	PCM_DEBUG_MSG("enter %s, substream = %s cmd = %d\n",
 		      __func__,
 		      (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? "playback" : "capture",
@@ -197,11 +207,21 @@ static int jz_pcm_trigger(struct snd_pcm_substream *substream, int cmd, struct s
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
+		if (atomic_read(&prtd->stopped_pending))
+			return -EPIPE;
+#endif
+		PCM_DEBUG_MSG("pcm start\n");
 		jz_pcm_start_substream(substream, dai);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
+		if (!atomic_read(&prtd->stopped_pending))
+			return 0;
+#endif
+		PCM_DEBUG_MSG("pcm stop\n");
 		jz_pcm_stop_substream(substream, dai);
 		break;
 	}
@@ -322,6 +342,7 @@ static int jz_pcm_platfrom_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
 		return ret;
 	}
+	platform_set_drvdata(pdev, (void *)jz_pcm);
 
 	jz_pcm->pcm_mode = 0;
 	jz_pcm->tx_dma_data.dma_addr = (dma_addr_t)jz_pcm->res_start + PCMDP;
