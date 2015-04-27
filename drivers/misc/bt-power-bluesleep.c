@@ -1,126 +1,110 @@
-/* Description: Bluetooth power driver with rfkill interface and bluetooth
- *	host wakeup support.
- *
- * Modified by Sun Jiwei <jwsun@ingenic.cn>
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- *
+/*
+ * Description:
+ * Bluetooth power driver with rfkill interface ,work in with bluesleep.c , version of running consume.
  */
 
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/kernel.h>
-#include <linux/slab.h>
+#include <linux/spinlock.h>
+#include <linux/interrupt.h>
 #include <linux/platform_device.h>
+#include <linux/input.h>
 #include <linux/rfkill.h>
 #include <linux/gpio.h>
 #include <linux/wakelock.h>
 #include <linux/bt-rfkill.h>
 #include <linux/delay.h>
+#include <linux/regulator/consumer.h>
+#include <mach/jzmmc.h>
 
-#ifdef DEBUG
+#define DEV_NAME		"bt_power"
+
+static struct bt_rfkill_platform_data *pdata;
+#if 1
 #define	DBG_MSG(fmt, ...)	printk(fmt, ##__VA_ARGS__)
 #else
 #define DBG_MSG(fmt, ...)
 #endif
 
-#define DEV_NAME		"bt_power"
-#define RFKILL_STATE_SOFT_BLOCKED	0
-#define RFKILL_STATE_UNBLOCKED		1
-
 int bt_power_state = 0;
+static int bt_power_control(int enable);
+static int bt_rst_n ;
+static int bt_reg_on;
+static struct regulator *power = NULL;
+
+static DEFINE_MUTEX(bt_power_lock);
+
+extern void wlan_pw_en_enable(struct regulator *power);
+extern void wlan_pw_en_disable(struct regulator *power);
+extern void clk_32k_on (void);
+extern void clk_32k_off (void);
 
 extern int bluesleep_start(void);
 extern void bluesleep_stop(void);
-extern int bcm_power_down(void);
-extern int bcm_power_on(void);
 
-struct bt_power {
-	int bt_rst_n ;
-	bool first_called;
-	int bt_reg_on;
+/* For compile only, remove later */
+#define RFKILL_STATE_SOFT_BLOCKED	0
+#define RFKILL_STATE_UNBLOCKED		1
 
-	struct bt_rfkill_platform_data *pdata;
-
-	struct mutex bt_power_lock;
-};
-
-static void bt_enable_power(struct bt_power *bt_power)
+static void bt_enable_power(void)
 {
-	if(bt_power->bt_reg_on != -1){
-		gpio_direction_output(bt_power->bt_reg_on, 1);
-	} else {
-		pr_warn("%s bt_reg_on can not be defined to -1\n", __func__);
-	}
+			printk("=================begin=====wlan_pw_en_enable = \n");
+	wlan_pw_en_enable(power);
+			printk("=================end=====wlan_pw_en_enable = \n");
+			printk("======================bt_reg_on = \n");
+	gpio_set_value(bt_reg_on, 1);
 }
 
-static void bt_disable_power(struct bt_power *bt_power)
+static void bt_disable_power(void)
 {
-	if(bt_power->bt_reg_on != -1){
-		gpio_direction_output(bt_power->bt_reg_on, 0);
-	} else {
-		pr_warn("%s bt_reg_on can not be defined to -1\n", __func__);
-	}
+	wlan_pw_en_disable(power);
+	gpio_set_value(bt_reg_on, 0);
 }
 
-static int bt_power_control(struct bt_power *bt_power, int enable)
+static int bt_power_control(int enable)
 {
 	if (enable == bt_power_state)
 		return 0;
 
 	switch (enable)	{
 	case RFKILL_STATE_SOFT_BLOCKED:
-		bluesleep_stop();
-		msleep(15);
-		bcm_power_down();
-		bt_disable_power(bt_power);
-
-		if (bt_power->pdata->set_pin_status != NULL){
-			(*bt_power->pdata->set_pin_status)(enable);
-		} else {
-			pr_warn("%s set_pin_status is not defined\n", __func__);
+//		bluesleep_stop();
+//		mdelay(15);
+		clk_32k_off();
+		bt_disable_power();
+		mdelay(1000);
+		if (pdata->set_pin_status != NULL){
+			(*pdata->set_pin_status)(enable);
+			printk("set_pin_status is defined\n");
+		}else{
+			printk("set_pin_status is not defined\n");
 		}
 		break;
 	case RFKILL_STATE_UNBLOCKED:
-		if (bt_power->pdata->restore_pin_status != NULL){
-			(*bt_power->pdata->restore_pin_status)(enable);
-		} else {
-			pr_warn("%s set_pin_status is not defined\n", __func__);
+		printk("=====================begin _ bt\n");
+		if (pdata->restore_pin_status != NULL){
+		printk("=====================begin _ bt====\n");
+			(*pdata->restore_pin_status)(enable);
+		}else{
+			printk("restore_pin_status is not defined\n");
 		}
-
-		bcm_power_on();
-
-		if (bt_power->bt_rst_n != -1) {
-			gpio_direction_output(bt_power->bt_rst_n, 0);
-		} else {
-			pr_warn("%s bt_rst_n can not be defined to -1\n", __func__);
+		printk("=====================begin===clk_32k_on====\n");
+		clk_32k_on();
+		printk("=====================end=====clk_32k_on====\n");
+		if (bt_rst_n > 0){
+			gpio_direction_output(bt_rst_n,0);
 		}
-
-		bt_enable_power(bt_power);
-
-		mdelay(15);
-
-		if (bt_power->bt_rst_n != -1) {
-			gpio_set_value(bt_power->bt_rst_n, 1);
-		} else {
-			pr_warn("%s bt_rst_n can not be defined to -1\n", __func__);
+		printk("=====================begin===bt_enable_power====\n");
+		bt_enable_power();
+		printk("=====================end=====bt_enable_power====\n");
+		mdelay(300);
+		if(bt_rst_n > 0){
+			gpio_set_value(bt_rst_n,1);
 		}
-
-		mdelay(15);
-		bluesleep_start();
+//		mdelay(15);
+//		bluesleep_start();
 		break;
 	default:
 		break;
@@ -131,18 +115,18 @@ static int bt_power_control(struct bt_power *bt_power, int enable)
 	return 0;
 }
 
+static bool first_called = true;
 
 static int bt_rfkill_set_block(void *data, bool blocked)
 {
 	int ret;
-	struct bt_power *bt_power = (struct bt_power *)data;
 
-	if (!bt_power->first_called) {
-		mutex_lock(&bt_power->bt_power_lock);
-		ret = bt_power_control(bt_power, blocked ? 0 : 1);
-		mutex_unlock(&bt_power->bt_power_lock);
+	if (!first_called) {
+		mutex_lock(&bt_power_lock);
+		ret = bt_power_control(blocked ? 0 : 1);
+		mutex_unlock(&bt_power_lock);
 	} else {
-		bt_power->first_called = false;
+		first_called = false;
 		return 0;
 	}
 
@@ -153,129 +137,97 @@ static const struct rfkill_ops bt_rfkill_ops = {
 	.set_block = bt_rfkill_set_block,
 };
 
-static int bt_power_rfkill_probe(struct platform_device *pdev, struct bt_power *bt_power)
+static int bt_power_rfkill_probe(struct platform_device *pdev)
 {
-	struct bt_rfkill_platform_data *pdata = pdev->dev.platform_data;
 	int ret = -ENOMEM;
 
-
+	pdata = pdev->dev.platform_data;
 	pdata->rfkill = rfkill_alloc("bluetooth", &pdev->dev, RFKILL_TYPE_BLUETOOTH,
-                            &bt_rfkill_ops, bt_power);
+                            &bt_rfkill_ops, NULL);
 
 	if (!pdata->rfkill) {
 		goto exit;
 	}
+
 	ret = rfkill_register(pdata->rfkill);
 	if (ret) {
 		rfkill_destroy(pdata->rfkill);
 		return ret;
+	} else {
+		platform_set_drvdata(pdev, pdata->rfkill);
 	}
 exit:
 	return ret;
 }
 
-static void bt_power_rfkill_remove(struct bt_rfkill_platform_data *pdata)
+static void bt_power_rfkill_remove(struct platform_device *pdev)
 {
-
+	pdata->rfkill = platform_get_drvdata(pdev);
 	if (pdata->rfkill)
 		rfkill_unregister(pdata->rfkill);
+
+	platform_set_drvdata(pdev, NULL);
 }
 
 static int __init_or_module bt_power_probe(struct platform_device *pdev)
 {
-	struct bt_rfkill_platform_data *pdata = pdev->dev.platform_data;
-	struct bt_power *bt_power;
 	int ret = 0;
-
-	pdata = pdev->dev.platform_data;
-
-	bt_power = kzalloc(sizeof(struct bt_power), GFP_KERNEL);
-	if (!bt_power) {
-		dev_err(&pdev->dev, "Failed to alloc memory for bt_power\n");
+	if (!ret && !bt_power_state && bt_power_rfkill_probe(pdev)) {
 		ret = -ENOMEM;
-		goto ERR1;
 	}
 
-	bt_power->first_called = true;
-
-	bt_power->pdata = pdata;
-	ret = bt_power_rfkill_probe(pdev, bt_power);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to probe bluetooth rfkill\n");
-		ret = -ENOMEM;
-		goto ERR2;
+	if(!pdata){
+		printk("Can not find data about bt_rfkill_platform_data\n");
+		return -ENODEV;
 	}
 
-	if (pdata->gpio.bt_rst_n >= 0) {
-		bt_power->bt_rst_n = pdata->gpio.bt_rst_n;
-	} else
-		bt_power->bt_rst_n = -1;
+	bt_rst_n = pdata->gpio.bt_rst_n;
+	bt_reg_on = pdata->gpio.bt_reg_on;
 
-	if (bt_power->bt_rst_n != -1) {
-		ret = gpio_request(bt_power->bt_rst_n, "bt_rst_n");
+	if(bt_rst_n > 0){
+		ret = gpio_request(bt_rst_n,"bt_rst_n");
 		if(unlikely(ret)){
-			dev_err(&pdev->dev, "Failed to request gpio for bt_rst_n\n");
-			ret = -EBUSY;
-			goto ERR3;
+			printk("bt_rst_n---error!\n");
+			return ret;
 		}
 	}
 
-	if (pdata->gpio.bt_reg_on >= 0) {
-		bt_power->bt_reg_on = pdata->gpio.bt_reg_on;
-	} else {
-		bt_power->bt_reg_on = -1;
-	}
-
-	if (bt_power->bt_reg_on != -1) {
-		ret = gpio_request(bt_power->bt_reg_on, "bt_reg_on");
+	if (bt_reg_on > 0){
+		ret = gpio_request(bt_reg_on,"bt_reg_on");
 		if(unlikely(ret)){
-			dev_err(&pdev->dev, "Failed to request gpio for bt_reg_on\n");
-			ret = -EBUSY;
-			goto ERR4;
+			gpio_free(bt_rst_n);
+			return ret;
 		}
+		gpio_direction_output(bt_reg_on, 0);
 	}
 
-	if(bt_power->bt_rst_n != -1){
-		ret = gpio_direction_output(bt_power->bt_rst_n, 1);
-		if (ret) {
-			dev_err(&pdev->dev, "Failed to set gpio bt_rst_n to 1\n");
-			ret = -EIO;
-			goto ERR5;
-		}
+//	power = regulator_get(NULL, "vwifi");  /*vddio must be set*/
+/*	printk("%s : vwifi",__func__);
+	if (IS_ERR(power)) {
+		printk("bt regulator missing\n");
+		power = NULL;
+		return -EINVAL;
 	}
-	mutex_init(&bt_power->bt_power_lock);
-	platform_set_drvdata(pdev, bt_power);
-
+*/
+	if(bt_rst_n > 0){
+		gpio_direction_output(bt_rst_n,1);
+	}
 	return 0;
-ERR5:
-	gpio_free(bt_power->bt_reg_on);
-ERR4:
-	gpio_free(bt_power->bt_rst_n);
-ERR3:
-	bt_power_rfkill_remove(pdata);
-ERR2:
-	kfree(bt_power);
-ERR1:
-	return ret;
 }
 
 static int bt_power_remove(struct platform_device *pdev)
 {
 	int ret;
-	struct bt_power *bt_power = platform_get_drvdata(pdev);
 
-	mutex_lock(&bt_power->bt_power_lock);
+	bt_power_rfkill_remove(pdev);
+
+	mutex_lock(&bt_power_lock);
 	bt_power_state = 0;
-	ret = bt_power_control(bt_power, bt_power_state);
-	mutex_unlock(&bt_power->bt_power_lock);
+	ret = bt_power_control(bt_power_state);
+	mutex_unlock(&bt_power_lock);
 
-	gpio_free(bt_power->bt_reg_on);
-	gpio_free(bt_power->bt_rst_n);
-	bt_power_rfkill_remove(bt_power->pdata);
-	kfree(bt_power);
 	return ret;
 }
-
 
 static struct platform_driver bt_power_driver = {
 	.probe = bt_power_probe,
@@ -289,7 +241,6 @@ static struct platform_driver bt_power_driver = {
 static int __init bt_power_init(void)
 {
 	int ret;
-
 	ret = platform_driver_register(&bt_power_driver);
 
 	return ret;

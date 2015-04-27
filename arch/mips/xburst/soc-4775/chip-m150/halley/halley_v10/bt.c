@@ -1,73 +1,113 @@
 #include <linux/platform_device.h>
 #include <linux/gpio.h>
+#include <linux/bt-rfkill.h>
 #include <mach/jzmmc.h>
-#include <linux/bcm_pm_core.h>
-#include <linux/delay.h>
+#include <asm/atomic.h>
 
 #include "board.h"
+#define BLUETOOTH_UPORT_NAME  "ttyS1"
 
-#ifdef CONFIG_BCM_PM_CORE
-static void enable_clk32k(void)
+atomic_t clk_32k = ATOMIC_INIT(0);
+atomic_t wl_pw_en = ATOMIC_INIT(0);
+static int power_en;
+
+
+int bluesleep_tty_strcmp(const char* name)
+{
+	if(!strcmp(name,BLUETOOTH_UPORT_NAME)){
+		return 0;
+	}else{
+		return -1;
+	}
+}
+EXPORT_SYMBOL(bluesleep_tty_strcmp);
+
+void clk_32k_on(void)
 {
 	jzrtc_enable_clk32k();
-}
+	atomic_inc(&clk_32k);
+	if (atomic_read(&clk_32k) > 3){
+		atomic_set(&clk_32k, 3);
+	}
+	printk("clk_32k_on:num = %d\n",atomic_read(&clk_32k));
 
-static void disable_clk32k(void)
+}
+EXPORT_SYMBOL(clk_32k_on);
+
+void clk_32k_off(void)
 {
-	jzrtc_disable_clk32k();
+	atomic_dec(&clk_32k);
+	if(atomic_read(&clk_32k) < 0){
+		atomic_set(&clk_32k, 0);
+	}
+	if(atomic_read(&clk_32k) == 0){
+		jzrtc_disable_clk32k();
+	}
+	printk("clk_32k_off:num = %d\n",atomic_read(&clk_32k));
+
 }
+EXPORT_SYMBOL(clk_32k_off);
 
-static struct bcm_power_platform_data bcm_power_platform_data = {
-	.wlan_pwr_en = -1,
-	.clk_enable = enable_clk32k,
-	.clk_disable = disable_clk32k,
-};
-
-struct platform_device	bcm_power_platform_device = {
-	.name = "bcm_power",
-	.id = -1,
-	.num_resources = 0,
-	.dev = {
-		.platform_data = &bcm_power_platform_data,
-	},
-};
-#endif
-
-/*For BlueTooth*/
-#ifdef CONFIG_BROADCOM_RFKILL
-#include <linux/bt-rfkill.h>
-/*restore BT_UART_RTS when resume because it is output 0 when suspend*/
-static void restore_pin_status(int bt_power_state)
+void wlan_pw_en_enable(struct regulator *power)
 {
-	jzgpio_set_func(BLUETOOTH_UART_GPIO_PORT, BLUETOOTH_UART_GPIO_FUNC, BLUETOOTH_UART_FUNC_SHIFT);
+	//gpio_set_value(power_en,1);
+	atomic_inc(&wl_pw_en);
+	if(atomic_read(&wl_pw_en) > 3){
+		atomic_set(&wl_pw_en, 3);
+	}
+	printk("wl_pw_en = %d\n",atomic_read(&wl_pw_en));
+	printk("wl_pw_en gpio = %d\n",power_en);
+}
+EXPORT_SYMBOL(wlan_pw_en_enable);
+
+void wlan_pw_en_disable(void)
+{
+	atomic_dec(&wl_pw_en);
+	if(atomic_read(&wl_pw_en) < 0){
+		atomic_set(&wl_pw_en, 0);
+	}
+	if(atomic_read(&wl_pw_en) == 0){
+//		gpio_set_value(power_en,0);
+	}
+	printk("wl_pw_en = %d\n",atomic_read(&wl_pw_en));
+}
+EXPORT_SYMBOL(wlan_pw_en_disable);
+
+int bt_power_init(void)
+{
+	power_en = GPIO_WLAN_PW_EN;
+	if (gpio_request(GPIO_WLAN_PW_EN, "wlan_pw_en")) {
+		pr_err("no wlan_pw_en pin available\n");
+		return -EINVAL;
+	}else {
+		gpio_direction_output(power_en, 0);
+	}
+
+	return 0;
 }
 
-static struct bt_rfkill_platform_data  bt_gpio_data = {
+static struct bt_rfkill_platform_data  gpio_data = {
 	.gpio = {
-		.bt_rst_n = HOST_BT_RST,
+		.bt_rst_n = -1,
 		.bt_reg_on = BT_REG_EN,
 		.bt_wake = HOST_WAKE_BT,
 		.bt_int = BT_WAKE_HOST,
-		.bt_uart_rts = BT_UART_RTS,
 #if 0
 		.bt_int_flagreg = -1,
 		.bt_int_bit = -1,
 #endif
+		.bt_uart_rts = BT_UART_RTS,
 	},
 
-	.restore_pin_status = restore_pin_status,
+	.restore_pin_status = NULL,
 	.set_pin_status = NULL,
-#if 0
-	.suspend_gpio_set = NULL,
-	.resume_gpio_set = NULL,
-#endif
 };
 
 struct platform_device bt_power_device  = {
 	.name = "bt_power" ,
 	.id = -1 ,
 	.dev   = {
-		.platform_data = &bt_gpio_data,
+		.platform_data = &gpio_data,
 	},
 };
 
@@ -75,20 +115,14 @@ struct platform_device bluesleep_device = {
 	.name = "bluesleep" ,
 	.id = -1 ,
 	.dev   = {
-		.platform_data = &bt_gpio_data,
+		.platform_data = &gpio_data,
 	},
 
 };
 
-#ifdef CONFIG_BT_BLUEDROID_SUPPORT
-int bluesleep_tty_strcmp(const char* name)
+static int __init m150_bt_power_init(void)
 {
-	if(!strcmp(name,BLUETOOTH_UPORT_NAME)){
-		return 0;
-	} else {
-		return -1;
-	}
+	bt_power_init();
+	return 0;
 }
-EXPORT_SYMBOL(bluesleep_tty_strcmp);
-#endif
-#endif /* CONFIG_BROADCOM_RFKILL */
+module_init(m150_bt_power_init);
