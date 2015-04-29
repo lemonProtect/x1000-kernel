@@ -57,6 +57,9 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&jz_mixer1_device, &snd_mixer1_data, sizeof(struct snd_dev_data)),
 #endif
 
+#ifdef CONFIG_BCM_PM_CORE
+	DEF_DEVICE(&bcm_power_platform_device,0,0),
+#endif
 #ifdef CONFIG_BROADCOM_RFKILL
 	DEF_DEVICE(&bt_power_device,0,0),
 	DEF_DEVICE(&bluesleep_device,0,0),

@@ -23,6 +23,9 @@ extern struct jzmmc_platform_data sdio_pdata;
 extern struct platform_device	bt_power_device;
 extern struct platform_device	bluesleep_device;
 #endif
+#ifdef CONFIG_BCM_PM_CORE
+extern struct platform_device	bcm_power_platform_device;
+#endif
 
 #ifdef CONFIG_USB_DWC2
 extern struct platform_device   jz_dwc_otg_device;

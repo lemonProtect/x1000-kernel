@@ -159,7 +159,6 @@ extern void clk_32k_off(void);
 extern void wlan_pw_en_enable(void);
 extern void wlan_pw_en_disable(void);
 
-#if 0
 void clk_32k_on(void)
 {
 	jzrtc_enable_clk32k();
@@ -171,7 +170,6 @@ void clk_32k_off(void)
 	printk("clk_32k_off\n");
 
 }
-#endif
 
 static void wifi_le_set_io(void)
 {
