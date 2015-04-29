@@ -105,6 +105,21 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef	CONFIG_I2C2_V12_JZ
 	DEF_DEVICE(&jz_i2c2_device,0,0),
 #endif
+#ifdef CONFIG_I2C_GPIO
+#ifdef CONFIG_SOFT_I2C0_GPIO_V12_JZ
+	DEF_DEVICE(&i2c0_gpio_device, 0, 0),
+#endif
+#ifdef CONFIG_SOFT_I2C1_GPIO_V12_JZ
+	DEF_DEVICE(&i2c1_gpio_device, 0, 0),
+#endif
+#ifdef CONFIG_SOFT_I2C2_GPIO_V12_JZ
+	DEF_DEVICE(&i2c2_gpio_device, 0, 0),
+#endif
+#ifdef CONFIG_SOFT_I2C3_GPIO_V12_JZ
+	DEF_DEVICE(&i2c3_gpio_device, 0, 0),
+#endif
+#endif  /* CONFIG_I2C_GPIO */
+
 #ifdef	CONFIG_MFD_JZ_SADC_V12
 	DEF_DEVICE(&jz_adc_device, 0, 0),
 #endif

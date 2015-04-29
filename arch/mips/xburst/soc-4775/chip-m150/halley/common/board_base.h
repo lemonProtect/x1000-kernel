@@ -3,6 +3,7 @@
 
 #include <board.h>
 #include <linux/spi/spi.h>
+#include <linux/i2c.h>
 
 #ifdef CONFIG_LEDS_GPIO
 extern struct platform_device jz_led_rgb;
@@ -49,18 +50,35 @@ extern struct platform_device jz_spi_gpio_device;
 extern struct jz_efuse_platform_data jz_efuse_pdata;
 #endif
 
-#ifdef CONFIG_I2C0_V12_JZ
-extern struct platform_device jz_i2c0_device;
+
+
+#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C0_V12_JZ))
+extern struct i2c_board_info jz_i2c0_devs[];
+extern int jz_i2c0_devs_size;
 #endif
-#ifdef CONFIG_I2C1_V12_JZ
-extern struct platform_device jz_i2c1_device;
+#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_V12_JZ))
+extern struct i2c_board_info jz_i2c1_devs[];
+extern int jz_i2c1_devs_size;
 #endif
-#ifdef CONFIG_I2C2_V12_JZ
-extern struct platform_device jz_i2c2_device;
+#if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C2_V12_JZ))
+extern struct i2c_board_info jz_i2c2_devs[];
+extern int jz_i2c2_devs_size;
 #endif
-#ifdef CONFIG_I2C3_V12_JZ
-extern struct platform_device jz_i2c3_device;
+#ifdef CONFIG_I2C_GPIO
+#ifndef CONFIG_I2C0_V12_JZ
+extern struct platform_device i2c0_gpio_device;
 #endif
+#ifndef CONFIG_I2C1_V12_JZ
+extern struct platform_device i2c1_gpio_device;
+#endif
+#ifndef CONFIG_I2C2_V12_JZ
+extern struct platform_device i2c2_gpio_device;
+#endif
+#ifndef CONFIG_I2C3_V12_JZ
+extern struct platform_device i2c3_gpio_device;
+#endif
+#endif  /* CONFIG_I2C_GPIO */
+
 #ifdef CONFIG_MFD_JZ_SADC_V12
 extern struct platform_device jz_adc_device;
 #endif

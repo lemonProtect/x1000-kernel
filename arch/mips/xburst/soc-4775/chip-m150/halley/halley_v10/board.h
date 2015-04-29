@@ -76,6 +76,27 @@
 #define HOOK_ACTIVE_LEVEL       -1
 /* ****************************GPIO AUDIO END******************************** */
 
+#ifdef CONFIG_VIDEO_JZ_CIM_HOST_V11
+#define FRONT_CAMERA_INDEX  0
+#define BACK_CAMERA_INDEX   1
+
+#if defined(CONFIG_SOC_JZ_CIM0)
+#define CAMERA_SENSOR_RESET GPIO_PG(17)
+#define CAMERA_FRONT_SENSOR_EN  GPIO_PG(13)
+
+#elif defined(CONFIG_SOC_JZ_CIM1)
+
+#define CAMERA_SENSOR_RESET GPIO_PA(27)
+#define CAMERA_FRONT_SENSOR_EN  GPIO_PB(6)
+
+#endif
+#endif
+
+
+/* ****************************GPIO I2C START ******************************** */
+#define GPIO_I2C1_SDA		GPIO_PE(30)
+#define GPIO_I2C1_SCK		GPIO_PE(31)
+/* ****************************GPIO I2C END  ******************************** */
 
 #define GPIO_EFUSE_VDDQ			-ENODEV		/* EFUSE must be -ENODEV or a gpio */
 
