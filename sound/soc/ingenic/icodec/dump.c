@@ -43,7 +43,7 @@ static struct snd_soc_dai_driver dump_codec_dai = {
 };
 
 static int dump_platform_probe(struct platform_device *pdev)
-{	
+{
 	return snd_soc_register_codec(&pdev->dev, &dump_codec,
 			&dump_codec_dai, 1);
 }

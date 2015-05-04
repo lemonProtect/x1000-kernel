@@ -93,7 +93,7 @@ static void dump_dma_desc(struct jzdma_channel *dmac)
 
 	for (i = 0; i < dmac->desc_nr; i++)
 		dev_info(chan2dev(&dmac->chan),
-			 "DSA: %x, DTA: %x, DCM: %lx, DTC:%lx DRT:%x\n",
+			 "DSA: %x, DTA: %x, DCM: %lx, DTC:%lx DRT:%lx\n",
 			 desc[i].dsa, desc[i].dta, desc[i].dcm, desc[i].dtc,
 			 desc[i].drt);
 
@@ -1082,13 +1082,14 @@ static void restore_gpio0_irq_chip(void)
 #endif /* CONFIG_NAND */
 
 static ssize_t jz_regs_store(struct device *dev,
-		struct device_attribute *attr, char *buf,
+		struct device_attribute *attr,
+		const char *buf,
 		size_t count)
 {
 	struct jzdma_master *dma = dev_get_drvdata(dev);
 	struct jzdma_channel *dmac = NULL;
 	unsigned long channel = simple_strtoul(buf, NULL, 10);
-	printk("dma channel %d register:\n", channel);
+	printk("dma channel %ld register:\n", channel);
 
 	dmac = &dma->channel[channel];
 	dump_dma_desc(dmac);

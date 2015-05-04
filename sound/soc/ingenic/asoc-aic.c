@@ -74,7 +74,7 @@ EXPORT_SYMBOL_GPL(aic_set_work_mode);
 
 static int jzaic_add_subdevs(struct jz_aic *jz_aic)
 {
-	int ret;
+	int ret = 0;
 	jz_aic->subdev_pdata.dma_base = (dma_addr_t)jz_aic->res_start;
 
 #define AIC_REGISTER_SUBDEV(name) \
@@ -89,17 +89,13 @@ do { \
 		dev_err(jz_aic->dev, "add %s device errno %ld\n", "jz-asoc-aic-"#name,	\
 				PTR_ERR(jz_aic->psubdev_##name));	\
 		jz_aic->psubdev_##name	= NULL;\
-	} else {	\
-		dma_set_coherent_mask(&jz_aic->psubdev_##name->dev, jz_aic->dev->coherent_dma_mask);	\
-		jz_aic->psubdev_##name->dev.dma_mask    = jz_aic->dev->dma_mask;	\
-		jz_aic->psubdev_##name->dev.dma_parms	= jz_aic->dev->dma_parms;	\
 	}	\
 } while (0)
 
 	AIC_REGISTER_SUBDEV(i2s);
 	/*AIC_REGISTER_SUBDEV(spdif);
 	AIC_REGISTER_SUBDEV(ac97);*/
-	return 0;
+	return ret;
 }
 
 static void jzaic_del_subdevs(struct jz_aic *jz_aic)

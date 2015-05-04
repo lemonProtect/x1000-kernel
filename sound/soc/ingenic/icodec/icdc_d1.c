@@ -886,8 +886,6 @@ static int icdc_d1_probe(struct snd_soc_codec *codec)
 	struct icdc_d1 *icdc_d1 = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 
-	dev_info(codec->dev, "codec icdc-d1 probe enter\n");
-
 	/*power on codec*/
 	icdc_d1_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 
@@ -938,13 +936,14 @@ static int icdc_d1_probe(struct snd_soc_codec *codec)
 		dev_warn(codec->dev, "Failed to request aic codec irq %d\n", icdc_d1->irqno);
 
 	icdc_d1->codec = codec;
+	dev_info(codec->dev, "codec icdc-d1 probe success!!!\n");
 	return 0;
 }
 
 static int icdc_d1_remove(struct snd_soc_codec *codec)
 {
 	struct icdc_d1 *icdc_d1 = snd_soc_codec_get_drvdata(codec);
-	dev_info(codec->dev, "codec icdc_d1 remove enter\n");
+
 	if (icdc_d1 && icdc_d1->irqno != -1) {
 		free_irq(icdc_d1->irqno, (void *)icdc_d1);
 	}

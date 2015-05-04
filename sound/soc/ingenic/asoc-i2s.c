@@ -364,7 +364,7 @@ static int jz_i2s_platfrom_probe(struct platform_device *pdev)
 {
 	struct jz_aic_subdev_pdata *pdata = dev_get_platdata(&pdev->dev);
 	struct jz_i2s *jz_i2s;
-	int i = 0, ret, buswidth = DMA_SLAVE_BUSWIDTH_2_BYTES;
+	int i = 0, ret;
 
 	jz_i2s = devm_kzalloc(&pdev->dev, sizeof(struct jz_i2s), GFP_KERNEL);
 	if (!jz_i2s)
@@ -373,11 +373,7 @@ static int jz_i2s_platfrom_probe(struct platform_device *pdev)
 	jz_i2s->aic = pdev->dev.parent;
 	jz_i2s->i2s_mode = 0;
 	jz_i2s->tx_dma_data.dma_addr = pdata->dma_base + AICDR;
-	jz_i2s->tx_dma_data.buswidth = buswidth;
-	jz_i2s->tx_dma_data.max_burst = (I2S_TFIFO_DEPTH * buswidth)/2;	/*1/2 tx fifo depth*/
 	jz_i2s->rx_dma_data.dma_addr = pdata->dma_base + AICDR;
-	jz_i2s->rx_dma_data.buswidth = buswidth;
-	jz_i2s->tx_dma_data.max_burst = (I2S_RFIFO_DEPTH * buswidth)/2;	/*1/2 rx fifo depth*/
 	platform_set_drvdata(pdev, (void *)jz_i2s);
 
 	for (; i < ARRAY_SIZE(jz_i2s_sysfs_attrs); i++) {

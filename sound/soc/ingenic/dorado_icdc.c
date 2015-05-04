@@ -104,9 +104,9 @@ static int dorado_dlv_dai_link_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
+	struct snd_soc_card *card = rtd->card;
 	int err;
-
-	err = gpio_request(DORADO_SPK_GPIO, "Speaker_en");
+	err = devm_gpio_request(card->dev, DORADO_SPK_GPIO, "Speaker_en");
 	if (err)
 		return err;
 

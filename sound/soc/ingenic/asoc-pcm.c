@@ -218,7 +218,7 @@ static int jz_pcm_trigger(struct snd_pcm_substream *substream, int cmd, struct s
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 #ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
-		if (!atomic_read(&prtd->stopped_pending))
+		if (atomic_read(&prtd->stopped_pending))
 			return 0;
 #endif
 		PCM_DEBUG_MSG("pcm stop\n");

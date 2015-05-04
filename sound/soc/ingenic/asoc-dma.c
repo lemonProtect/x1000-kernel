@@ -131,9 +131,8 @@ static void dma_stop_watchdog(struct work_struct *work)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 
-	if (atomic_read(&prtd->stopped_pending)) {
+	if (!atomic_dec_if_positive(&prtd->stopped_pending)) {
 		DMA_SUBSTREAM_MSG(substream,"stop real\n");
-		atomic_set(&prtd->stopped_pending, 0);
 		dmaengine_terminate_all(prtd->dma_chan);
 		if (cpu_dai->driver->ops->trigger)
 			cpu_dai->driver->ops->trigger(substream, prtd->stopped_cmd, cpu_dai);
@@ -149,11 +148,10 @@ static void jz_asoc_dma_callback(void *data)
 	DMA_SUBSTREAM_MSG(substream,"%s enter stopped_pending == %d\n", __func__,
 			atomic_read(&prtd->stopped_pending));
 
-	if (atomic_read(&prtd->stopped_pending)) {
+	if (!atomic_dec_if_positive(&prtd->stopped_pending)) {
 		struct snd_soc_pcm_runtime *rtd = substream->private_data;
 		struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 		DMA_SUBSTREAM_MSG(substream,"stop real\n");
-		atomic_set(&prtd->stopped_pending, 0);
 		cancel_delayed_work(&prtd->dwork_stop_dma);
 		dmaengine_terminate_all(prtd->dma_chan);
 		if (cpu_dai->driver->ops->trigger)
