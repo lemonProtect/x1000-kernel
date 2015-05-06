@@ -118,7 +118,8 @@ void dwc2_clk_enable(struct dwc2 *dwc) {
 	struct dwc2_jz *jz = to_dwc2_jz(dwc);
 
 	if (!dwc2_clk_is_enabled(dwc) && !IS_ERR(jz->clk)) {
-		clk_enable(jz->pwr_clk);
+		if (jz->pwr_clk)
+			clk_enable(jz->pwr_clk);
 		clk_enable(jz->cgu_clk);
 		clk_enable(jz->clk);
 	}
@@ -130,7 +131,8 @@ void dwc2_clk_disable(struct dwc2 *dwc) {
 	if (dwc2_clk_is_enabled(dwc) && !IS_ERR(jz->clk)) {
 		clk_disable(jz->clk);
 		clk_disable(jz->cgu_clk);
-		clk_disable(jz->pwr_clk);
+		if (jz->pwr_clk)
+			clk_disable(jz->pwr_clk);
 	}
 }
 
@@ -486,14 +488,14 @@ static int dwc2_jz_probe(struct platform_device *pdev) {
 		return PTR_ERR(jz->cgu_clk);
 	}
 	jz->pwr_clk = devm_clk_get(&pdev->dev, USB_PWR_CLK_NAME);
-	if (IS_ERR(jz->pwr_clk)) {
-		dev_err(&pdev->dev, "pwr clk  get error\n");
-		return PTR_ERR(jz->pwr_clk);
-	}
+	if (IS_ERR(jz->pwr_clk))
+		jz->pwr_clk = NULL;
+
 	clk_set_rate(jz->cgu_clk, 24000000);
 	clk_enable(jz->cgu_clk);
 	clk_enable(jz->clk);
-	clk_enable(jz->pwr_clk);
+	if (jz->pwr_clk)
+		clk_enable(jz->pwr_clk);
 
 	jz->dete_pin = &dwc2_dete_pin;
 	jz->drvvbus_pin = &dwc2_drvvbus_pin;
@@ -627,7 +629,8 @@ fail_register_dwc2_dev:
 		regulator_put(jz->vbus);
 	clk_disable(jz->clk);
 	clk_disable(jz->cgu_clk);
-	clk_disable(jz->pwr_clk);
+	if (jz->pwr_clk)
+		clk_disable(jz->pwr_clk);
 	return ret;
 }
 
@@ -647,7 +650,8 @@ static int dwc2_jz_remove(struct platform_device *pdev) {
 		regulator_put(jz->vbus);
 	clk_disable(jz->clk);
 	clk_disable(jz->cgu_clk);
-	clk_disable(jz->pwr_clk);
+	if (jz->pwr_clk)
+		clk_disable(jz->pwr_clk);
 	platform_device_unregister(&jz->dwc2);
 
 	return 0;

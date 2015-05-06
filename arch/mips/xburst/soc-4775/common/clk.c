@@ -550,6 +550,10 @@ static int cgu_enable(struct clk *clk,int on)
 {
 	int no = CLK_CGU_NO(clk->flags);
 
+	/*CGU_USB: If UCS == 0, the clock divider is gated, don not set CE_USB*/
+	if (no == CGU_USB && !(cpm_inl(cgu_clks[no].off) >> 31))
+		return 0;
+
 	if(on) {
 		if(cgu_clks[no].cache) {
 			cpm_outl(cgu_clks[no].cache,cgu_clks[no].off);
@@ -828,7 +832,6 @@ int clk_enable(struct clk *clk)
 		if(clk->count) {
 			return 0;
 		}
-
 		clk->count = 1;
 		clk = clk->source;
 	}
