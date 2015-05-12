@@ -162,10 +162,6 @@ config LCD_X163
    depends on FB && JZ_MIPI_DSI
    help
 	   jz mipi dsi.dbi smart display panel support
-config AUO_X163_V1
-    bool "new AUO X163 with mark on AUO"
-	depends on LCD_X163
-	default n
 config AUO_X163_ROTATION_180
 	bool "AUO X163 rotation 180"
 	depends on LCD_X163
