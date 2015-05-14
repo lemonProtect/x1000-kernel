@@ -318,10 +318,8 @@ unsigned long dmmu_map(struct device *dev,unsigned long vaddr,unsigned long len)
 		if(!node) {
 			node = add_node(h,vaddr);
 		}
-
 		vaddr = map_node(node,vaddr,end);
 	}
-
 	dmmu_cache_wback(h);
 #ifdef DEBUG
 	dmmu_dump_handle(NULL,NULL,h);
@@ -368,13 +366,14 @@ int dmmu_unmap(struct device *dev,unsigned long vaddr, int len)
 	if(list_empty(&h->pmd_list) && list_empty(&h->map_list)) {
 		list_del(&h->list);
 		__free_page((void *)h->pdg);
+		mutex_unlock(&h->lock);
+		if(list_empty(&handle_list)) {
+			__free_page((void *)reserved_page);
+			reserved_page = 0;
+			reserved_pte = 0;
+		}
 		kfree(h);
-	}
-
-	if(list_empty(&handle_list)) {
-		__free_page((void *)reserved_page);
-		reserved_page = 0;
-		reserved_pte = 0;
+		return 0;
 	}
 
 	mutex_unlock(&h->lock);
