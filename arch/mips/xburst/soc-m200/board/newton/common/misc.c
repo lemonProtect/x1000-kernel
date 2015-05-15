@@ -33,6 +33,11 @@ static struct platform_device jz_li_ion_charger_device = {
 };
 #endif
 
+#if IS_ENABLED(CONFIG_SND_ASOC_INGENIC_NEWTON_ICDC)
+struct platform_device snd_newton_device = {
+	.name = "ingenic-newton",
+};
+#endif
 
 #ifdef CONFIG_JZ_BATTERY
 static struct jz_battery_info  dorado_battery_info = {
