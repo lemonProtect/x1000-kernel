@@ -1,5 +1,26 @@
-
-
+/* arch/mips/xburst/soc-m200/common/libdmmu.c
+ * This driver is used by VPU driver.
+ *
+ * Copyright (C) 2015 Ingenic Semiconductor Co., Ltd.
+ *	http://www.ingenic.com
+ * Author:	Yan Zhengting <zhengting.yan@ingenic.com>
+ * Modify by:	Sun Jiwei <jiwei.sun@ingenic.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
+ */
 
 #include <linux/kernel.h>
 #include <linux/list.h>
@@ -35,8 +56,8 @@
 #define KSEG1_HEIGH_LIMIT	0xC0000000
 
 LIST_HEAD(handle_list);
-static unsigned long reserved_page = 0;
 static unsigned long reserved_pte = 0;
+static unsigned long res_pte_paddr;
 
 struct pmd_node {
 	unsigned int count;
@@ -206,6 +227,8 @@ static struct dmmu_handle *find_handle(void)
 static struct dmmu_handle *create_handle(void)
 {
 	struct dmmu_handle *h;
+	unsigned int pgd_index;
+	unsigned long *pgd;
 
 	h = kmalloc(sizeof(struct dmmu_handle),GFP_KERNEL);
 	if(!h)
@@ -213,18 +236,18 @@ static struct dmmu_handle *create_handle(void)
 
 	h->tgid = current->tgid;
 	h->pdg = __get_free_page(GFP_KERNEL);
-	SetPageReserved(virt_to_page((void *)h->pdg));
-
-	if(reserved_pte == 0) {
-		reserved_page = __get_free_page(GFP_KERNEL);
-		SetPageReserved(virt_to_page((void *)reserved_page));
-		reserved_pte = dmmu_v2pfn(reserved_page) | DMMU_PTE_VLD;
-	}
-
 	if(!h->pdg) {
+		pr_err("%s %d, Get free page for PGD error\n",
+				__func__, __LINE__);
 		kfree(h);
 		return NULL;
 	}
+	SetPageReserved(virt_to_page((void *)h->pdg));
+
+	pgd = (unsigned long *)h->pdg;
+
+	for (pgd_index=0; pgd_index < PTRS_PER_PGD; pgd_index++)
+		pgd[pgd_index] = res_pte_paddr;
 
 	INIT_LIST_HEAD(&h->list);
 	INIT_LIST_HEAD(&h->pmd_list);
@@ -367,11 +390,6 @@ int dmmu_unmap(struct device *dev,unsigned long vaddr, int len)
 		list_del(&h->list);
 		__free_page((void *)h->pdg);
 		mutex_unlock(&h->lock);
-		if(list_empty(&handle_list)) {
-			__free_page((void *)reserved_page);
-			reserved_page = 0;
-			reserved_pte = 0;
-		}
 		kfree(h);
 		return 0;
 	}
@@ -407,12 +425,6 @@ int dmmu_free_all(struct device *dev)
 	__free_page((void *)h->pdg);
 	kfree(h);
 
-	if(list_empty(&handle_list)) {
-		__free_page((void *)reserved_page);
-		reserved_page = 0;
-		reserved_pte = 0;
-	}
-
 	mutex_unlock(&h->lock);
 	return 0;
 }
@@ -441,6 +453,41 @@ int dmmu_unmap_all(struct device *dev)
 		dmmu_free_all(dev);
 	return 0;
 }
+
+int __init dmmu_init(void)
+{
+	unsigned int pte_index;
+	unsigned long res_page_paddr;
+	unsigned long reserved_page;
+	unsigned int *res_pte_vaddr;
+
+	reserved_page = __get_free_page(GFP_KERNEL);
+	if (!reserved_page) {
+		pr_err("%s %d, Get reserved page error\n",
+				__func__, __LINE__);
+		return ENOMEM;
+	}
+	SetPageReserved(virt_to_page((void *)reserved_page));
+	reserved_pte = dmmu_v2pfn(reserved_page) | DMMU_PTE_VLD;
+
+	res_page_paddr = virt_to_phys((void *)reserved_page) | 0xFFF;
+
+	res_pte_vaddr = (unsigned int *)__get_free_page(GFP_KERNEL);
+	if (!res_pte_vaddr) {
+		pr_err("%s %d, Get free page for PTE error\n",
+				__func__, __LINE__);
+		__free_page((void *)reserved_page);
+		return ENOMEM;
+	}
+	SetPageReserved(virt_to_page(res_pte_vaddr));
+	res_pte_paddr = virt_to_phys((void *)res_pte_vaddr) | DMMU_PTE_VLD;
+
+	for (pte_index = 0; pte_index < PTRS_PER_PTE; pte_index++)
+		res_pte_vaddr[pte_index] = res_page_paddr;
+
+	return 0;
+}
+arch_initcall(dmmu_init);
 
 void dmmu_dump_vaddr(unsigned long vaddr)
 {
