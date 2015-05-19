@@ -407,7 +407,7 @@ static struct snd_soc_dai_driver  icdc_d1_codec_dai = {
 	.name = "icdc-d1-hifi",
 	.playback = {
 		.stream_name = "Playback",
-		.channels_min = 1,
+		.channels_min = 2,
 		.channels_max = 2,
 #if defined(CONFIG_SOC_4780)
 		.rates = SNDRV_PCM_RATE_8000_96000,
@@ -775,7 +775,7 @@ static inline void icdc_d1_short_circut_handler(struct icdc_d1 *icdc_d1)
 	if (!(snd_soc_read(codec, DLV_REG_CR_HP) & DLV_CR_HP_SB_MASK)) {
 		hp_is_on = 1;
 		icdc_d1_aohp_anti_pop_event_sub(codec , SND_SOC_DAPM_PRE_PMD);
-		snd_soc_update_bits(codec, DLV_REG_CR_HP, 0, DLV_CR_HP_SB_MASK);
+		snd_soc_update_bits(codec, DLV_REG_CR_HP, DLV_CR_HP_SB_MASK, 1);
 		icdc_d1_aohp_anti_pop_event_sub(codec , SND_SOC_DAPM_POST_PMD);
 	}
 
@@ -810,7 +810,11 @@ int icdc_d1_hp_detect(struct snd_soc_codec *codec, struct snd_soc_jack *jack,
 	if (jack) {
 		snd_soc_update_bits(codec, DLV_REG_IMR, DLV_IMR_JACK, 0);
 		/*initial headphone detect*/
+#ifdef CONFIG_JZ_ASOC_CODEC_HP_INSERT_REV
+		if (!(snd_soc_read(codec, DLV_REG_SR) & DLV_SR_JACK_MASK)) {
+#else
 		if (!!(snd_soc_read(codec, DLV_REG_SR) & DLV_SR_JACK_MASK)) {
+#endif
 			report = icdc_d1->report_mask;
 			dev_info(codec->dev, "codec initial headphone detect --> headphone was inserted\n");
 			snd_soc_jack_report(icdc_d1->jack, report, icdc_d1->report_mask);
@@ -851,9 +855,13 @@ static void icdc_d1_irq_work_handler(struct work_struct *work)
 		int icdc_d1_jack = 0;
 		int report = 0;
 		msleep(200);
+#ifdef CONFIG_JZ_ASOC_CODEC_HP_INSERT_REV
+		icdc_d1_jack = !(snd_soc_read(codec, DLV_REG_SR) & DLV_SR_JACK_MASK);
+#else
 		icdc_d1_jack = !!(snd_soc_read(codec, DLV_REG_SR) & DLV_SR_JACK_MASK);
+#endif
 		dev_info(codec->dev, "codec headphone detect %s\n",
-				icdc_d1_jack ? "insert" : "desert");
+				icdc_d1_jack ? "insert" : "pull out");
 		snd_soc_write(codec, DLV_REG_IFR, DLV_SR_JACK_MASK);
 		if (icdc_d1_jack)
 			report = icdc_d1->report_mask;
@@ -885,6 +893,8 @@ static int icdc_d1_probe(struct snd_soc_codec *codec)
 {
 	struct icdc_d1 *icdc_d1 = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
+
+	dev_info(codec->dev, "codec icdc-d1 probe enter\n");
 
 	/*power on codec*/
 	icdc_d1_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
@@ -943,7 +953,7 @@ static int icdc_d1_probe(struct snd_soc_codec *codec)
 static int icdc_d1_remove(struct snd_soc_codec *codec)
 {
 	struct icdc_d1 *icdc_d1 = snd_soc_codec_get_drvdata(codec);
-
+	dev_info(codec->dev, "codec icdc_d1 remove enter\n");
 	if (icdc_d1 && icdc_d1->irqno != -1) {
 		free_irq(icdc_d1->irqno, (void *)icdc_d1);
 	}

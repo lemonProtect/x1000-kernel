@@ -204,6 +204,23 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_JZ_PWM
        DEF_DEVICE(&jz_pwm_device, 0, 0),
 #endif
+#if IS_ENABLED(CONFIG_SND_ASOC_JZ_AIC)
+       DEF_DEVICE(&jz_aic_device, NULL, 0),
+       DEF_DEVICE(&jz_aic_dma_device, NULL, 0),
+#endif
+#if IS_ENABLED(CONFIG_SND_ASOC_JZ_ICDC_D1)
+       DEF_DEVICE(&jz_icdc_device, NULL, 0),
+#endif
+#if IS_ENABLED(CONFIG_SND_ASOC_JZ_PCM)
+       DEF_DEVICE(&jz_pcm_device, NULL, 0),
+       DEF_DEVICE(&jz_pcm_dma_device, NULL, 0),
+#endif
+#if IS_ENABLED(CONFIG_SND_ASOC_JZ_DUMP_CDC)
+       DEF_DEVICE(&jz_dump_cdc_device, NULL, 0),
+#endif
+#if IS_ENABLED(CONFIG_SND_ASOC_INGENIC_NEWTON_ICDC)
+       DEF_DEVICE(&snd_newton_device, NULL, 0),
+#endif
 };
 
 static int __init board_base_init(void)

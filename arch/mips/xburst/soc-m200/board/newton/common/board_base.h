@@ -116,5 +116,8 @@ extern struct platform_device truly_tft240240_device;
 #ifdef CONFIG_JZ_BATTERY
 extern struct jz_adc_platform_data adc_platform_data;
 #endif
+#if IS_ENABLED(CONFIG_SND_ASOC_INGENIC_NEWTON_ICDC)
+extern struct platform_device snd_newton_device;
+#endif
 
 #endif	/* __BOARD_BASE_H__ */
