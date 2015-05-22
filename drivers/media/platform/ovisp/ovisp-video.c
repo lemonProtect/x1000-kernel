@@ -35,6 +35,9 @@
 
 #define CAMERA_NEED_REGULATOR		(0)
 
+#define UNSTABLE_FRAMES 13
+extern int capture_frames_count;
+
 static struct ovisp_camera_format isp_oformats[] = {
 	{
 		.name     = "YUV 4:2:2 packed, YCbYCr",
@@ -728,6 +731,13 @@ static int ovisp_camera_irq_notify(unsigned int status, void *data)
 			buf = capture->active[1];
 			capture->active[1] = NULL;
 		}
+
+		if(capture_frames_count++ < UNSTABLE_FRAMES) {
+			list_add_tail(&(buf->list),&(capture->list));
+			spin_unlock_irqrestore(&camdev->slock, flags);
+			return 0;
+		}
+
 		spin_unlock_irqrestore(&camdev->slock, flags);
 		if(buf && buf->vb.state == VB2_BUF_STATE_ACTIVE){
 			if(camdev->snapshot)

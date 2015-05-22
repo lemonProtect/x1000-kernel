@@ -54,6 +54,10 @@ struct isp_clk_info {
 #undef ISP_CLK_NUM
 #define ISP_CLK_NUM	3
 #define DUMMY_CLOCK_RATE		0x0000ffff
+
+// count how many frames are captured since ISP open
+int capture_frames_count = 0;
+
 /* clk isp , csi */
 static struct isp_clk_info isp_clks[ISP_CLK_NUM] = {
 	{"cgu_isp", 100000000,	ISP_CLK_CGU_ISP},
@@ -1571,6 +1575,8 @@ static int isp_open(struct isp_device *isp, struct isp_prop *prop)
 	struct ovisp_camera_client *client = &isp->pdata->client[prop->index];
 	unsigned long flags;
 	int ret = 0;
+
+	capture_frames_count = 0;
 
 	if (!isp->poweron)
 		return -ENODEV;
