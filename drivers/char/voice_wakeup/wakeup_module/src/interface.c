@@ -62,13 +62,10 @@ void dump_voice_wakeup(void)
 }
 int module_init(void)
 {
-	int i;
 	/*clear bss*/
-	unsigned char *p = __bss_start;
-	for(i=0; i<((char*)&__bss_end - __bss_start); i++) {
+	unsigned int *p = (unsigned int *)&__bss_start;
+	while(p < (unsigned int *)&__bss_end)
 		*p++ = 0;
-	}
-
 	/*global init*/
 	_dma_channel = 5;
 	tcu_channel = 5;
@@ -78,11 +75,12 @@ int module_init(void)
 	g_sleep_buffer = NULL;
 	voice_wakeup_enabled = 0;
 	dmic_record_enabled = 0;
+	return 0;
 }
 
 int module_exit(void)
 {
-
+	return 0;
 }
 int open(int mode)
 {
@@ -142,7 +140,7 @@ static inline void powerdown_wait(void)
 	unsigned int cpu_no;
 	unsigned int lcr;
 
-	volatile unsigned int temp;
+	__attribute__ ((unused)) unsigned int temp;
 	/* cpu enter sleep */
 	lcr = REG32(CPM_IOBASE + CPM_LCR);
 	lcr &= ~3;
@@ -173,7 +171,7 @@ static inline void sleep_wait(void)
 {
 	unsigned int opcr;
 	unsigned int lcr;
-	unsigned int temp;
+	__attribute__ ((unused)) unsigned int temp;
 	/* cpu enter sleep */
 	lcr = REG32(CPM_IOBASE + CPM_LCR);
 	lcr &= ~3;
@@ -202,9 +200,8 @@ static inline void sleep_wait(void)
 
 static inline void idle_wait(void)
 {
-	unsigned int opcr;
 	unsigned int lcr;
-	unsigned int temp;
+	__attribute__ ((unused)) unsigned int temp;
 	/* cpu enter idle */
 	lcr = REG32(CPM_IOBASE + CPM_LCR);
 	lcr &= ~3;
@@ -238,7 +235,7 @@ int handler(int par)
 {
 	volatile int ret;
 	volatile unsigned int int0;
-	volatile unsigned int int1;
+	__attribute__ ((unused)) unsigned int int1;
 
 	while(1) {
 
@@ -372,8 +369,8 @@ int ioctl(int cmd, unsigned long args)
 void cache_prefetch(void)
 {
 	int i;
-	volatile unsigned int *addr = (unsigned int *)0x8ff00000;
-	volatile unsigned int a;
+	volatile unsigned int *addr = (volatile unsigned int *)0x8ff00000;
+	__attribute__ ((unused)) unsigned int a;
 	for(i=0; i<LOAD_SIZE/32; i++) {
 		a = *(addr + i * 8);
 	}
@@ -406,7 +403,7 @@ int is_cpu_wakeup_by_dmic(void)
 /* used by wakeup driver when earyl sleep. */
 int set_sleep_buffer(struct sleep_buffer *sleep_buffer)
 {
-	int i;
+	//int i;
 	g_sleep_buffer = sleep_buffer;
 
 	dma_stop(_dma_channel);
@@ -458,6 +455,7 @@ int set_dma_channel(int channel)
 int voice_wakeup_enable(int enable)
 {
 	voice_wakeup_enabled = enable;
+	return 0;
 }
 int is_voice_wakeup_enabled(void)
 {
