@@ -444,7 +444,7 @@ static void auo_x163_power_on(struct mipi_dsim_lcd_device *dsim_dev, int power)
 {
 	struct auo_x163 *lcd = dev_get_drvdata(&dsim_dev->dev);
 	if(power) {
-		//auo_x163_regulator_enable(lcd);
+		auo_x163_regulator_enable(lcd);
 	} else {
 		//auo_x163_regulator_disable(lcd);
 	}
@@ -469,6 +469,7 @@ static int auo_x163_suspend(struct mipi_dsim_lcd_device *dsim_dev)
 	msleep(15);
 	auo_x163_power_on(dsim_dev, 0);
 
+	auo_x163_regulator_disable(lcd);
 	return 0;
 }
 
@@ -476,6 +477,7 @@ static int auo_x163_resume(struct mipi_dsim_lcd_device *dsim_dev)
 {
 	struct auo_x163 *lcd = dev_get_drvdata(&dsim_dev->dev);
 	int ret;
+	auo_x163_regulator_enable(lcd);
 #if 0
 	if (lcd->enabled) {
 		ret = regulator_enable(lcd->vcc_lcd_3v0_reg);
