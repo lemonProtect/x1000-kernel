@@ -154,6 +154,10 @@ static inline void powerdown_wait(void)
 
 	opcr |= 1 << 30;
 	REG32(CPM_IOBASE + CPM_OPCR) = opcr;
+
+	/*DDR clk on*/
+	REG32(0xb0000020) &= ~(1 << 31);
+
 	temp = REG32(CPM_IOBASE + CPM_OPCR);
 	__asm__ volatile(".set mips32\n\t"
 			"nop\n\t"
@@ -236,6 +240,9 @@ int handler(int par)
 	volatile int ret;
 	volatile unsigned int int0;
 	__attribute__ ((unused)) unsigned int int1;
+
+	/* DDR clock off*/
+	REG32(0xb0000020) |= 1 << 31;
 
 	while(1) {
 
