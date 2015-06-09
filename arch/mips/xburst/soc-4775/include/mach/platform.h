@@ -10,7 +10,6 @@
 #define __SOC_4775_H__
 
 /* devio define list */
-
 #define I2S_PORTEF                                                      \
 		{ .name = "i2s-sysclk",         .port = GPIO_PORT_E, .func = GPIO_FUNC_2, .pins = 0x1<<3, },    \
 		{ .name = "i2s-bitclk",         .port = GPIO_PORT_F, .func = GPIO_FUNC_1, .pins = 0x1<<0,},    \
@@ -87,7 +86,7 @@
 #define DISABLE_LCD_PORTC							\
 	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_OUTPUT0, .pins = 0x0fffffff, }
 
-#ifdef CONFIG_BM347WV_F_8991FTGF_HX8369
+#ifdef CONFIG_LCD_BYD_8991FTGF
 #define LCD_PORTC \
 	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x0fcff3fc, }
 #else
