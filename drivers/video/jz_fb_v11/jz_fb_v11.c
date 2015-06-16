@@ -3915,6 +3915,14 @@ void test_pattern(struct jzfb *jzfb)
 			next_frm = 1;
 			jzfb_display_h_color_bar(jzfb->fb);
 		}
+		if (jzfb->pdata->lcd_type == LCD_TYPE_LCM) {
+#ifndef CONFIG_SLCDC_CONTINUA
+			int smart_ctrl = 0;
+			smart_ctrl = reg_read(jzfb, SLCDC_CTRL);
+			smart_ctrl |= SLCDC_CTRL_DMA_START; //trigger a new frame
+			reg_write(jzfb, SLCDC_CTRL, smart_ctrl);
+#endif
+		}
 		mdelay(100);
 	}
 }
@@ -3942,7 +3950,6 @@ static int jzfb_probe(struct platform_device *pdev)
 	struct fb_videomode *mode;
 	unsigned int slcd_videosize = 0;
 #endif
-
 	if (!pdata) {
 		dev_err(&pdev->dev, "Missing platform data\n");
 		return -ENXIO;
@@ -4174,8 +4181,6 @@ static int jzfb_probe(struct platform_device *pdev)
 			jzfb_change_dma_desc(jzfb->fb);
 		}
 #ifdef CONFIG_JZFB_LCDC_INIT
-		jzfb->is_enabled = 1;
-		jzfb_disable(jzfb->fb);
 		jzfb_set_par(jzfb->fb);
 		clk_enable(jzfb->pclk);
 		clk_enable(jzfb->clk);
@@ -4202,6 +4207,11 @@ static int jzfb_probe(struct platform_device *pdev)
 		reg_write(jzfb, LCDC_REV, 0 << 16);
 	}
 #endif  /* CONFIG_FPGA_TEST */
+	if(!jzfb->is_enabled) {
+		clk_disable(jzfb->clk);
+		clk_disable(jzfb->pclk);
+	}
+	return 0;
 err_kthread_stop:
 	kthread_stop(jzfb->vsync_thread);
 err_free_file:
