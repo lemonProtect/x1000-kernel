@@ -110,7 +110,9 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_LCD_BYD_8991FTGF
 	LCD_PORTC,
 #endif
-
+#ifdef CONFIG_LCD_KFM701A21_1A
+	LCD_PORTC,
+#endif
 #ifdef CONFIG_JZ_EPD_GPIO_FUNCTION
 	EPD_PORTC,
 #endif

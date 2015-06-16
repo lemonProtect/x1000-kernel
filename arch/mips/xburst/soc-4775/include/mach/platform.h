@@ -89,6 +89,9 @@
 #ifdef CONFIG_LCD_BYD_8991FTGF
 #define LCD_PORTC \
 	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x0fcff3fc, }
+#elif defined CONFIG_LCD_KFM701A21_1A
+#define LCD_PORTC \
+	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x3cff0fc, }
 #else
 #define LCD_PORTC \
 	{ .name = "lcd", .port = GPIO_PORT_C, .func = GPIO_FUNC_0, .pins = 0x0fffffff, }
