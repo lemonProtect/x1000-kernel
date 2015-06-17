@@ -625,6 +625,10 @@ static int __init board_init(void)
 #endif
 #endif
 
+/*pwm*/
+#ifdef CONFIG_JZ_PWM
+	platform_device_register(&jz_pwm_device);
+#endif
 
 /* sound */
 #ifdef CONFIG_SOUND_I2S_JZ47XX

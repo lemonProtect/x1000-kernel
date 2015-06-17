@@ -194,6 +194,10 @@ extern struct platform_device jz_efuse_device;
 extern struct platform_device i2c0_gpio_device;
 #endif
 
+#ifdef CONFIG_JZ_PWM
+extern struct platform_device jz_pwm_device;
+#endif
+
 int jz_device_register(struct platform_device *pdev,void *pdata);
 
 #ifdef CONFIG_ANDROID_PMEM

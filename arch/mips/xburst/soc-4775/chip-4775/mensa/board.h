@@ -21,6 +21,10 @@ extern struct jzmmc_platform_data inand_pdata;
 extern struct jzmmc_platform_data tf_pdata;
 extern struct jzmmc_platform_data sdio_pdata;
 
+#ifdef CONFIG_JZ_PWM
+extern struct platform_device jz_pwm_device;
+#endif
+
 #ifdef CONFIG_FB_JZ_V11
 extern struct jzfb_platform_data jzfb_pdata;
 #endif
