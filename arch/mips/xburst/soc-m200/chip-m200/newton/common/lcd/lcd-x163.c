@@ -21,6 +21,7 @@
 #include <mach/jzfb.h>
 #include "../board_base.h"
 
+#define DEFAULT_DATALANE_BPS (250 * 1000)
 
 struct auo_x163_platform_data{
 	struct lcd_platform_data *lcd_pdata;
