@@ -21,6 +21,7 @@
 #include <mach/jzfb.h>
 #include "../board_base.h"
 
+#define DEFAULT_DATALANE_BPS	(432 * 1000)
 int byd_9177aa_init(struct lcd_device *lcd)
 {
     int ret = 0;

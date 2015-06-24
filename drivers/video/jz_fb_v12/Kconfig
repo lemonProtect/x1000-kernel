@@ -20,12 +20,6 @@ config JZ_MIPI_DBI
     depends on JZ_MIPI_DSI
 	default n
 
-config DEFAULT_DATALANE_BPS
-	int "set default datalane Mbps"
-	range 90 1000
-	depends on JZ_MIPI_DSI
-	default 432
-
 config DSI_DPI_DEBUG
 	bool "only for tft.dpi interface debug and color test pattern"
 	depends on JZ_MIPI_DSI
