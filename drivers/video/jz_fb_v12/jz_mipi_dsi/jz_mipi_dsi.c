@@ -752,6 +752,10 @@ struct dsi_device * jzdsi_init(struct jzdsi_data *pdata)
 	dsi->video_config->v_sync_lines = pdata->modes->vsync_len;
 	dsi->video_config->v_back_porch_lines = pdata->modes->upper_margin;
 	dsi->video_config->v_total_lines = pdata->modes->yres + pdata->modes->upper_margin + pdata->modes->lower_margin + pdata->modes->vsync_len;
+	dsi->video_config->byte_clock = dsi->video_config->h_total_pixels * dsi->video_config->v_total_lines * pdata->modes->refresh * pdata->bpp_info * 15 / 10 / 1000 / 8; //  BSP is set 1.5 times dpi_clock
+	if(dsi->video_config->byte_clock * 8 > 1000 * 1000){
+		pr_info("warning: BPS is over 1G\n");
+	}
 	dsi->master_ops = &jz_master_ops;
 
 	dsi->clk = clk_get(NULL, "dsi");

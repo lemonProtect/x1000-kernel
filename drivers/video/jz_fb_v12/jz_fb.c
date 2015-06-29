@@ -39,7 +39,7 @@
 #include <mach/jzfb.h>
 #ifdef CONFIG_JZ_MIPI_DSI
 #ifdef  CONFIG_JZ_MIPI_DBI
-#define CONFIG_SLCDC_CONTINUA
+//#define CONFIG_SLCDC_CONTINUA
 #endif
 
 
@@ -93,7 +93,7 @@ static int jzfb_open(struct fb_info *info, int user)
 
 	dev_dbg(info->dev, "####open count : %d\n", ++jzfb->open_cnt);
 
-	if(jzfb->blank == FB_BLANK_UNBLANK && uboot_inited == 1) {
+//	if(jzfb->blank == FB_BLANK_UNBLANK && uboot_inited == 1) {
 		/* if fb is already unblank, means lcdc is enabled by uboot.
 		 * we disable here to reconfig parmeter.
 		 * */
@@ -106,7 +106,7 @@ static int jzfb_open(struct fb_info *info, int user)
 		jzfb_set_par(jzfb->fb);
 		jzfb_enable_2(jzfb->fb);
 		uboot_inited = 0;
-	}
+//	}
 
 	return 0;
 }
@@ -1115,7 +1115,7 @@ static int jzfb_set_par(struct fb_info *info)
 	else {
 		cfg |= 1 << 24;
 		reg_write(jzfb, LCDC_CFG, cfg);
-		//jzfb->dsi->master_ops->video_cfg(jzfb->dsi);
+//		jzfb->dsi->master_ops->video_cfg(jzfb->dsi);
 	}
 
 #endif
@@ -1900,7 +1900,6 @@ static void jzfb_change_dma_desc(struct fb_info *info)
 
 	info->mode = mode;
 	jzfb_prepare_dma_desc(info);
-
 	//if (mode->pixclock) {
 		//unsigned long rate = PICOS2KHZ(mode->pixclock) * 1000;
 		//is_pclk_en = clk_is_enabled(jzfb->pclk);
@@ -2528,6 +2527,7 @@ static int jzfb_probe(struct platform_device *pdev)
 	}
 
 #ifdef CONFIG_JZ_MIPI_DSI
+	pdata->dsi_pdata->bpp_info = pdata->bpp;
 	jzfb->dsi = jzdsi_init(pdata->dsi_pdata);
 	if (!jzfb->dsi) {
 		goto err_iounmap;
@@ -2744,7 +2744,6 @@ static int jzfb_suspend(struct device *dev)
 	mutex_lock(&jzfb->suspend_lock);
 	jzfb->is_suspend = 1;
 	mutex_unlock(&jzfb->suspend_lock);
-
 //#ifdef CONFIG_JZ_MIPI_DSI
 	//jzfb->dsi->master_ops->set_blank(jzfb->dsi, DSI_BLANK_POWERDOWN);
 //#endif

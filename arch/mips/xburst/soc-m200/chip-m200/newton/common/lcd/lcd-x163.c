@@ -21,7 +21,6 @@
 #include <mach/jzfb.h>
 #include "../board_base.h"
 
-#define DEFAULT_DATALANE_BPS (250 * 1000)
 
 struct auo_x163_platform_data{
 	struct lcd_platform_data *lcd_pdata;
@@ -35,7 +34,7 @@ struct fb_videomode jzfb_videomode = {
 	.refresh = 60,
 	.xres = 320,
 	.yres = 320,
-	.pixclock = KHZ2PICOS(5760),
+	.pixclock = KHZ2PICOS(12288),
 	.left_margin = 0,
 	.right_margin = 0,
 	.upper_margin = 0,
@@ -98,7 +97,6 @@ struct jzdsi_data jzdsi_pdata = {
 	.video_config.no_of_lanes = 1,
 	.video_config.virtual_channel = 0,
 	.video_config.color_coding = COLOR_CODE_24BIT,
-	.video_config.byte_clock = DEFAULT_DATALANE_BPS / 8,
 	.video_config.video_mode = VIDEO_BURST_WITH_SYNC_PULSES,
 	.video_config.receive_ack_packets = 0,	/* enable receiving of ack packets */
 	.video_config.is_18_loosely = 0, /*loosely: R0R1R2R3R4R5__G0G1G2G3G4G5G6__B0B1B2B3B4B5B6, not loosely: R0R1R2R3R4R5G0G1G2G3G4G5B0B1B2B3B4B5*/
