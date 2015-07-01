@@ -955,20 +955,7 @@ static int jzfb_set_par(struct fb_info *info)
 		smart_tas = 0;
 	}
 
-	if (mode->pixclock) {
-		rate = PICOS2KHZ(mode->pixclock) * 1000;
-		mode->refresh = rate / vt / ht;
-	} else {
-		if (pdata->lcd_type == LCD_TYPE_8BIT_SERIAL) {
-			rate = mode->refresh * (vt + 2 * mode->xres) * ht;
-		} else {
-			rate = mode->refresh * vt * ht;
-		}
-		mode->pixclock = KHZ2PICOS(rate / 1000);
-
-		var->pixclock = mode->pixclock;
-	}
-
+	rate = PICOS2KHZ(mode->pixclock) * 1000;
 	  /* smart lcd WR freq = (lcd pixel clock)/2 */
      if (pdata->lcd_type == LCD_TYPE_SLCD) {
          rate *= 2;
@@ -2455,6 +2442,51 @@ int lcd_display_inited_by_uboot( void )
 	return uboot_inited;
 }
 
+static int refresh_pixclock_auto_adapt(struct fb_info *info)
+{
+	struct jzfb *jzfb = info->par;
+	struct jzfb_platform_data *pdata = jzfb->pdata;
+	struct fb_var_screeninfo *var = &info->var;
+	struct fb_videomode *mode;
+	uint16_t hds, vds;
+	uint16_t hde, vde;
+	uint16_t ht, vt;
+	unsigned long rate;
+
+	mode = pdata->modes;
+	if (mode == NULL) {
+		dev_err(jzfb->dev, "%s get video mode failed\n", __func__);
+		return -EINVAL;
+	}
+
+	hds = mode->hsync_len + mode->left_margin;
+	hde = hds + mode->xres;
+	ht = hde + mode->right_margin;
+
+	vds = mode->vsync_len + mode->upper_margin;
+	vde = vds + mode->yres;
+	vt = vde + mode->lower_margin;
+
+	if(mode->refresh){
+		if (pdata->lcd_type == LCD_TYPE_8BIT_SERIAL) {
+			rate = mode->refresh * (vt + 2 * mode->xres) * ht;
+		} else {
+			rate = mode->refresh * vt * ht;
+		}
+		mode->pixclock = KHZ2PICOS(rate / 1000);
+
+		var->pixclock = mode->pixclock;
+	}else if(mode->pixclock){
+		rate = PICOS2KHZ(mode->pixclock) * 1000;
+		mode->refresh = rate / vt / ht;
+	}else{
+		dev_err(jzfb->dev,"+++++++++++%s error:lcd important config info is absenced\n",__func__);
+		return -EINVAL;
+	}
+	return 0;
+
+}
+
 static int jzfb_probe(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -2528,6 +2560,10 @@ static int jzfb_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 			"Failed to ioremap register memory region\n");
 		ret = -EBUSY;
+		goto err_put_clk;
+	}
+
+	if(refresh_pixclock_auto_adapt(fb)){
 		goto err_put_clk;
 	}
 
