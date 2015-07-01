@@ -331,6 +331,11 @@ dsih_error_t jz_dsih_dphy_configure(struct dsi_device *dsi,
 		/* this solution is not favourable as jitter would be maximum */
 		loop_divider = output_freq / DPHY_DIV_LOWER_LIMIT;
 		input_divider = phy->reference_freq / DPHY_DIV_LOWER_LIMIT;
+		//make sure M is not overflowed,M mask 9 bits
+		if(loop_divider > 511){
+		loop_divider = output_freq / (DPHY_DIV_LOWER_LIMIT * 2);
+		input_divider = phy->reference_freq / (DPHY_DIV_LOWER_LIMIT * 2);
+		}
 	} else {		/* variable was incremented before exiting the loop */
 		/*
 		 * input_divider is 6 now,
@@ -344,6 +349,10 @@ dsih_error_t jz_dsih_dphy_configure(struct dsi_device *dsi,
 	     && (loop_divider > loop_bandwidth[i].loop_div); i++) {
 		;
 	}
+	printk("dsi_phy output_freq set:input_divider = %d loop_divider = %d\n",input_divider,loop_divider);
+	if(loop_divider > 511)
+		printk("+++++++++++++++serious warning: loop_divider is overflowed!\n");
+
 	/* i = 0;
 	 * */
 	if (i >= (sizeof(loop_bandwidth) / sizeof(loop_bandwidth[0]))) {

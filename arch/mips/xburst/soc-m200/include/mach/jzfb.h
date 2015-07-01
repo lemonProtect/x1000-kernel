@@ -91,10 +91,11 @@ struct smart_lcd_data_table {
 };
 
 struct jzdsi_data {
-	unsigned int bpp_info;
 	struct fb_videomode *modes;
 	struct video_config video_config;
 	struct dsi_config dsi_config;
+	unsigned int bpp_info;
+	unsigned int max_bps;
 };
 
 /**

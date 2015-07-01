@@ -752,9 +752,18 @@ struct dsi_device * jzdsi_init(struct jzdsi_data *pdata)
 	dsi->video_config->v_sync_lines = pdata->modes->vsync_len;
 	dsi->video_config->v_back_porch_lines = pdata->modes->upper_margin;
 	dsi->video_config->v_total_lines = pdata->modes->yres + pdata->modes->upper_margin + pdata->modes->lower_margin + pdata->modes->vsync_len;
-	dsi->video_config->byte_clock = dsi->video_config->h_total_pixels * dsi->video_config->v_total_lines * pdata->modes->refresh * pdata->bpp_info * 15 / 10 / 1000 / 8; //  BSP is set 1.5 times dpi_clock
-	if(dsi->video_config->byte_clock * 8 > 1000 * 1000){
-		pr_info("warning: BPS is over 1G\n");
+	dsi->video_config->byte_clock = ((dsi->video_config->h_total_pixels * dsi->video_config->v_total_lines * pdata->modes->refresh) / 1000) * pdata->bpp_info / dsi->video_config->no_of_lanes / 8 ;
+	dsi->video_config->byte_clock = dsi->video_config->byte_clock + dsi->video_config->byte_clock / 2; //DATALANE_BPS is set 1.5 times than real needed in order to avoid lcd tearing
+	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+	pr_debug("h_total_pixels  = %d\n",dsi->video_config->h_total_pixels);
+	pr_debug("v_total_lines  = %d\n",dsi->video_config->v_total_lines);
+	pr_debug("refresh  = %d\n",pdata->modes->refresh);
+	pr_debug("bpp_info  = %d\n",pdata->bpp_info);
+	pr_debug("pixel_clock = %d DATALANE_BPS = %d\n",dsi->video_config->pixel_clock,dsi->video_config->byte_clock * 8);
+	pr_debug("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n");
+	if(dsi->video_config->byte_clock * 8 > pdata->max_bps * 1000){
+		dsi->video_config->byte_clock = pdata->max_bps * 1000 / 8;
+		pr_info("+++++++++++++warning: DATALANE_BPS is over lcd max_bps allowed ,auto set it lcd max_bps\n");
 	}
 	dsi->master_ops = &jz_master_ops;
 

@@ -969,6 +969,11 @@ static int jzfb_set_par(struct fb_info *info)
 		var->pixclock = mode->pixclock;
 	}
 
+	  /* smart lcd WR freq = (lcd pixel clock)/2 */
+     if (pdata->lcd_type == LCD_TYPE_SLCD) {
+         rate *= 2;
+     }
+
 	/*set reg,and enable lcd after set all reg*/
 	//is_lcd_en = jzfb->is_lcd_en;
 	//jzfb_disable(info);
@@ -1083,11 +1088,11 @@ static int jzfb_set_par(struct fb_info *info)
 		//clk_set_rate(jzfb->pclk, rate);
 	//clk_enable(jzfb->pclk);
 
-	//if (!jzfb->is_suspend) {
-		///*avoid printk after every wake up */
-		//dev_dbg(jzfb->dev, "LCDC: PixClock:%lu\n", rate);
-		//dev_dbg(jzfb->dev, "LCDC: PixClock:%lu(real)\n", clk_get_rate(jzfb->pclk));
-	//}
+	if (!jzfb->is_suspend) {
+		/*avoid printk after every wake up */
+		dev_dbg(jzfb->dev, "LCDC: PixClock:%lu\n", rate);
+		dev_dbg(jzfb->dev, "LCDC: PixClock:%lu(real)\n", clk_get_rate(jzfb->pclk));
+	}
 
 	jzfb_config_image_enh(info);
 	if (pdata->lcd_type == LCD_TYPE_SLCD) {

@@ -107,6 +107,7 @@ struct jzdsi_data jzdsi_pdata = {
 	.dsi_config.max_bta_cycles = 4095,
 	.dsi_config.color_mode_polarity = 1,
 	.dsi_config.shut_down_polarity = 1,
+	.max_bps = 650,  // 650 Mbps
 };
 
 struct jzfb_platform_data jzfb_pdata = {
