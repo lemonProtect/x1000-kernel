@@ -2683,12 +2683,7 @@ static int jzfb_probe(struct platform_device *pdev)
 			}
 		}
 	} else {
-		/*do init, set blank state*/
 		jzfb_set_par(jzfb->fb);
-		jzfb->blank = FB_BLANK_POWERDOWN;
-		clk_disable(jzfb->pwcl);
-		clk_disable(jzfb->pclk);
-		clk_disable(jzfb->clk);
 	}
 #if 0
 	if (jzfb->vidmem_phys) {
