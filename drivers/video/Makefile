@@ -17,6 +17,7 @@ obj-$(CONFIG_VT)		  += console/
 obj-$(CONFIG_LOGO)		  += logo/
 obj-y				  += backlight/
 
+
 obj-$(CONFIG_EXYNOS_VIDEO)     += exynos/
 
 obj-$(CONFIG_FB_CFB_FILLRECT)  += cfbfillrect.o
@@ -170,6 +171,7 @@ obj-$(CONFIG_FB_SSD1307)	  += ssd1307fb.o
 obj-$(CONFIG_FB_SIMPLE)           += simplefb.o
 obj-$(CONFIG_FB_JZ_V12)     	  += jz_fb_v12/
 obj-$(CONFIG_FB_JZ_V11)     	  += jz_fb_v11/
+obj-$(CONFIG_VFB_JZ) 		  		  +=jz_vfb/
 obj-$(CONFIG_JZ_VPU)             += jz_vpu/
 obj-$(CONFIG_JZ_IPU_V12)		  += jz_ipu/
 

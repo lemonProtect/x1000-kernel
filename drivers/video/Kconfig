@@ -2518,6 +2518,8 @@ config FB_SSD1307
 
 source "drivers/video/jz_fb_v12/Kconfig"
 source "drivers/video/jz_fb_v11/Kconfig"
+source "drivers/video/jz_vfb/Kconfig"
+
 
 config FB_VSYNC_SKIP
         int "Vsync skip ratio[0..9]"
@@ -2530,7 +2532,8 @@ choice
 	depends on FB && (SOC_4780 || SOC_4775 || SOC_M200)
 	prompt "allocation frame buffer"
 	default THREE_FRAME_BUFFERS
-
+	help
+		number of Frame Buffer choose
 config ONE_FRAME_BUFFERS
        bool "alloc 1 frame buffers"
        help
