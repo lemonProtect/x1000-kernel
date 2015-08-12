@@ -685,11 +685,6 @@ static const struct snd_soc_dapm_widget icdc_d1_dapm_widgets[] = {
 };
 
 static const struct snd_soc_dapm_route intercon[] = {
-	{ "MICBIAS1",  NULL,  "AIP1" },
-	{ "MICBIAS1",  NULL,  "AIN1" },
-	{ "MICBIAS1",  NULL,  "AIP2" },
-	{ "MICBIAS2",  NULL,  "AIP3" },
-
 	/*input*/
 	{ "AIL Mux", "AIPN1", "AIP1" },
 	{ "AIL Mux", "AIPN1", "AIN1" },
