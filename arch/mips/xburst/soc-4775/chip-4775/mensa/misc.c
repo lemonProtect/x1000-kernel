@@ -20,6 +20,7 @@
 #ifdef CONFIG_SND_JZ_SOC_AIC_CORE
 #include <sound/jz-aic.h>
 #endif
+#include <linux/platform_data/xburst_nand.h>
 #include "board.h"
 
 #ifdef CONFIG_KEYBOARD_GPIO
@@ -733,10 +734,6 @@ static int __init board_init(void)
 #ifdef CONFIG_KEYBOARD_GPIO
 	platform_device_register(&jz_button_device);
 #endif
-/* nand */
-#ifdef CONFIG_NAND_DRIVER
-	jz_device_register(&jz_nand_device, NULL);
-#endif
 
 #ifdef CONFIG_HDMI_JZ4780
 	platform_device_register(&jz_hdmi);
@@ -761,6 +758,15 @@ static int __init board_init(void)
        spi_register_board_info(jz_spi1_board_info, ARRAY_SIZE(jz_spi1_board_info));
        platform_device_register(&jz_ssi1_device);
        platform_device_add_data(&jz_ssi1_device, &spi1_info_cfg, sizeof(struct jz47xx_spi_info));
+#endif
+#endif
+/* nand */
+#ifdef CONFIG_NAND_DRIVER
+	jz_device_register(&jz_nand_device, NULL);
+#elif defined(CONFIG_MTD_NAND_JZ)
+       platform_device_register(&jz_mtd_nand_device);
+#ifdef CONFIG_MTD_NAND_JZ_NORMAL
+       platform_device_add_data(&jz_mtd_nand_device, &nand_chip_data, sizeof(struct xburst_nand_chip_platform_data));
 #endif
 #endif
 

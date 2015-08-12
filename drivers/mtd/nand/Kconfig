@@ -548,4 +548,6 @@ config MTD_NAND_XWAY
 	  Enables support for NAND Flash chips on Lantiq XWAY SoCs. NAND is attached
 	  to the External Bus Unit (EBU).
 
+source "drivers/mtd/nand/ingenic/Kconfig"
+
 endif # MTD_NAND

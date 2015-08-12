@@ -7,7 +7,7 @@
 #include "pmu.h"
 
 /* ****************************GPIO SLEEP START******************************* */
-#define GPIO_REGULATOR_SLP	GPIO_PB(1)
+#define GPIO_REGULATOR_SLP	GPIO_PF(14)//FIXME PF14
 #define GPIO_OUTPUT_TYPE	GPIO_OUTPUT1
 /* ****************************GPIO SLEEP END******************************** */
 
@@ -60,29 +60,29 @@
 /* ****************************GPIO LCD END********************************** */
 
 /* ****************************GPIO I2C START******************************** */
-#ifndef CONFIG_SOFT_I2C0_GPIO_V12_JZ
+#ifndef CONFIG_I2C0_V12_JZ
 #define GPIO_I2C0_SDA GPIO_PD(30)
 #define GPIO_I2C0_SCK GPIO_PD(31)
 #endif
-#ifndef CONFIG_SOFT_I2C1_GPIO_V12_JZ
+#ifndef CONFIG_I2C1_V12_JZ
 #define GPIO_I2C1_SDA GPIO_PE(30)
 #define GPIO_I2C1_SCK GPIO_PE(31)
 #endif
-#ifndef CONFIG_SOFT_I2C2_GPIO_V12_JZ
-#define GPIO_I2C2_SDA GPIO_PF(16)
-#define GPIO_I2C2_SCK GPIO_PF(17)
+#ifndef CONFIG_I2C2_V12_JZ
+#define GPIO_I2C2_SDA (-1) //FIXME
+#define GPIO_I2C2_SCK (-1)//FIXME
 #endif
-#ifndef CONFIG_SOFT_I2C3_GPIO_V12_JZ
-#define GPIO_I2C3_SDA GPIO_PC(23)
-#define GPIO_I2C3_SCK GPIO_PC(22)
+#ifndef CONFIG_I2C3_V12_JZ
+#define GPIO_I2C3_SDA GPIO_PB(7)//FIXME PB07
+#define GPIO_I2C3_SCK GPIO_PB(8)//FIXME PB08
 #endif
 /* ****************************GPIO I2C END********************************** */
 
 /* ****************************GPIO SPI START******************************** */
 #ifndef CONFIG_SPI_GPIO
-#define GPIO_SPI_SCK  GPIO_PE(15)
-#define GPIO_SPI_MOSI GPIO_PE(17)
-#define GPIO_SPI_MISO GPIO_PE(14)
+#define GPIO_SPI_SCK  GPIO_PD(28)//FIXME PD28
+#define GPIO_SPI_MOSI GPIO_PE(0)//FIXME PE00
+#define GPIO_SPI_MISO GPIO_PE(3)//FIXME PE03
 #endif
 /* ****************************GPIO SPI END********************************** */
 
@@ -109,7 +109,7 @@
 /* #define GPIO_HOME_KEY		GPIO_PD(18) */
 /* #define ACTIVE_LOW_HOME		1 */
 
-#define GPIO_VOLUMEDOWN_KEY         GPIO_PD(18)
+#define GPIO_VOLUMEDOWN_KEY         GPIO_PD(17)//FIXME PD17
 #define ACTIVE_LOW_VOLUMEDOWN	0
 
 #define GPIO_ENDCALL_KEY            GPIO_PA(30)
@@ -120,44 +120,43 @@
 /* ****************************GPIO PMU START******************************** */
 /* PMU ricoh619 */
 #ifdef CONFIG_REGULATOR_RICOH619
-#define PMU_IRQ_N		GPIO_PA(3)
+#define PMU_IRQ_N		GPIO_PF(12) //FIXME PF12
 #endif /* CONFIG_REGULATOR_RICOH619 */
-
-/* pmu d2041 or 9024 gpio def*/
-#define GPIO_PMU_IRQ		GPIO_PA(3)
 /* ****************************GPIO PMU END********************************** */
 
 /* ****************************GPIO GSENSOR START**************************** */
-#define GPIO_GSENSOR_INT     GPIO_PA(15)
+#define GPIO_GSENSOR_INT     GPIO_PF(1) //FIXME PF01
 /* ****************************GPIO GSENSOR END****************************** */
 
 /* ****************************GPIO EFUSE START****************************** */
-#define GPIO_EFUSE_VDDQ      GPIO_PA(12)
+#define GPIO_EFUSE_VDDQ      GPIO_PE(21) //FIXME PE21
 /* ****************************GPIO EFUSE END******************************** */
 
 /* ****************************GPIO LI ION START***************************** */
+#if 0
 #define GPIO_LI_ION_CHARGE   GPIO_PB(1)
 #define GPIO_LI_ION_AC       GPIO_PA(13)
 #define GPIO_ACTIVE_LOW      1
+#endif
 /* ****************************GPIO LI ION END******************************* */
 
 /* ****************************GPIO USB START******************************** */
-#define GPIO_USB_ID			GPIO_PA(13)
+#define GPIO_USB_ID			GPIO_PF(3) //FIXME PF03
 #define GPIO_USB_ID_LEVEL		LOW_ENABLE
-#define GPIO_USB_DETE			GPIO_PA(14)
+#define GPIO_USB_DETE			GPIO_PF(2) //FIXME PF02
 #define GPIO_USB_DETE_LEVEL		HIGH_ENABLE
 #define GPIO_USB_DRVVBUS		GPIO_PE(10)
 #define GPIO_USB_DRVVBUS_LEVEL		HIGH_ENABLE
 /* ****************************GPIO USB END********************************** */
 
 /* ****************************GPIO CAMERA START***************************** */
-#define CAMERA_RST		GPIO_PD(27)
-#define CAMERA_PWDN_N           GPIO_PA(13) /* pin conflict with USB_ID */
-#define CAMERA_MCLK		GPIO_PE(2) /* no use */
+#define CAMERA_RST		(-1)//GPIO_PD(27)
+#define CAMERA_PWDN_N           (-1)//GPIO_PA(13) /* pin conflict with USB_ID */
+#define CAMERA_MCLK		(-1)//GPIO_PE(2) /* no use */
 #ifdef CONFIG_DVP_OV9712
-#define OV9712_POWER	 	GPIO_PC(2) //the power of camera board
-#define OV9712_RST		GPIO_PA(11)
-#define OV9712_PWDN_EN		GPIO_PD(28)
+#define OV9712_POWER	 	(-1)//GPIO_PC(2) //the power of camera board
+#define OV9712_RST		(-1)//GPIO_PA(11)
+#define OV9712_PWDN_EN		(-1)//GPIO_PD(28)
 #endif
 /* ****************************GPIO CAMERA END******************************* */
 
@@ -179,12 +178,15 @@
 #define GPIO_MIC_INSERT_LEVEL   -1
 #define GPIO_MIC_DETECT_EN	-1  /*mic detect enable gpio*/
 #define GPIO_MIC_DETECT_EN_LEVEL -1 /*mic detect enable gpio*/
+
+#define HP_SENSE_ACTIVE_LEVEL	0
+#define HOOK_ACTIVE_LEVEL		-1
 /* ****************************GPIO AUDIO END******************************** */
 
 /* ****************************GPIO WIFI START******************************* */
-#define HOST_WAKE_WL	GPIO_PA(10)
-#define WL_WAKE_HOST	GPIO_PA(9)
-#define WL_REG_EN	GPIO_PA(8)
+#define HOST_WAKE_WL	(-1)
+#define WL_WAKE_HOST	(-1)
+#define WL_REG_EN	(-1)
 #if 0
 #define GPIO_WLAN_REG_ON	GPIO_PG(7)
 #define GPIO_WLAN_INT	        GPIO_PG(8)
@@ -200,18 +202,18 @@
 /*
  * For BCM2079X NFC
  */
-#define NFC_REQ		GPIO_PC(26)
-#define NFC_REG_PU	GPIO_PC(27)
-#define HOST_WAKE_NFC   GPIO_PA(11)
+#define NFC_REQ		(-1)
+#define NFC_REG_PU	(-1)
+#define HOST_WAKE_NFC   (-1)
 /* ****************************GPIO NFC END********************************** */
 
 /* ****************************GPIO BLUETOOTH START************************** */
 /* BT gpio */
-#define HOST_WAKE_BT	GPIO_PA(1)
-#define BT_WAKE_HOST	GPIO_PA(0)
-#define BT_REG_EN	GPIO_PA(2)
-#define BT_UART_RTS	GPIO_PF(2)
-#define BLUETOOTH_UPORT_NAME  "ttyS0"
+#define HOST_WAKE_BT	(-1)
+#define BT_WAKE_HOST	(-1)
+#define BT_REG_EN	(-1)
+#define BT_UART_RTS	(-1)
+#define BLUETOOTH_UPORT_NAME  "ttyS_NULL"
 #if 0
 #define BLUETOOTH_UPORT_NAME  "ttyS1"
 #define BLUETOOTH_UPORT_NAME  "ttyS2"

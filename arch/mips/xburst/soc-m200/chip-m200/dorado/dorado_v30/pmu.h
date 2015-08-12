@@ -3,6 +3,7 @@
 #ifdef CONFIG_REGULATOR_RICOH619
 
 #define PMU_I2C_BUSNUM  1
+
 /* ****************************PMU DC/LDO NAME******************************* */
 #define DC1_NAME "cpu_core"
 #define DC2_NAME "cpu_vmema"
@@ -24,9 +25,9 @@
 /* ****************************PMU DC/LDO NAME END*************************** */
 
 /* ****************************PMU DC/LDO DEFAULT V************************** */
-#define DC1_INIT_UV     1100
-#define DC2_INIT_UV     1200
-#define DC3_INIT_UV     1200
+#define DC1_INIT_UV     1200
+#define DC2_INIT_UV     1500
+#define DC3_INIT_UV     1500
 #ifdef CONFIG_JZ_EPD_V12
 #define DC4_INIT_UV     3300
 #else
@@ -43,13 +44,13 @@
 #define LDO8_INIT_UV    1800
 #define LDO9_INIT_UV    1800
 #define LDO10_INIT_UV   1800
-#define LDORTC1_INIT_UV 1800
+#define LDORTC1_INIT_UV 3300
 #define LDORTC2_INIT_UV 1100
 /* ****************************PMU DC/LDO DEFAULT V END********************** */
 /* ****************************PMU DC/LDO SLP DEFAULT V********************** */
 #define DC1_INIT_SLP_UV     975
-#define DC2_INIT_SLP_UV     1200
-#define DC3_INIT_SLP_UV     1200
+#define DC2_INIT_SLP_UV     1500
+#define DC3_INIT_SLP_UV     1500
 #ifdef CONFIG_JZ_EPD_V12
 #define DC4_INIT_SLP_UV     3300
 #else
@@ -66,7 +67,7 @@
 #define LDO8_INIT_SLP_UV    1800
 #define LDO9_INIT_SLP_UV    1800
 #define LDO10_INIT_SLP_UV   1800
-#define LDORTC1_INIT_SLP_UV 1800
+#define LDORTC1_INIT_SLP_UV 3300
 #define LDORTC2_INIT_SLP_UV 1100
 /* ****************************PMU DC/LDO SLP DEFAULT V END****************** */
 /* ****************************PMU DC/LDO ALWAYS ON************************** */

@@ -115,4 +115,10 @@ extern struct jz_adc_platform_data adc_platform_data;
 #if IS_ENABLED(CONFIG_SND_ASOC_INGENIC_DORADO_ICDC)
 extern struct platform_device snd_dorado_device;
 #endif
+#ifdef CONFIG_MTD_NAND_JZ
+extern struct platform_device jz_mtd_nand_device;
+#ifdef CONFIG_MTD_NAND_JZ_NORMAL
+extern struct xburst_nand_chip_platform_data nand_chip_data;
+#endif
+#endif	/*CONFIG_MTD_NAND_JZ*/
 #endif	/* __BOARD_BASE_H__ */

@@ -104,12 +104,12 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	UART4_PORTF,
 #endif
 #endif
-#ifdef CONFIG_NAND_DRIVER
+#if defined(CONFIG_NAND_COMMON) || defined(CONFIG_MTD_NAND_JZ)
 	NAND_PORTAB_COMMON,
 	NAND_PORTA_CS1,
 	NAND_PORTA_CS2,
 #endif
-#ifdef CONFIG_NAND_BUS_WIDTH_16
+#if defined(CONFIG_NAND_BUS_WIDTH_16) || defined(CONFIG_MTD_NAND_JZ_BUS_WITDH_16)
 	NAND_PORTA_BUS16,
 #endif
 #ifdef CONFIG_NAND_CS3
@@ -399,6 +399,36 @@ struct platform_device jz_vpu_device = {
 	.num_resources    = ARRAY_SIZE(jz_vpu_resource),
 	.resource         = jz_vpu_resource,
 };
+
+#ifdef CONFIG_MTD_NAND_JZ
+static struct resource jz_mtd_nand_resources[] = {
+	[0] = {
+		.name		= "nfi",
+		.start          = NFI_IOBASE,
+		.end            = NFI_IOBASE + 0x58 - 1, /*0x0 ~ 0x54*/
+		.flags          = IORESOURCE_MEM,
+	},
+	[1] = {
+		.name		= "nfi_cs1",
+		.start          = NEMC_CS1_IOBASE,
+		.end            = NEMC_CS1_IOBASE + 0x1000000 - 1,	/*data: 0x0 addr:0x400000 cmd:0x800000*/
+		.flags          = IORESOURCE_MEM,
+	},
+	[2] = {
+		.name		= "bch",
+		.start		= BCH_IOBASE,
+		.end		= BCH_IOBASE + 0x198 - 1, /*0x0 ~ 0x194*/
+		.flags		= IORESOURCE_MEM,
+	}
+};
+
+struct platform_device jz_mtd_nand_device = {
+	.name = "jz-nand",
+	.id = 0,
+	.num_resources  = ARRAY_SIZE(jz_mtd_nand_resources),
+	.resource = jz_mtd_nand_resources,
+};
+#endif
 
 /* ipu */
 static u64 jz_ipu_dmamask = ~(u64) 0;

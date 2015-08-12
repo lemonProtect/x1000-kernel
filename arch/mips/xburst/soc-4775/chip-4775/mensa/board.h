@@ -165,5 +165,10 @@ extern struct platform_device jz_epdce_device;
 extern struct platform_device jz_epd_device;
 extern struct jz_epd_platform_data jz_epd_pdata;
 #endif
-
+#ifdef CONFIG_MTD_NAND_JZ
+extern struct platform_device jz_mtd_nand_device;
+#ifdef CONFIG_MTD_NAND_JZ_NORMAL
+extern struct xburst_nand_chip_platform_data nand_chip_data;
+#endif
+#endif	/*CONFIG_MTD_NAND_JZ*/
 #endif /* __BOARD_H__ */

@@ -22,6 +22,7 @@
 #include <mach/camera.h>
 #include <gpio.h>
 #include <mach/jz_dsim.h>
+#include <linux/platform_data/xburst_nand.h>
 #include "board_base.h"
 
 struct jz_platform_device
@@ -101,6 +102,18 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_JZ_VPU_V12
 	DEF_DEVICE(&jz_vpu_device, 0, 0),
 #endif
+
+/* nand */
+#ifdef CONFIG_NAND_DRIVER		/*inegnic nand manager*/
+	DEF_DEVICE(&jz_nand_device, NULL,0),
+#elif defined(CONFIG_MTD_NAND_JZ)		/*mtd*/
+#if defined(CONFIG_MTD_NAND_JZ_AUTO)
+	DEF_DEVICE(&jz_mtd_nand_device, 0, 0),
+#elif defined(CONFIG_MTD_NAND_JZ_NORMAL)
+	DEF_DEVICE(&jz_mtd_nand_device, &nand_chip_data, sizeof(struct xburst_nand_chip_platform_data)),
+#endif
+#endif
+
 #ifdef CONFIG_BCM_PM_CORE
 	DEF_DEVICE(&bcm_power_platform_device, 0, 0),
 #endif
@@ -171,11 +184,6 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_SOUND_JZ_DMIC_V12
 	DEF_DEVICE(&jz_dmic_device, &dmic_data, sizeof(struct snd_dev_data)),
 	DEF_DEVICE(&jz_mixer3_device, &snd_mixer3_data, sizeof(struct snd_dev_data)),
-#endif
-
-	/* nand */
-#ifdef CONFIG_NAND_DRIVER
-	DEF_DEVICE(&jz_nand_device, NULL,0),
 #endif
 
 #ifdef CONFIG_SOUND_JZ_PCM_V12
