@@ -28,14 +28,6 @@ struct jzfb {
 
 	int current_buffer;
 
-	wait_queue_head_t vsync_wq;
-#define TIMESTAMP_CAP	16
-	struct {
-		volatile int wp; /* write position */
-		int rp;	/* read position */
-		u64 value[TIMESTAMP_CAP];
-	} timestamp;
-
 	enum jzfb_format_order fmt_order;	/* frame buffer pixel format order */
 };
 

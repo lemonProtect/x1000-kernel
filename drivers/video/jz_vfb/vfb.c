@@ -81,6 +81,11 @@ static const struct fb_fix_screeninfo jzfb_fix  = {
 	.accel = FB_ACCEL_NONE,
 };
 
+extern int jzfb_vsync_thread(void *data);
+extern int vsync_soft_set(int data);
+extern void vsync_soft_stop();
+extern int vsync_wait(struct fb_info *info,unsigned long arg);
+
 static void
 jzfb_videomode_to_var(struct fb_var_screeninfo *var,
 		      const struct fb_videomode *mode)
@@ -248,34 +253,10 @@ static void jzfb_free_devmem(struct jzfb *jzfb)
 
 static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 {
-	int next_frm;
-	struct jzfb *jzfb = info->par;
-
 	if (var->xoffset - info->var.xoffset) {
 		dev_err(info->dev, "No support for X panning for now\n");
 		return -EINVAL;
 	}
-
-	if (var->yres == 720 || var->yres == 1080) {
-		switch (var->yoffset) {
-		case 1440:
-		case (1080 * 2):
-			next_frm = 2;
-			break;
-		case 720:
-		case (1080 * 1):
-			next_frm = 1;
-			break;
-		default:
-			next_frm = 0;
-			break;
-		}
-	} else
-		next_frm = var->yoffset / var->yres;
-
-	jzfb->current_buffer = next_frm;
-
-
 	return 0;
 }
 
@@ -313,6 +294,32 @@ static int jzfb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 	return 0;
 }
 
+static int jzfb_ioctl(struct fb_info *info, unsigned int cmd, unsigned long arg)
+{
+	void __user *argp = (void __user *)arg;
+	struct jzfb *jzfb = info->par;
+	int ret;
+	switch (cmd) {
+		case JZFB_SET_VSYNCINT:
+			break;
+		case FBIO_WAITFORVSYNC:
+			ret = vsync_wait(info,arg);
+			if (unlikely(ret))
+				return -EFAULT;
+			break;
+		case JZFB_GET_LCDTYPE:
+			break;
+
+		default:
+			dev_info(info->dev, "Unknown ioctl 0x%x\n", cmd);
+			return -1;
+	}
+
+	return 0;
+}
+
+
+
 static struct fb_ops jzfb_ops = {
 	.owner = THIS_MODULE,
 	.fb_check_var = jzfb_check_var,
@@ -321,12 +328,14 @@ static struct fb_ops jzfb_ops = {
 	.fb_fillrect = cfb_fillrect,
 	.fb_copyarea = cfb_copyarea,
 	.fb_imageblit = cfb_imageblit,
+	.fb_ioctl = jzfb_ioctl,
 	.fb_mmap = jzfb_mmap,
 };
 
 static int jzfb_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	int delay;
 	struct fb_info *fb;
 	struct jzfb_platform_data *pdata = pdev->dev.platform_data;
 	struct fb_videomode *video_mode;
@@ -376,21 +385,22 @@ static int jzfb_probe(struct platform_device *pdev)
 	fb->fix.smem_len = jzfb->vidmem_size;
 	fb->screen_base = jzfb->vidmem;
 	fb->pseudo_palette = (void *)(fb + 1);
-
-
-	init_waitqueue_head(&jzfb->vsync_wq);
-	jzfb->timestamp.rp = 0;
-	jzfb->timestamp.wp = 0;
+	delay = 1000 / video_mode->refresh;
+	if(vsync_soft_set(delay)){
+		dev_err(&pdev->dev, "Failed to run vsync thread");
+		goto err_free_devmem;
+	}
 
 	ret = register_framebuffer(fb);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register framebuffer: %d\n",
 			ret);
-		goto err_free_devmem;
+		goto err_kthread_shop;
 	}
 
 	return 0;
-
+err_kthread_shop:
+	vsync_soft_stop();
 err_free_devmem:
 	jzfb_free_devmem(jzfb);
 err_framebuffer_release:
@@ -402,6 +412,7 @@ static int jzfb_remove(struct platform_device *pdev)
 {
 	struct jzfb *jzfb = platform_get_drvdata(pdev);
 
+	vsync_soft_stop();
 	jzfb_free_devmem(jzfb);
 	platform_set_drvdata(pdev, NULL);
 	framebuffer_release(jzfb->fb);
