@@ -105,16 +105,21 @@ static void jz_bch_disable(struct jz_bch *bch)
 static void jz_bch_write_data(struct jz_bch *bch, const void *buf,
 				  size_t size)
 {
-	size_t size32 = size / sizeof(uint32_t);
-	size_t size8 = size & (sizeof(uint32_t) - 1);
-	const uint32_t *src32;
-	const uint8_t *src8;
+	size_t align32 = ((4 - ((size_t )buf & 0x3)) & 0x3);		/*Note: size always bigger than 4 byte*/
+	size_t size32 = (size - align32) / sizeof(uint32_t);
+	size_t size8 = (size - align32) & (sizeof(uint32_t) - 1);
+	uint32_t *src32;
+	uint8_t *src8;
 
-	src32 = (const uint32_t *)buf;
+	src8 = (uint8_t *)buf;
+	while (align32--)
+		writeb(*src8++, &bch->regs->bhdr);
+
+	src32 = (uint32_t *)src8;
 	while (size32--)
 		writel(*src32++, &bch->regs->bhdr);
 
-	src8 = (const uint8_t *)src32;
+	src8 = (uint8_t *)src32;
 	while (size8--)
 		writeb(*src8++, &bch->regs->bhdr);
 }
@@ -126,13 +131,11 @@ static void jz_bch_read_parity(struct jz_bch *bch, void *buf,
 	size_t size8 = size & (sizeof(uint32_t) - 1);
 	uint32_t *dest32;
 	uint8_t *dest8;
-	uint32_t val, i = 0;
+	uint32_t val;
 
 	dest32 = (uint32_t *)buf;
-	while (size32--) {
+	while (size32--)
 		*dest32++ = readl(&bch->regs->bhpar[i]);
-		i++;
-	}
 
 	dest8 = (uint8_t *)dest32;
 	val = readl(&bch->regs->bhpar[i]);
@@ -151,7 +154,7 @@ static bool jz_bch_wait_complete(struct jz_bch *bch, unsigned int irq,
 		uint32_t *status)
 {
 	unsigned long timeout = jiffies + msecs_to_jiffies(BCH_TIMEOUT);
-	uint32_t reg;
+	uint32_t reg = 0;
 
 	/*
 	 * While we could use use interrupts here and sleep until the operation
@@ -159,18 +162,16 @@ static bool jz_bch_wait_complete(struct jz_bch *bch, unsigned int irq,
 	 * microseconds), so the overhead of sleeping until we get an interrupt
 	 * actually quite noticably decreases performance.
 	 */
-	do {
+	while (!((reg = readl(&bch->regs->bhint)) & irq) &&
+			time_before(jiffies, timeout))
 		cond_resched();
-		reg = readl(&bch->regs->bhint);
-		if ((reg & irq) == irq) {
-			if (status)
-				*status = reg;
 
-			writel(reg, &bch->regs->bhint);
-			return true;
-		}
-	} while (time_before(jiffies, timeout));
-
+	if (likely(reg & irq)) {
+		if (status) *status = reg;
+		writel(reg, &bch->regs->bhint);
+		return true;
+	}
+	printk("%lx %lx reg = %x\n", jiffies, timeout, reg);
 	return false;
 }
 
