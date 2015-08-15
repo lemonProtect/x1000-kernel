@@ -355,7 +355,7 @@ static irqreturn_t ft6x06_ts_interrupt(int irq, void *dev_id)
 {
 	struct ft6x06_ts_data *ft6x06_ts = dev_id;
 
-	jz_notifier_call(NOTEFY_PROI_NORMAL, JZ_CLK_CHANGING, NULL);
+//	jz_notifier_call(NOTEFY_PROI_NORMAL, JZ_CLK_CHANGING, NULL);
 	disable_irq_nosync(ft6x06_ts->irq);
 
 #if 0

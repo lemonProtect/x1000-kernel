@@ -587,7 +587,7 @@ static irqreturn_t ite7258_ts_interrupt(int irq, void *dev_id)
 {
         struct ite7258_ts_data *ite7258_ts = dev_id;
 
-	jz_notifier_call(NOTEFY_PROI_NORMAL, JZ_CLK_CHANGING, NULL);
+//	jz_notifier_call(NOTEFY_PROI_NORMAL, JZ_CLK_CHANGING, NULL);
         disable_irq_nosync(ite7258_ts->irq);
 
 #if 1

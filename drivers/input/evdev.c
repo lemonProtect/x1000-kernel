@@ -26,6 +26,7 @@
 #include <linux/cdev.h>
 #include <linux/wakelock.h>
 #include "input-compat.h"
+#include <jz_notifier.h>
 
 struct evdev {
 	int open;
@@ -95,6 +96,7 @@ static void evdev_pass_values(struct evdev_client *client,
 	const struct input_value *v;
 	struct input_event event;
 	bool wakeup = false;
+	bool check_user_input = true;
 
 	event.time = ktime_to_timeval(client->clkid == CLOCK_MONOTONIC ?
 				      mono : real);
@@ -109,6 +111,10 @@ static void evdev_pass_values(struct evdev_client *client,
 		__pass_event(client, &event);
 		if (v->type == EV_SYN && v->code == SYN_REPORT)
 			wakeup = true;
+		if (check_user_input && (event.type == EV_ABS || event.type == EV_KEY)) {
+			jz_notifier_call(NOTEFY_PROI_NORMAL, JZ_CLK_CHANGING, NULL);
+			check_user_input = false;
+		}
 	}
 
 	spin_unlock(&client->buffer_lock);
