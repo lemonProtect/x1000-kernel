@@ -132,10 +132,13 @@ static void jz_bch_read_parity(struct jz_bch *bch, void *buf,
 	uint32_t *dest32;
 	uint8_t *dest8;
 	uint32_t val;
+	int i = 0;
 
 	dest32 = (uint32_t *)buf;
-	while (size32--)
+	while (size32--) {
 		*dest32++ = readl(&bch->regs->bhpar[i]);
+		i++;
+	}
 
 	dest8 = (uint8_t *)dest32;
 	val = readl(&bch->regs->bhpar[i]);
