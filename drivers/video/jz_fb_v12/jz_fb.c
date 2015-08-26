@@ -378,7 +378,7 @@ jzfb_config_smart_lcd_dma(struct fb_info *info,
 	framedesc->cmd = LCDC_CMD_EOFINT | LCDC_CMD_FRM_EN;
 	framedesc->cmd |= size->fg0_frm_size;
 
-	if (jzfb->framedesc[0]->cpos & LCDC_CPOS_ALPHAMD1)
+	if (0 && (jzfb->framedesc[0]->cpos & LCDC_CPOS_ALPHAMD1))
 		/* per pixel alpha mode */
 		framedesc->cpos = LCDC_CPOS_ALPHAMD1;
 	else
@@ -1320,6 +1320,9 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	} else
 		next_frm = var->yoffset / var->yres;
 
+#if (NUM_FRAME_BUFFERS == 1)
+	next_frm = 0;
+#endif
 	jzfb->current_buffer = next_frm;
 
 	if (jzfb->pdata->lcd_type != LCD_TYPE_INTERLACED_TV &&
@@ -1347,7 +1350,6 @@ static int jzfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *info)
 	} else {
 		/* LCD_TYPE_INTERLACED_TV */
 	}
-
 	return 0;
 }
 
@@ -1853,13 +1855,31 @@ int jzfb_te_irq_register(struct jzfb *jzfb)
 }
 #endif /*!defined(CONFIG_SLCDC_CONTINUA)*/
 
+static inline uint32_t convert_color_to_hw(unsigned val, struct fb_bitfield *bf)
+{
+	return (((val << bf->length) + 0x7FFF - val) >> 16) << bf->offset;
+}
+static int jzfb_setcolreg(unsigned regno, unsigned red, unsigned green,
+	unsigned blue, unsigned transp, struct fb_info *fb)
+{
+	if (regno >= 16)
+		return -EINVAL;
 
+	((uint32_t *)(fb->pseudo_palette))[regno] =
+		convert_color_to_hw(red, &fb->var.red) |
+		convert_color_to_hw(green, &fb->var.green) |
+		convert_color_to_hw(blue, &fb->var.blue) |
+		convert_color_to_hw(transp, &fb->var.transp);
+
+	return 0;
+}
 static struct fb_ops jzfb_ops = {
 	.owner = THIS_MODULE,
 	.fb_open = jzfb_open,
 	.fb_release = jzfb_release,
 	.fb_check_var = jzfb_check_var,
 	.fb_set_par = jzfb_set_par,
+	.fb_setcolreg = jzfb_setcolreg,
 	.fb_blank = jzfb_blank,
 	.fb_pan_display = jzfb_pan_display,
 	.fb_fillrect = cfb_fillrect,
@@ -2631,7 +2651,8 @@ static int jzfb_probe(struct platform_device *pdev)
 	fb->fix.smem_start = jzfb->vidmem_phys;
 	fb->fix.smem_len = jzfb->vidmem_size;
 	fb->screen_base = jzfb->vidmem;
-	fb->pseudo_palette = (void *)(fb + 1);
+	fb->pseudo_palette = jzfb->pseudo_palette;
+		//	(void *)(fb + 1);
 	jzfb->irq = platform_get_irq(pdev, 0);
 	sprintf(jzfb->irq_name, "lcdc%d", pdev->id);
 	if (request_irq(jzfb->irq, jzfb_irq_handler, IRQF_DISABLED,
@@ -2671,7 +2692,7 @@ static int jzfb_probe(struct platform_device *pdev)
 		goto err_free_file;
 	}
 
-	if (lcd_display_inited_by_uboot()) {
+	if (0 && lcd_display_inited_by_uboot()) {
 		printk("#######lcd is enabled by uboot, keep par!!\n");
 		/* remain uboot logo, set blank state, keep clk
 		 * but what if uboot's par is different with kernel's.

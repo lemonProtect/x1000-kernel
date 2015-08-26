@@ -132,6 +132,7 @@ struct smack_known {
 #define SMK_FSFLOOR	"smackfsfloor="
 #define SMK_FSHAT	"smackfshat="
 #define SMK_FSROOT	"smackfsroot="
+#define SMK_FSTRANS	"smackfstransmute="
 
 #define SMACK_CIPSO_OPTION 	"-CIPSO"
 

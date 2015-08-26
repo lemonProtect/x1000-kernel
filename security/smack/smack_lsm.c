@@ -295,6 +295,8 @@ static int smack_sb_copy_data(char *orig, char *smackopts)
 			dp = smackopts;
 		else if (strstr(cp, SMK_FSROOT) == cp)
 			dp = smackopts;
+		else if (strstr(cp, SMK_FSTRANS) == cp)
+			dp = smackopts;
 		else
 			dp = otheropts;
 
@@ -330,6 +332,7 @@ static int smack_sb_kern_mount(struct super_block *sb, int flags, void *data)
 	char *op;
 	char *commap;
 	char *nsp;
+	int transmute = 0;
 
 	if (sp->smk_initialized != 0)
 		return 0;
@@ -362,6 +365,13 @@ static int smack_sb_kern_mount(struct super_block *sb, int flags, void *data)
 			nsp = smk_import(op, 0);
 			if (nsp != NULL)
 				sp->smk_root = nsp;
+		}else if (strncmp(op, SMK_FSTRANS, strlen(SMK_FSTRANS)) == 0) {
+			op += strlen(SMK_FSTRANS);
+			nsp = smk_import(op, 0);;
+			if (nsp != NULL) {
+				sp->smk_root = nsp;
+				transmute = 1;
+			}
 		}
 	}
 
@@ -373,6 +383,9 @@ static int smack_sb_kern_mount(struct super_block *sb, int flags, void *data)
 		inode->i_security = new_inode_smack(sp->smk_root);
 	else
 		isp->smk_inode = sp->smk_root;
+
+	if (transmute)
+		isp->smk_flags |= SMK_INODE_TRANSMUTE;
 
 	return 0;
 }

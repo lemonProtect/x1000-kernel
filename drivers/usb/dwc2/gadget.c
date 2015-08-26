@@ -1215,7 +1215,8 @@ void dwc2_gadget_giveback(struct dwc2_ep *dep,
 	list_del(&req->list);
 
 	if (req->request.status == -EINPROGRESS) {
-#ifdef CONFIG_ANDROID /*
+//#ifdef CONFIG_ANDROID
+		/*
 					   * cli@ingenic.cn when we use linux File-backed Storage Gadget driver
 					   * its seems that short_not_ok should not be saw here by dwc2 driver
 					   * maybe it a gadget problem but dwc driver is work well,
@@ -1228,7 +1229,7 @@ void dwc2_gadget_giveback(struct dwc2_ep *dep,
 					req, r->actual, r->length);
 			status = -EINVAL;
 		}
-#endif
+//#endif
 		req->request.status = status;
 	}
 
@@ -1806,7 +1807,7 @@ out:
 static struct dwc2 *m_dwc = NULL;
 int dwc2_udc_start(struct usb_gadget *gadget,
 			struct usb_gadget_driver *driver)
-{	
+{
 	int		 ret;
 	struct dwc2	*dwc = m_dwc;
 	struct dwc2_ep	*dep;
@@ -1836,7 +1837,7 @@ int dwc2_udc_start(struct usb_gadget *gadget,
 	}
 	dwc2_spin_unlock_irqrestore(dwc, flags);
 	dwc->gadget_driver = driver;
-	
+
 	return 0;
 }
 
@@ -2408,7 +2409,7 @@ int dwc2_gadget_init(struct dwc2 *dwc)
 
 	if (dwc2_is_device_mode(dwc))
 		dwc2_device_mode_init(dwc);
-	
+
 	ret = usb_add_gadget_udc(dwc->dev, &dwc->gadget);
 	if (ret) {
 		dev_err(dwc->dev, "failed to register gadget device\n");
@@ -2470,7 +2471,7 @@ void dwc2_gadget_plug_change(int plugin)  {
 	dev_info(dwc->dev,"enter %s:%d: plugin = %d pullup_on = %d suspend = %d\n",
 		__func__, __LINE__, plugin, dwc->pullup_on, dwc->suspended);
 
-//	if (dwc->suspended)//add by xyfu for when otg suspended plug usb, resume the adb is disconnect 
+//	if (dwc->suspended)//add by xyfu for when otg suspended plug usb, resume the adb is disconnect
 //		goto out;
 
 	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);

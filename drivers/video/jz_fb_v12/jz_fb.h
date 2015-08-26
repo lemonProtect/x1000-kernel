@@ -1,14 +1,16 @@
 #include <linux/fb.h>
 //#include <linux/earlysuspend.h>
+#define NUM_FRAME_BUFFERS 1
 
 #ifdef CONFIG_TWO_FRAME_BUFFERS
+#undef NUM_FRAME_BUFFERS
 #define NUM_FRAME_BUFFERS 2
 #endif
 
 #ifdef CONFIG_THREE_FRAME_BUFFERS
+#undef NUM_FRAME_BUFFERS
 #define NUM_FRAME_BUFFERS 3
 #endif
-
 #define PIXEL_ALIGN 4
 #define MAX_DESC_NUM 4
 
@@ -139,7 +141,7 @@ struct jzfb {
 	int is_suspend;
 	unsigned int pan_display_count;
 	int blank;
-
+	unsigned int pseudo_palette[16];
 };
 
 void jzfb_clk_enable(struct jzfb *jzfb);

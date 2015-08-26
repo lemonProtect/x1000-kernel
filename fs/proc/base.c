@@ -217,10 +217,10 @@ static int proc_pid_cmdline(struct task_struct *task, char * buffer)
 		goto out_mm;	/* Shh! No looking before we're done */
 
  	len = mm->arg_end - mm->arg_start;
- 
+
 	if (len > PAGE_SIZE)
 		len = PAGE_SIZE;
- 
+
 	res = access_process_vm(task, mm->arg_start, buffer, len, 0);
 
 	// If the nul at the end of args has been overwritten, then
@@ -1005,7 +1005,7 @@ err_task_lock:
 out:
 	return err < 0 ? err : count;
 }
-
+#ifdef CONFIG_ANDROID
 static int oom_adjust_permission(struct inode *inode, int mask)
 {
 	uid_t uid;
@@ -1018,7 +1018,7 @@ static int oom_adjust_permission(struct inode *inode, int mask)
 	}
 
 	/*
-	 * System Server (uid == 1000) is granted access to oom_adj of all 
+	 * System Server (uid == 1000) is granted access to oom_adj of all
 	 * android applications (uid > 10000) as and services (uid >= 1000)
 	 */
 	if (p && (current_fsuid() == 1000) && (uid >= 1000)) {
@@ -1034,7 +1034,7 @@ static int oom_adjust_permission(struct inode *inode, int mask)
 static const struct inode_operations proc_oom_adj_inode_operations = {
 	.permission	= oom_adjust_permission,
 };
-
+#endif
 static const struct file_operations proc_oom_adj_operations = {
 	.read		= oom_adj_read,
 	.write		= oom_adj_write,
@@ -1860,6 +1860,7 @@ static int proc_map_files_get_link(struct dentry *dentry, struct path *path)
 	if (rc)
 		goto out_mmput;
 
+	rc = -ENOENT;
 	down_read(&mm->mmap_sem);
 	vma = find_exact_vma(mm, vm_start, vm_end);
 	if (vma && vma->vm_file) {
@@ -2217,7 +2218,7 @@ out:
 	return error;
 }
 
-static struct dentry *proc_pident_lookup(struct inode *dir, 
+static struct dentry *proc_pident_lookup(struct inode *dir,
 					 struct dentry *dentry,
 					 const struct pid_entry *ents,
 					 unsigned int nents)
@@ -2732,7 +2733,11 @@ static const struct pid_entry tgid_base_stuff[] = {
 	REG("cgroup",  S_IRUGO, proc_cgroup_operations),
 #endif
 	INF("oom_score",  S_IRUGO, proc_oom_score),
+#ifdef CONFIG_ANDROID
 	ANDROID("oom_adj", S_IRUGO|S_IWUSR, oom_adj),
+#else
+	REG("oom_adj",    S_IRUGO|S_IWUSR, proc_oom_adj_operations),
+#endif
 	REG("oom_score_adj", S_IRUGO|S_IWUSR, proc_oom_score_adj_operations),
 #ifdef CONFIG_AUDITSYSCALL
 	REG("loginuid",   S_IWUSR|S_IRUGO, proc_loginuid_operations),

@@ -7715,7 +7715,7 @@ static void cpu_cgroup_css_offline(struct cgroup *cgrp)
 
 	sched_offline_group(tg);
 }
-
+#ifdef CONFIG_ANDROID
 static int
 cpu_cgroup_allow_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
 {
@@ -7732,7 +7732,7 @@ cpu_cgroup_allow_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
 
 	return 0;
 }
-
+#endif
 static int cpu_cgroup_can_attach(struct cgroup *cgrp,
 				 struct cgroup_taskset *tset)
 {
@@ -8092,7 +8092,9 @@ struct cgroup_subsys cpu_cgroup_subsys = {
 	.css_offline	= cpu_cgroup_css_offline,
 	.can_attach	= cpu_cgroup_can_attach,
 	.attach		= cpu_cgroup_attach,
+#ifdef CONFIG_ANDROID
 	.allow_attach	= cpu_cgroup_allow_attach,
+#endif
 	.exit		= cpu_cgroup_exit,
 	.subsys_id	= cpu_cgroup_subsys_id,
 	.base_cftypes	= cpu_files,
