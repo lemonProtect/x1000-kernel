@@ -1,0 +1,19 @@
+
+
+choice
+	prompt "Board type"
+	depends on SOC_X1000
+	default PRODUCT_X1000_PHOENIX
+
+config  PRODUCT_X1000_PHOENIX
+    bool "product x1000 phoenix"
+
+endchoice
+
+if PRODUCT_X1000_PHOENIX
+config PRODUCT_NAME
+string
+default "phoenix"
+source "arch/mips/xburst/soc-x1000/chip-x1000/phoenix/Kconfig"
+endif
+
