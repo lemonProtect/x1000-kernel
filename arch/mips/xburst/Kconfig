@@ -19,7 +19,6 @@ choice
 config SOC_4780
 	bool "4780"
 	select JZRISC
-
 	select NR_CPUS_DEFAULT_2
 	select SYS_SUPPORTS_SMP
 
@@ -31,6 +30,9 @@ config SOC_M200
 	bool "m200"
 	select JZRISC
 
+config SOC_X1000
+	bool "x1000"
+	select JZRISC
 endchoice
 
 config JZRISC
@@ -50,6 +52,9 @@ source "arch/mips/xburst/soc-4780/Kconfig"
 endif
 if SOC_M200
 source "arch/mips/xburst/soc-m200/Kconfig"
+endif
+if SOC_X1000
+source "arch/mips/xburst/soc-x1000/Kconfig"
 endif
 
 config EXTAL_CLOCK
