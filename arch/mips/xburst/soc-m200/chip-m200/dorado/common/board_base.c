@@ -69,7 +69,7 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_I2C3_V12_JZ
 	DEF_DEVICE(&jz_i2c3_device, 0, 0),
 #endif
-#ifdef CONFIG_XBURST_DMAC
+#ifdef CONFIG_XBURST_DMAC_V12
 	DEF_DEVICE(&jz_pdma_device, 0, 0),
 #endif
 #ifdef CONFIG_LCD_KD50G2_40NM_A2
@@ -211,22 +211,22 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_JZ_PWM
        DEF_DEVICE(&jz_pwm_device, 0, 0),
 #endif
-#if IS_ENABLED(CONFIG_SND_ASOC_JZ_AIC)
+#if defined(CONFIG_SND_ASOC_JZ_AIC_V12)
        DEF_DEVICE(&jz_aic_device, NULL, 0),
        DEF_DEVICE(&jz_aic_dma_device, NULL, 0),
 #endif
-#if IS_ENABLED(CONFIG_SND_ASOC_JZ_ICDC_D1)
+#if defined(CONFIG_SND_ASOC_JZ_ICDC_D1)
        DEF_DEVICE(&jz_icdc_device, NULL, 0),
 #endif
-#if IS_ENABLED(CONFIG_SND_ASOC_JZ_PCM)
+#if defined(CONFIG_SND_ASOC_JZ_PCM_V12)
        DEF_DEVICE(&jz_pcm_device, NULL, 0),
        DEF_DEVICE(&jz_pcm_dma_device, NULL, 0),
 #endif
-#if IS_ENABLED(CONFIG_SND_ASOC_JZ_DUMP_CDC)
-       DEF_DEVICE(&jz_dump_cdc_device, NULL, 0),
-#endif
-#if IS_ENABLED(CONFIG_SND_ASOC_INGENIC_DORADO_ICDC)
+#if defined(CONFIG_SND_ASOC_INGENIC)
        DEF_DEVICE(&snd_dorado_device, NULL, 0),
+#endif
+#if defined(CONFIG_SND_ASOC_JZ_PCM_DUMP_CDC)
+	   DEF_DEVICE(&jz_pcm_dump_cdc_device,0,0),
 #endif
 };
 

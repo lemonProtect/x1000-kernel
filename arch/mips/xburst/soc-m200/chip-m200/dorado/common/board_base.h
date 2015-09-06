@@ -112,7 +112,7 @@ extern struct platform_device truly_tft240240_device;
 #ifdef CONFIG_JZ_BATTERY
 extern struct jz_adc_platform_data adc_platform_data;
 #endif
-#if IS_ENABLED(CONFIG_SND_ASOC_INGENIC_DORADO_ICDC)
+#if defined(CONFIG_SND_ASOC_INGENIC_DORADO_ICDC)
 extern struct platform_device snd_dorado_device;
 #endif
 #ifdef CONFIG_MTD_NAND_JZ

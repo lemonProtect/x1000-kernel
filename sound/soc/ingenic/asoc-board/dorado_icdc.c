@@ -25,7 +25,9 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 #include <linux/gpio.h>
-#include "icodec/icdc_d1.h"
+#include "../icodec/icdc_d1.h"
+
+unsigned long codec_sysclk = -1;
 
 static struct snd_soc_ops dorado_i2s_ops = {
 
@@ -168,8 +170,8 @@ static struct snd_soc_dai_link dorado_dais[] = {
 		.stream_name = "DORADO PCMBT",
 		.platform_name = "jz-asoc-pcm-dma",
 		.cpu_dai_name = "jz-asoc-pcm",
-		.codec_dai_name = "dump dai",
-		.codec_name = "dump",
+		.codec_dai_name = "pcm dump dai",
+		.codec_name = "pcm dump",
 	},
 };
 
