@@ -25,7 +25,7 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 #include <linux/gpio.h>
-#include "icodec/icdc_d2.h"
+#include "../icodec/icdc_d2.h"
 
 static struct snd_soc_ops mensa_i2s_ops = {
 

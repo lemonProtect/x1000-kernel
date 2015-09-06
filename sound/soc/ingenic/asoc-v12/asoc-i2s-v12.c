@@ -461,27 +461,7 @@ static void jz_i2s_shutdown(struct snd_pcm_substream *substream,
 
 static int jz_i2s_probe(struct snd_soc_dai *dai)
 {
-	struct jz_i2s *jz_i2s = dev_get_drvdata(dai->dev);
-	struct device *aic = jz_i2s->aic;
 	I2S_DEBUG_MSG("enter %s\n", __func__);
-	/* dlv4780 codec probe must have mclk */
-	__i2s_select_sysclk_output(aic);
-	if(jz_i2s->i2s_mode&I2S_INCODEC)
-		__aic_select_internal_codec(aic);
-	else{
-		__aic_select_external_codec(aic);
-		if(jz_i2s->i2s_mode&I2S_MASTER){
-			__i2s_bclk_output(aic);
-			__i2s_sync_output(aic);
-		}else{
-			__i2s_bclk_input(aic);
-			__i2s_sync_input(aic);
-		}
-	}
-	__aic_select_i2s(aic);
-	__i2s_select_i2s_fmt(aic);
-	__i2s_enable_sysclk_output(aic);
-	__aic_enable(aic);
 	return 0;
 }
 
@@ -536,6 +516,7 @@ static int jz_i2s_platfrom_probe(struct platform_device *pdev)
 	struct jz_i2s *jz_i2s;
 	int i = 0, ret;
 	struct device *aic = pdev->dev.parent;
+	struct jz_aic *jz_aic = dev_get_drvdata(aic);
 	jz_i2s = devm_kzalloc(&pdev->dev, sizeof(struct jz_i2s), GFP_KERNEL);
 	if (!jz_i2s)
 		return -ENOMEM;
@@ -561,6 +542,28 @@ static int jz_i2s_platfrom_probe(struct platform_device *pdev)
 			dev_warn(&pdev->dev,"attribute %s create failed %x",
 					attr_name(jz_i2s_sysfs_attrs[i]), ret);
 	}
+	/* dlv4780 codec must have mclk */
+	__i2s_select_sysclk_output(aic);
+	if(jz_i2s->i2s_mode&I2S_INCODEC){
+		__aic_select_internal_codec(aic);}
+	else{
+		__aic_select_external_codec(aic);
+		if(jz_i2s->i2s_mode&I2S_MASTER){
+			__i2s_bclk_output(aic);
+			__i2s_sync_output(aic);
+		}else{
+			__i2s_bclk_input(aic);
+			__i2s_sync_input(aic);
+		}
+	}
+	__aic_select_i2s(aic);
+	__i2s_select_i2s_fmt(aic);
+	__i2s_enable_sysclk_output(aic);
+	__aic_enable(aic);
+#ifdef CONFIG_SND_ASOC_JZ_ICDC_D2
+	/* for fix a soc bug */
+	clk_enable(jz_aic->clk);
+#endif
 
 	ret = snd_soc_register_component(&pdev->dev, &jz_i2s_component,
 					 &jz_i2s_dai, 1);

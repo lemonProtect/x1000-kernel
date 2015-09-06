@@ -562,9 +562,7 @@ DEF_GPIO_I2C(2,GPIO_PE(0),GPIO_PE(3));
 static int __init board_init(void)
 {
 /* dma */
-#ifdef CONFIG_XBURST_DMAC
 	platform_device_register(&jz_pdma_device);
-#endif
 /* i2c */
 #ifdef CONFIG_I2C0_JZ4775
 	platform_device_register(&jz_i2c0_device);
@@ -799,8 +797,35 @@ static int __init board_init(void)
 #endif
 /* efuse */
 #ifdef CONFIG_JZ4775_EFUSE
-       jz_device_register(&jz_efuse_device, &jz_efuse_pdata);
+       platform_device_register(&jz_efuse_device, &jz_efuse_pdata);
 #endif
+/* JZ ALSA audio driver */
+#if defined(CONFIG_SND_ASOC_JZ_AIC_V12)
+	   platform_device_register(&jz_aic_device);
+	   platform_device_register(&jz_aic_dma_device);
+#endif
+
+#if defined(CONFIG_SND_ASOC_JZ_ICDC_D2) && defined(CONFIG_SND_ASOC_JZ_AIC_I2S_V12)
+	   platform_device_register(&jz_icdc_device);
+#endif
+
+#if defined(CONFIG_SND_ASOC_JZ_PCM_V12)
+	   platform_device_register(&jz_pcm_device);
+	   platform_device_register(&jz_pcm_dma_device);
+#endif
+
+#if defined(CONFIG_SND_ASOC_JZ_PCM_DUMP_CDC)
+	   platform_device_register(&jz_pcm_dump_cdc_device);
+#endif
+
+#if defined(CONFIG_SND_ASOC_JZ_SPDIF_DUMP_CDC)
+	   platform_device_register(&jz_spdif_dump_cdc_device);
+#endif
+
+#if defined(CONFIG_SND_ASOC_JZ_AIC_V12)
+	   platform_device_register(&snd_mensa_device);
+#endif
+/* end of ALSA audio driver */
 	return 0;
 }
 

@@ -207,8 +207,13 @@ static int jz_aic_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
 		goto err_clk_get;
 	}
+#ifdef CONFIG_SND_ASOC_JZ_ICDC_D2
+	/* for fix a soc bug */
+	clk_set_rate(jz_aic->clk, 12000000);		/*set default rate*/
+#else
 	clk_set_rate(jz_aic->clk, 24000000);		/*set default rate*/
 	clk_enable(jz_aic->clk);
+#endif
 #endif
 	spin_lock_init(&jz_aic->mode_lock);
 	jz_aic->irqno = -1;

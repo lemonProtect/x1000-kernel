@@ -771,7 +771,6 @@ static int icdc_d2_probe(struct snd_soc_codec *codec)
 
 	/*codec irq mask*/
 	snd_soc_write(codec, DLV_REG_IMR, ICR_IMR_COMMON_MSK);
-
 	/*codec clear all irq*/
 	snd_soc_write(codec, DLV_REG_IFR, ICR_IMR_MASK);
 

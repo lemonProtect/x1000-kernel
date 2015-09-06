@@ -29,6 +29,7 @@
 #include <sound/soc-dai.h>
 #include <sound/pcm_params.h>
 #include <mach/jzdma.h>
+#include <linux/delay.h>
 #include "asoc-dma-v12.h"
 
 static int asoc_dma_debug = 0;
@@ -204,8 +205,8 @@ static enum hrtimer_restart jz_asoc_hrtimer_callback(struct hrtimer *hr_timer) {
 	dma_addr_t pdma_addr = 0;
 	size_t buffer_bytes = snd_pcm_lib_buffer_bytes(substream);
 	size_t curr_pos = 0;
-	enum dma_data_direction direction = substream->stream == SNDRV_PCM_STREAM_PLAYBACK ?
-		DMA_TO_DEVICE : DMA_FROM_DEVICE;
+	enum dma_transfer_direction direction = substream->stream == SNDRV_PCM_STREAM_PLAYBACK ?
+		DMA_MEM_TO_DEV : DMA_DEV_TO_MEM;
 
 	if (atomic_read(&prtd->stopped))
 		goto out;
@@ -247,7 +248,7 @@ static int jz_asoc_dma_prepare_and_submit(struct snd_pcm_substream *substream)
 	struct jz_pcm_runtime_data *prtd = substream->runtime->private_data;
 	struct dma_async_tx_descriptor *desc;
 	unsigned long flags = DMA_CTRL_ACK;
-	enum dma_data_direction direction =
+	enum dma_transfer_direction direction =
 		(substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ?
 		DMA_MEM_TO_DEV:
 		DMA_DEV_TO_MEM;
@@ -574,13 +575,13 @@ static int jz_pcm_platform_probe(struct platform_device *pdev)
 		platform_set_drvdata(pdev, NULL);
 		return ret;
 	}
-	dev_dbg(&pdev->dev, "Audio dma platfrom probe success\n");
+	dev_info(&pdev->dev, "Audio dma platfrom probe success\n");
 	return 0;
 }
 
 static int jz_pcm_platform_remove(struct platform_device *pdev)
 {
-	dev_dbg(&pdev->dev, "Audio dma platfrom removed\n");
+	dev_info(&pdev->dev, "Audio dma platfrom removed\n");
 	snd_soc_unregister_platform(&pdev->dev);
 	platform_set_drvdata(pdev, NULL);
 	return 0;

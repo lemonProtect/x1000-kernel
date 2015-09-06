@@ -73,7 +73,6 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&bt_power_device,0,0),
 #endif
 /* JZ ALSA audio driver */
-
 #if defined(CONFIG_SND_ASOC_JZ_AIC_V12)
     DEF_DEVICE(&jz_aic_device,0,0),
     DEF_DEVICE(&jz_aic_dma_device,0,0),
