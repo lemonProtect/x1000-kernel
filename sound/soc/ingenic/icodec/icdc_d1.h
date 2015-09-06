@@ -19,7 +19,7 @@
 
 #include <linux/spinlock.h>
 #include <sound/soc.h>
-#include "../asoc-aic.h"
+#include "../asoc-v12/asoc-aic-v12.h"
 
 struct icdc_d1 {
 	struct device		*dev;		/*aic device used to access register*/

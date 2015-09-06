@@ -560,7 +560,7 @@ static int jz_i2s_platfrom_probe(struct platform_device *pdev)
 	__i2s_select_i2s_fmt(aic);
 	__i2s_enable_sysclk_output(aic);
 	__aic_enable(aic);
-#ifdef CONFIG_SND_ASOC_JZ_ICDC_D2
+#ifndef CONFIG_SND_ASOC_JZ_ICDC_D3
 	/* for fix a soc bug */
 	clk_enable(jz_aic->clk);
 #endif

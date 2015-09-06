@@ -51,11 +51,6 @@ struct jz_adc_platform_data adc_platform_data = {
 };
 #endif
 
-#if IS_ENABLED(CONFIG_SND_ASOC_INGENIC_DORADO_ICDC)
-struct platform_device snd_dorado_device = {
-	.name = "ingenic-dorado",
-};
-#endif
 
 #if defined(CONFIG_USB_JZ_DWC2)
 #ifndef CONFIG_BOARD_HAS_NO_DETE_FACILITY
