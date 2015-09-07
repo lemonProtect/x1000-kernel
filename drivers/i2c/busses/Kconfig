@@ -939,6 +939,15 @@ config I2C1_V12_JZ
         tristate "JZ_v12 i2c controler 1 Interface support"
 	depends on I2C_V12_JZ && !SOFT_I2C1_GPIO_V12_JZ
 	default n
+choice
+        prompt "JZ_v12 i2c controler 1  function pins select"
+        depends on I2C1_V12_JZ
+        default I2C1_V12_PC
+config I2C1_V12_PA
+        bool "select i2c1 with port a"
+config I2C1_V12_PC
+        bool "select i2c1 with port c"
+endchoice
 
 config I2C1_SPEED
         int "Jz_v12 i2c1 speed in KHZ"
