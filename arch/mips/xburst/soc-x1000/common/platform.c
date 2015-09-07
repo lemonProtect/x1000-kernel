@@ -845,7 +845,7 @@ struct platform_device jz_vpu_device = {
 	.resource         = jz_vpu_resource,
 };
 #endif
-#ifdef CONFIG_USB_DWC2
+#ifdef CONFIG_USB_JZ_DWC2
 static struct resource jz_dwc_otg_resources[] = {
 	[0] = {
 		.start	= OTG_IOBASE,

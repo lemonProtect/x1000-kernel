@@ -109,7 +109,7 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #endif
 
 /* end of ALSA audio driver */
-#ifdef CONFIG_USB_DWC2
+#ifdef CONFIG_USB_JZ_DWC2
 	DEF_DEVICE(&jz_dwc_otg_device,0,0),
 #endif
 

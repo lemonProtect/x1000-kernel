@@ -36,7 +36,7 @@ extern struct platform_device	bluesleep_device;
 extern struct platform_device   bt_power_device;
 #endif
 
-#ifdef CONFIG_USB_DWC2
+#ifdef CONFIG_USB_JZ_DWC2
 extern struct platform_device   jz_dwc_otg_device;
 #endif
 #ifdef CONFIG_USB_OHCI_HCD
