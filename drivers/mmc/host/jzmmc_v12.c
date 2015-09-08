@@ -1588,26 +1588,29 @@ static int __init jzmmc_gpio_init(struct jzmmc_host *host)
 			dev_vdbg(host->dev, "no detect pin available\n");
 			card_gpio->cd.num = -EBUSY;
 		}
-
-		if (gpio_request_one(card_gpio->wp.num,
-				     GPIOF_DIR_IN, "mmc_wp")) {
-			dev_vdbg(host->dev, "no WP pin available\n");
-			card_gpio->wp.num = -EBUSY;
+		if(card_gpio->wp.num > 0){
+			if (gpio_request_one(card_gpio->wp.num, GPIOF_DIR_IN, "mmc_wp")) {
+				printk("%s %d %d \n",__func__,__LINE__,card_gpio->wp.num);
+				dev_vdbg(host->dev, "no WP pin available\n");
+				card_gpio->wp.num = -EBUSY;
+			}
 		}
-
-		if (gpio_request_one(card_gpio->rst.num,
-				     GPIOF_DIR_OUT, "mmc_rst")) {
-			dev_vdbg(host->dev, "no RST pin available\n");
-			card_gpio->rst.num = -EBUSY;
+		if(card_gpio->rst.num>0){
+			if (gpio_request_one(card_gpio->rst.num,
+						GPIOF_DIR_OUT, "mmc_rst")) {
+				dev_vdbg(host->dev, "no RST pin available\n");
+				card_gpio->rst.num = -EBUSY;
+			}
 		}
-
-		if (gpio_request(card_gpio->pwr.num, "mmc_power")) {
-			dev_vdbg(host->dev, "no PWR pin available\n");
-			card_gpio->pwr.num = -EBUSY;
-		} else {
-			gpio_direction_output(card_gpio->pwr.num,
-					      card_gpio->pwr.enable_level
-					      ? 0 : 1);
+		if(card_gpio->pwr.num>0){
+			if (gpio_request(card_gpio->pwr.num, "mmc_power")) {
+				dev_vdbg(host->dev, "no PWR pin available\n");
+				card_gpio->pwr.num = -EBUSY;
+			} else {
+				gpio_direction_output(card_gpio->pwr.num,
+						card_gpio->pwr.enable_level
+						? 0 : 1);
+			}
 		}
 	}
 
