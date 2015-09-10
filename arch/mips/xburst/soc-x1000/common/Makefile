@@ -22,7 +22,7 @@ obj-y += cpm_usb.o
 obj-y += platform.o
 obj-y += regs_save_restore.o
 
-#obj-y += pm_p0.o
+obj-y += pm_p0.o
 
 obj-$(CONFIG_DWC_LM_INTERFACE)  += lm.o lm-device.o
 
