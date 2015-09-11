@@ -976,6 +976,12 @@ CONFIG_USB_NET_ZAURUS=y
 # Enable WiMAX (Networking options) to see the WiMAX drivers
 #
 # CONFIG_WAN is not set
+CONFIG_JZ_MAC=y
+# CONFIG_JZ_MAC_MII is not set
+# CONFIG_JZ_MAC_GMII is not set
+CONFIG_JZ_MAC_RMII=y
+# CONFIG_JZ_MAC_RGMII is not set
+CONFIG_JZGPIO_PHY_RESET=y
 # CONFIG_ISDN is not set
 
 #
