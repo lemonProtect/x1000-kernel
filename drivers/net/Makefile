@@ -22,6 +22,7 @@ obj-$(CONFIG_TUN) += tun.o
 obj-$(CONFIG_VETH) += veth.o
 obj-$(CONFIG_VIRTIO_NET) += virtio_net.o
 obj-$(CONFIG_VXLAN) += vxlan.o
+obj-$(CONFIG_JZ_MAC) += jz_mac/
 
 #
 # Networking Drivers
@@ -72,3 +73,4 @@ obj-$(CONFIG_USB_CDC_PHONET)   += usb/
 
 obj-$(CONFIG_HYPERV_NET) += hyperv/
 obj-$(CONFIG_NTB_NETDEV) += ntb_netdev.o
+
