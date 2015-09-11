@@ -40,8 +40,6 @@ struct dwc2_jz {
 						 * Device mode may used this pin judge B-device insert */
 	int 			dete_irq;
 	int			pullup_on;
-	//struct delayed_work	delay_work;	/*now unused, just protect*/
-//#define DEF_DELAY_JIFFIES	(5*HZ)
 	unsigned long delay_jiffies;
 	/*host*/
 	int			id_irq;
@@ -49,7 +47,9 @@ struct dwc2_jz {
 	struct wake_lock        id_resume_wake_lock;
 	struct jzdwc_pin 	*drvvbus_pin;		/*Use drvvbus pin or regulator to set vbus on*/
 	struct regulator 	*vbus;
-	spinlock_t       vbus_lock;
+	atomic_t	vbus_on;
+	struct work_struct	vbus_work;
+	void *work_data;
 	struct input_dev	*input;
 };
 
@@ -197,7 +197,6 @@ static void usb_plug_change(struct dwc2_jz *jz) {
 	dwc2_disable_global_interrupts(dwc);
 	synchronize_irq(dwc->irq);
 	flush_work(&dwc->otg_id_work);
-	//cancel_delayed_work(&jz->delay_work);
 	dwc2_gadget_plug_change(insert);
 	if (!jz_otg_phy_is_suspend())
 		dwc2_enable_global_interrupts(dwc);
@@ -214,20 +213,6 @@ static irqreturn_t usb_detect_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-#if 0
-static void dwc2_delay_work(struct work_struct *work)
-{
-	struct dwc2_jz *jz = container_of(to_delayed_work(work),
-			struct dwc2_jz, delay_work);
-
-	mutex_lock(&jz->irq_lock);
-	if (__dwc2_get_detect_pin_status(jz) && __dwc2_get_id_level(jz)) {
-		pr_warn("dwc2 delay work, irq lost ????\n");
-		dwc2_gadget_plug_change(1);
-	}
-	mutex_unlock(&jz->irq_lock);
-}
-#endif
 #endif /* !DWC2_DEVICE_MODE_ENABLE */
 
 #if DWC2_HOST_MODE_ENABLE
@@ -271,24 +256,23 @@ static int __dwc2_get_drvvbus_level(struct dwc2_jz *jz)
 	return drvvbus;
 }
 
-void jz_set_vbus(struct dwc2 *dwc, int is_on)
+static void dwc2_vbus_work(struct work_struct *work)
 {
-	struct dwc2_jz* jz = (struct dwc2_jz *)to_dwc2_jz(dwc);
-	int old_is_on = is_on;
-	int ret = 0;
-
+	struct dwc2_jz* jz = container_of(work, struct dwc2_jz, vbus_work);
+	struct dwc2 *dwc = (struct dwc2 *)jz->work_data;
+	int old_is_on = atomic_read(&jz->vbus_on);
+	int is_on = 0, ret = 0;
 
 	if (IS_ERR_OR_NULL(jz->vbus) && !gpio_is_valid(jz->drvvbus_pin->num))
 		return;
 
-	is_on = dwc2_is_host_mode(dwc);
+	is_on = old_is_on ? dwc2_is_host_mode(dwc) : 0;
 
 	dev_info(jz->dev, "set vbus %s(%s) for %s mode\n",
 			is_on ? "on" : "off",
 			old_is_on ? "on" : "off",
 			dwc2_is_host_mode(dwc) ? "host" : "device");
 
-	spin_lock(&jz->vbus_lock);
 	if (!IS_ERR_OR_NULL(jz->vbus)) {
 		if (is_on && !regulator_is_enabled(jz->vbus))
 			ret = regulator_enable(jz->vbus);
@@ -303,7 +287,21 @@ void jz_set_vbus(struct dwc2 *dwc, int is_on)
 			gpio_direction_output(jz->drvvbus_pin->num,
 					jz->drvvbus_pin->enable_level == LOW_ENABLE);
 	}
-	spin_unlock(&jz->vbus_lock);
+	return;
+}
+
+void jz_set_vbus(struct dwc2 *dwc, int is_on)
+{
+	struct dwc2_jz* jz = (struct dwc2_jz *)to_dwc2_jz(dwc);
+
+	/*CHECK it lost some vbus set is ok ??*/
+	atomic_set(&jz->vbus_on, !!is_on);
+	jz->work_data = (void *)dwc;
+	if (!work_pending(&jz->vbus_work)) {
+		schedule_work(&jz->vbus_work);
+		if (!in_atomic())
+			flush_work(&jz->vbus_work);
+	}
 }
 
 static ssize_t jz_vbus_show(struct device *dev,
@@ -385,15 +383,6 @@ int dwc2_suspend_controller(struct dwc2 *dwc)
 		}
 #endif
 	}
-#if DWC2_DEVICE_MODE_ENABLE
-#if 0
-	if (suspended && !dwc->suspended) {
-		struct dwc2_jz *jz = to_dwc2_jz(dwc);
-		pr_debug("schedule delayed work\n");
-		schedule_delayed_work(&jz->delay_work, jz->delay_jiffies);
-	}
-#endif
-#endif
 	return 0;
 }
 EXPORT_SYMBOL_GPL(dwc2_suspend_controller);
@@ -512,10 +501,6 @@ static int dwc2_jz_probe(struct platform_device *pdev) {
 	} else {
 		dwc2_plat_data->keep_phy_on = 1;
 	}
-#if 0
-	INIT_DELAYED_WORK(&jz->delay_work, dwc2_delay_work);
-	jz->delay_jiffies = DEF_DELAY_JIFFIES;
-#endif
 #endif	/* DWC2_DEVICE_MODE_ENABLE */
 
 	jz->id_irq = -1;
@@ -529,7 +514,8 @@ static int dwc2_jz_probe(struct platform_device *pdev) {
 	} else {
 		jz->drvvbus_pin->num = -1;
 	}
-	spin_lock_init(&jz->vbus_lock);
+	INIT_WORK(&jz->vbus_work, dwc2_vbus_work);
+	atomic_set(&jz->vbus_on, 0);
 
 	ret = devm_gpio_request_one(&pdev->dev, jz->id_pin->num,
 			GPIOF_DIR_IN, "otg-id-detect");

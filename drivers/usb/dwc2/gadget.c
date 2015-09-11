@@ -2466,8 +2466,6 @@ void dwc2_gadget_plug_change(int plugin)  {
 	if (!dwc2_is_device_mode(dwc))
 		goto out;
 
-	//dwc->plugin = !!plugin;
-
 	dev_info(dwc->dev,"enter %s:%d: plugin = %d pullup_on = %d suspend = %d\n",
 		__func__, __LINE__, plugin, dwc->pullup_on, dwc->suspended);
 
