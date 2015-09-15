@@ -57,7 +57,7 @@ struct platform_device jz_mac_device = {
 #endif /* CONFIG_JZ_MAC */
 
 
-#ifdef CONFIG_JZ_EFUSE_V11
+#ifdef CONFIG_JZ_EFUSE_V13
 struct jz_efuse_platform_data jz_efuse_pdata = {
 	    /* supply 2.5V to VDDQ */
 	    .gpio_vddq_en_n = GPIO_EFUSE_VDDQ,

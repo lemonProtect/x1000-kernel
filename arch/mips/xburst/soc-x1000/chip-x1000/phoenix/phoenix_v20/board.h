@@ -175,7 +175,7 @@
 #define GPIO_LCD_PWM    GPIO_PC(25)
 #endif
 
-#define GPIO_EFUSE_VDDQ			-ENODEV		/* EFUSE must be -ENODEV or a gpio */
+#define GPIO_EFUSE_VDDQ	GPIO_PB(27)		/* EFUSE must be -ENODEV or a gpio */
 
 /* PMU ricoh619 */
 #ifdef CONFIG_REGULATOR_RICOH619
