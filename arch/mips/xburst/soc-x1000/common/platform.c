@@ -866,9 +866,9 @@ struct platform_device  jz_dwc_otg_device = {
 	.resource	= jz_dwc_otg_resources,
 };
 #endif
-#ifdef CONFIG_JZ_EFUSE_V11
+#ifdef CONFIG_JZ_EFUSE_V13
 /* efuse */
 struct platform_device jz_efuse_device = {
-	.name = "jz-efuse",
+	.name = "jz-efuse-v13",
 };
 #endif
