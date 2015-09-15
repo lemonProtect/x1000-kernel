@@ -314,6 +314,18 @@ void dwc2_port_reset(struct dwc2 *dwc, bool do_reset) {
 	spin_unlock_irqrestore(&dwc->port1_status_lock, flags);
 }
 
+void dwc2_test_mode(struct dwc2 *dwc, int test_mode) {
+	struct dwc2_host_if             *host_if     = &dwc->host_if;
+
+	hprt0_data_t                     hprt0       = {.d32 = 0 };
+	printk("bus test happend %d\n", test_mode);
+	hprt0.d32 = dwc2_hc_read_hprt(dwc);
+	hprt0.b.prttstctl = test_mode;
+	dwc_writel(hprt0.d32, host_if->hprt0);
+	printk("started packet test\n");
+	return;
+}
+
 int dwc2_rh_hub_control(struct usb_hcd *hcd,
 			u16 typeReq, u16 wValue, u16 wIndex,
 			char *buf, u16 wLength) {
@@ -507,7 +519,7 @@ int dwc2_rh_hub_control(struct usb_hcd *hcd,
 			dwc2_port_suspend(dwc, true);
 			break;
 		case USB_PORT_FEAT_TEST:
-			printk("=======> FIXME: Please Implement Test Mode!!!\n");
+			dwc2_test_mode(dwc, (wIndex >> 8));
 			break;
 		default:
 			goto error;
