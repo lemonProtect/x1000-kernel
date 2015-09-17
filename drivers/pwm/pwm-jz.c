@@ -59,7 +59,7 @@ static int jz_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
 		return -ENODEV;
 	}
 
-#if 1
+#if 0
 	tcu_pwm= tcu_request(id,NULL);
 #else
 	tcu_pwm= tcu_request(id);
