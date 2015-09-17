@@ -2,6 +2,11 @@
 #define _LINUX_TCU_H
 
 #include <linux/interrupt.h>
+
+#define CLKEVENT_CH	(5)
+#define NR_TCU_CH	(8)
+#define RESERVED_CH	CLKEVENT_CH
+
 enum tcu_mode {
 	TCU1_MODE = 1,
 	TCU2_MODE = 2,

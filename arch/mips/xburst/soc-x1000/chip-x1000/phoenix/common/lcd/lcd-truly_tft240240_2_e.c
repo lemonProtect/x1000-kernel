@@ -308,6 +308,7 @@ struct jzfb_platform_data jzfb_pdata = {
 };
 /**************************************************************************************************/
 #ifdef CONFIG_BACKLIGHT_PWM
+
 static int backlight_init(struct device *dev)
 {
 	int ret;

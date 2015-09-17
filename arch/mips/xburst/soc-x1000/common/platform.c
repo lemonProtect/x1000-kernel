@@ -872,3 +872,10 @@ struct platform_device jz_efuse_device = {
 	.name = "jz-efuse-v13",
 };
 #endif
+
+#ifdef CONFIG_JZ_PWM
+struct platform_device jz_pwm_device = {
+	.name = "jz-pwm",
+	.id   = -1,
+};
+#endif

@@ -59,7 +59,11 @@ static int jz_pwm_request(struct pwm_chip *chip, struct pwm_device *pwm)
 		return -ENODEV;
 	}
 
+#if 1
+	tcu_pwm= tcu_request(id,NULL);
+#else
 	tcu_pwm= tcu_request(id);
+#endif
 
 	if(IS_ERR(tcu_pwm)) {
 		pr_err("%s request tcu channel %d failed!\n", __func__, id);

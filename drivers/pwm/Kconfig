@@ -206,10 +206,14 @@ config JZ_PWM
 	default y
 comment "JZ PWM function pin select"
 	depends on JZ_PWM
+config JZ_PWM_BIT0
+	bool "GPIO Port C pwm0"
+	depends on JZ_PWM
+	default y
 config JZ_PWM_GPIO_E0
 	bool "GPIO Port E pwm0"
 	depends on JZ_PWM
-	default y
+	default n
 config JZ_PWM_GPIO_E1
 	bool "GPIO Port E pwm1"
 	depends on JZ_PWM
