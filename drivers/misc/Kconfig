@@ -519,6 +519,14 @@ config USB_SWITCH_FSA9480
 	  stereo and mono audio, video, microphone and UART data to use
 	  a common connector port.
 
+config BCM_AP6212_RFKILL
+	tristate "Bluetooth ap6212 power control driver "
+	depends on RFKILL
+	default n
+	---help---
+	Creates an rfkill entry in sysfs for power control of Bluetooth
+	bcm4330 chips.
+
 config BROADCOM_RFKILL
 	tristate "Bluetooth power control driver "
 	depends on RFKILL

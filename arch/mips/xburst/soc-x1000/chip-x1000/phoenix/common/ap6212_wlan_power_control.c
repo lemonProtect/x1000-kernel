@@ -30,14 +30,18 @@ extern void rtc32k_disable(void);
 
 void wlan_pw_en_enable(void)
 {
-	regulator_enable(bcm_ap6212_data.wifi_vddio);
-	regulator_enable(bcm_ap6212_data.wifi_vbat);
+	int ret;
+	ret = regulator_enable(bcm_ap6212_data.wifi_vddio);
+	ret = regulator_enable(bcm_ap6212_data.wifi_vbat);
+
 }
 
 void wlan_pw_en_disable(void)
 {
-	regulator_disable(bcm_ap6212_data.wifi_vddio);
-	regulator_disable(bcm_ap6212_data.wifi_vbat);
+	int ret;
+	ret = regulator_disable(bcm_ap6212_data.wifi_vddio);
+	ret = regulator_disable(bcm_ap6212_data.wifi_vbat);
+
 }
 
 int bcm_ap6212_wlan_init(void)

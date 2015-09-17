@@ -31,5 +31,3 @@ static int __init wlan_device_init(void)
 }
 
 late_initcall(wlan_device_init);
-MODULE_DESCRIPTION("Broadcomm wlan driver");
-MODULE_LICENSE("GPL");

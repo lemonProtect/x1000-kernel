@@ -55,11 +55,13 @@ config JZMMC_V12_MMC1
 choice
 	depends on JZMMC_V12_MMC1
 	prompt "JZMMC_V12 GPIO function pins select"
-	default JZMMC_V12_MMC1_PD_4BIT
+	default JZMMC_V12_MMC1_PC_4BIT
 config JZMMC_V12_MMC1_PD_4BIT
 	bool "GPIO D, Data width 4 bit"
 config JZMMC_V12_MMC1_PE_4BIT
 	bool "GPIO E, Data width 4 bit"
+config JZMMC_V12_MMC1_PC_4BIT
+	bool "GPIO C, Data width 4 bit"
 endchoice
 
 config MMC1_MAX_FREQ
