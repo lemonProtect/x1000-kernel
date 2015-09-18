@@ -18,7 +18,7 @@
 #include <gpio.h>
 #include "board_base.h"
 
-#ifdef CONFIG_VIDEO_JZ_CIM_HOST
+#ifdef CONFIG_VIDEO_JZ_CIM_HOST_V13
 struct jz_camera_pdata mensa_camera_pdata = {
 	.mclk_10khz = 2400,
 	.flags = 0,
@@ -50,7 +50,7 @@ static int front_camera_sensor_power(struct device *dev, int on) {
 
 static struct soc_camera_link iclink_front = {
     .bus_id     = 0,        /* Must match with the camera ID */
-    .board_info = &jz_i2c0_devs[FRONT_CAMERA_INDEX],
+    .board_info = &jz_v4l2_camera_devs[FRONT_CAMERA_INDEX],
     .i2c_adapter_id = 0,
     .power = front_camera_sensor_power,
     .reset = camera_sensor_reset,
@@ -68,7 +68,7 @@ struct platform_device mensa_front_camera_sensor = {
 static int __init mensa_board_cim_init(void) {
 	/* camera host */
 
-#ifdef CONFIG_VIDEO_JZ_CIM_HOST
+#ifdef CONFIG_VIDEO_JZ_CIM_HOST_V13
 	jz_device_register(&jz_cim_device, &mensa_camera_pdata);
 #endif
 	/* camera sensor */

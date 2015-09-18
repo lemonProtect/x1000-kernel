@@ -121,7 +121,7 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	OTG_DRVVUS,
 #endif
 
-#ifdef CONFIG_VIDEO_JZ_CIM_HOST
+#ifdef CONFIG_VIDEO_JZ_CIM_HOST_V13
 	CIM_PORTA,
 #endif
 
@@ -782,7 +782,7 @@ struct platform_device jz_sfc_device = {
 	.num_resources = ARRAY_SIZE(jz_sfc_resources),
 };
 #endif
-#if defined(CONFIG_VIDEO_JZ_CIM_HOST)
+#if defined(CONFIG_VIDEO_JZ_CIM_HOST_V13)
 static struct resource jz_cim_resources[] = {
 	[0] = {
 		.flags = IORESOURCE_MEM,

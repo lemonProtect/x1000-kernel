@@ -21,7 +21,7 @@ config VIDEO_JZ_CIM_HOST_V11
 	select V4L2_MEM2MEM_DEV
 	select SOC_JZ_CIM0
 	help
-		This is a v4l2 driver for OV camera.
+		This is a v4l2 driver for OV camera(jz4775/4780).
 choice
 	depends on VIDEO_JZ_CIM_HOST_V11
 	prompt "select cim"
@@ -31,6 +31,15 @@ config SOC_JZ_CIM0
 config SOC_JZ_CIM1
 	bool "select jz cim1"
 endchoice
+
+config VIDEO_JZ_CIM_HOST_V13
+	tristate "ingenic cim driver used on camera x1000"
+	depends on VIDEO_DEV && VIDEO_V4L2 && SOC_CAMERA
+	select VIDEOBUF_DMA_CONTIG
+	select V4L2_MEM2MEM_DEV
+	help
+		This is a v4l2 driver for OV camera(x1000).
+
 
 config MX1_VIDEO
 	bool

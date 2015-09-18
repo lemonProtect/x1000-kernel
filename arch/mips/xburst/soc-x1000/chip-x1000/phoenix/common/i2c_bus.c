@@ -34,11 +34,6 @@ static struct snd_codec_data wm8594_codec_pdata = {
 
 #if (defined(CONFIG_SOFT_I2C0_GPIO_V12_JZ) || defined(CONFIG_I2C0_V12_JZ))
 struct i2c_board_info jz_i2c0_devs[] __initdata = {
-#ifdef CONFIG_SOC_CAMERA_OV5640
-	[FRONT_CAMERA_INDEX] = {
-		I2C_BOARD_INFO("ov5640-front", 0x3c),
-	},
-#endif
 #ifdef CONFIG_SENSORS_BMA2X2
 	{
 		I2C_BOARD_INFO("bma2x2", 0x18),
@@ -47,6 +42,15 @@ struct i2c_board_info jz_i2c0_devs[] __initdata = {
 #endif
 };
 int jz_i2c0_devs_size = ARRAY_SIZE(jz_i2c0_devs);
+
+struct i2c_board_info jz_v4l2_camera_devs[] __initdata = {
+#ifdef CONFIG_SOC_CAMERA_OV5640
+	[FRONT_CAMERA_INDEX] = {
+		I2C_BOARD_INFO("ov5640-front", 0x3c),
+	},
+#endif
+};
+int jz_v4l2_devs_size = ARRAY_SIZE(jz_v4l2_camera_devs);
 #endif
 
 #if (defined(CONFIG_SOFT_I2C2_GPIO_V12_JZ) || defined(CONFIG_I2C2_V12_JZ))
