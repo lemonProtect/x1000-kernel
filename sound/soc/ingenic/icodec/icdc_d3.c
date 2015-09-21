@@ -156,20 +156,23 @@ static int icdc_d3_write(struct snd_soc_codec *codec, unsigned int reg,
 {
 	struct icdc_d3 *icdc_d3 = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
-	int tmp_val = value;
+	int val = value;
 	BUG_ON(reg > SCODA_MAX_REG_NUM);
-	dev_dbg(icdc_d3->dev,"%s reg = %x value = %x \n",__func__,reg,tmp_val);
+	dev_dbg(icdc_d3->dev,"%s reg = %x value = %x \n",__func__,reg,val);
 	if (icdc_d3_writable(codec, reg)) {
 		if (!icdc_d3_volatile(codec,reg)) {
 			if((reg == SCODA_REG_GCR_DACL)||(reg == SCODA_REG_GCR_DACR)){
-					tmp_val = (~tmp_val)&0x3f;
+				if(val < 32)
+					val = 31 - val;
+				else
+					val = 95 - val;
 			}
-			ret = snd_soc_cache_write(codec, reg, tmp_val);
+			ret = snd_soc_cache_write(codec, reg, val);
 			if (ret != 0)
 				dev_err(codec->dev, "Cache write to %x failed: %d\n",
 						reg, ret);
 		}
-		return icdc_d3_hw_write(icdc_d3, reg, tmp_val);
+		return icdc_d3_hw_write(icdc_d3, reg, val);
 	}
 	return 0;
 }
@@ -185,7 +188,10 @@ static unsigned int icdc_d3_read(struct snd_soc_codec *codec, unsigned int reg)
 		ret = snd_soc_cache_read(codec, reg, &val);
 		if (ret >= 0){
 			if((reg == SCODA_REG_GCR_DACL)||(reg == SCODA_REG_GCR_DACR)){
-				val = (~val)&0x3f;
+				if(val < 32)
+					val = 31 - val;
+				else
+					val = 95 - val;
 			}
 			return val;
 		}else
@@ -384,10 +390,10 @@ static const struct snd_kcontrol_new icdc_d3_titanium_vmux_controls =
 	SOC_DAPM_ENUM_VIRT("Route", icdc_d3_enum[2]);
 
 static const struct snd_kcontrol_new icdc_d3_mercury_aidac_input_sel_controls =
-	SOC_DAPM_ENUM("Route", icdc_d3_enum[3]);//SOC_DAPM_ENUM_VIRT->SOC_DAPM_ENUM
+	SOC_DAPM_ENUM("Route", icdc_d3_enum[3]);
 
 static const struct snd_kcontrol_new icdc_d3_dac_input_sel_controls =
-	SOC_DAPM_ENUM("Route", icdc_d3_enum[4]); //SOC_DAPM_ENUM_VIRT->SOC_DAPM_ENUM
+	SOC_DAPM_ENUM("Route", icdc_d3_enum[4]);
 
 static const struct snd_kcontrol_new icdc_d3_aiadc_input_sel_controls =
 	SOC_DAPM_ENUM("Route", icdc_d3_enum[5]);
@@ -399,7 +405,7 @@ static const struct snd_kcontrol_new icdc_d3_titanium_aidac_input_sel_controls =
 	SOC_DAPM_ENUM_VIRT("Route", icdc_d3_enum[7]);
 
 static const struct snd_kcontrol_new icdc_d3_mercury_mixer_mode_sel_controls =
-	SOC_DAPM_ENUM("Route", icdc_d3_enum[8]); //SOC_DAPM_ENUM_VIRT->SOC_DAPM_ENUM
+	SOC_DAPM_ENUM("Route", icdc_d3_enum[8]);
 
 static const struct snd_kcontrol_new icdc_d3_titanium_mixer_mode_sel_controls =
 	SOC_DAPM_ENUM_VIRT("Route", icdc_d3_enum[9]);
@@ -411,11 +417,11 @@ static const struct snd_kcontrol_new icdc_d3_aiadc_mixer_mode_sel_controls =
 
 static const struct snd_kcontrol_new icdc_d3_snd_controls[] = {
 	/* Volume controls */
-	SOC_DOUBLE_R_SX_TLV("MERCURY Playback Volume", SCODA_REG_GCR_DACL, SCODA_REG_GCR_DACR, 6, -32, 31, dac_tlv),
-	SOC_DOUBLE_R_SX_TLV("TITANIUM Playback Volume", SCODA_REG_GCR_DACL, SCODA_REG_GCR_DACR, 6, -32, 31, dac_tlv),
-	SOC_DOUBLE_R_SX_TLV("Playback Mixer Volume", SCODA_REG_GCR_MIXDACL, SCODA_REG_GCR_MIXDACR, 5, -31, 0, mix_tlv),
+	SOC_DOUBLE_R_TLV("MERCURY Playback Volume", SCODA_REG_GCR_DACL, SCODA_REG_GCR_DACR, 0, 63, 0, dac_tlv),
+	SOC_DOUBLE_R_TLV("TITANIUM Playback Volume", SCODA_REG_GCR_DACL, SCODA_REG_GCR_DACR, 0, 63, 0, dac_tlv),
+	SOC_DOUBLE_R_TLV("Playback Mixer Volume", SCODA_REG_GCR_MIXDACL, SCODA_REG_GCR_MIXDACR, 0, 31, 1, mix_tlv),
 	SOC_DOUBLE_R_TLV("Digital Capture Volume", SCODA_REG_GCR_ADCL, SCODA_REG_GCR_ADCR, 0, 43, 0, adc_tlv),
-	SOC_DOUBLE_R_SX_TLV("Digital Capture Mixer Volume", SCODA_REG_GCR_MIXADCL, SCODA_REG_GCR_MIXADCR, 5, -31, 0, mix_tlv),
+	SOC_DOUBLE_R_TLV("Digital Capture Mixer Volume", SCODA_REG_GCR_MIXADCL, SCODA_REG_GCR_MIXADCR, 0, 31, 1, mix_tlv),
 	SOC_SINGLE_TLV("Mic Volume", SCODA_REG_GCR_MIC1, 0, 4, 0, mic_tlv),
 
 	/* ADC private controls */
@@ -441,8 +447,8 @@ static const struct snd_soc_dapm_widget icdc_d3_dapm_widgets[] = {
 	SND_SOC_DAPM_VIRT_MUX("DAC_MERCURY VMux", SND_SOC_NOPM, 0, 0, &icdc_d3_mercury_vmux_controls),
 	SND_SOC_DAPM_PGA("DAC_MERCURY", SCODA_REG_CR_DAC, 4, 1, NULL, 0),
 
-//	SND_SOC_DAPM_VIRT_MUX("DAC_TITANIUM VMux", SND_SOC_NOPM, 0, 0, &icdc_d3_titanium_vmux_controls),
-//	SND_SOC_DAPM_PGA("DAC_TITANIUM", SCODA_REG_CR_DAC2, 4, 1, NULL, 0),
+/*	SND_SOC_DAPM_VIRT_MUX("DAC_TITANIUM VMux", SND_SOC_NOPM, 0, 0, &icdc_d3_titanium_vmux_controls),*/
+/*	SND_SOC_DAPM_PGA("DAC_TITANIUM", SCODA_REG_CR_DAC2, 4, 1, NULL, 0),*/
 
 /* MIXER */
 	SND_SOC_DAPM_MUX("MERCURY AIDAC MIXER Mux", SND_SOC_NOPM, 0, 0, &icdc_d3_dac_input_sel_controls),
@@ -503,7 +509,7 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{"DAC Mode Mux", "PLAYBACK DAC", "DAC_MERCURY VMux"},
 	{"DAC Mode Mux", "PLAYBACK DAC + ADC", "MERCURY AIDAC MIXER Mux"},
 
-/*	DAC_MERCURY Vmux->DAC Mux*/
+	/*	DAC_MERCURY Vmux->DAC Mux*/
 	/*select mixer output channels*/
 	{ "MERCURY AIDAC Mux"  , "Normal Inputs"  , "DAC Mode Mux" },
 	{ "MERCURY AIDAC Mux"  , "Cross Inputs"  , "DAC Mode Mux" },
