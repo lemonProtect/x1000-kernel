@@ -169,7 +169,12 @@ static struct fb_videomode *jzfb_get_mode(struct fb_var_screeninfo *var,
 	size_t i;
 	struct jzfb *jzfb = info->par;
 	struct fb_videomode *mode = jzfb->pdata->modes;
-
+/*
+	dev_err(info->dev, "%s L%d\n", __func__, __LINE__);
+	dev_err(info->dev, "var->vmode=%x, var->xres=%d, var->yres=%d, var->pixclock=%d, var->xres_virtual=%d, var->yres_virtual=%d, var->xoffset=%d, var->yoffset=%d, var->bits_per_pixel=%d, var->height=%d, var->width=%d, var->left_margin=%d, var->right_margin=%d, var->upper_margin=%d, var->lower_margin=%d, var->hsync_len=%d, var->vsync_len=%d, var->sync=%d\n", var->vmode, var->xres, var->yres, var->pixclock, var->xres_virtual, var->yres_virtual, var->xoffset, var->yoffset, var->bits_per_pixel, var->height, var->width, var->left_margin, var->right_margin, var->upper_margin, var->lower_margin, var->hsync_len, var->vsync_len, var->sync);
+	dev_err(info->dev, "mode->flag=%x, mode->vmode=%x, mode->xres=%d, mode->yres=%d, mode->pixclock=%d, mode->right_margin=%d", 
+		mode->flag, mode->vmode, mode->xres, mode->yres, mode->pixclock, mode->right_margin);
+*/
 	for (i = 0; i < jzfb->pdata->num_modes; ++i, ++mode) {
 		if (mode->flag & FB_MODE_IS_VGA) {
 			if (mode->xres == var->xres &&
@@ -190,6 +195,7 @@ static struct fb_videomode *jzfb_get_mode(struct fb_var_screeninfo *var,
 		}
 	}
 
+	dev_err(info->dev, "%s L%d, return NULL\n", __func__, __LINE__);
 	return NULL;
 }
 
@@ -545,12 +551,16 @@ static int jzfb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
 	struct fb_videomode *mode;
 
 	if (var->bits_per_pixel != jzfb_get_controller_bpp(jzfb) &&
-	    var->bits_per_pixel != jzfb->pdata->bpp)
+	    var->bits_per_pixel != jzfb->pdata->bpp){
+		dev_err(info->dev, "%s var->bits_per_pixel = %d\n", __func__,var->bits_per_pixel);
+		return 0;	/* workaround for tizen-2.3 window mananger... */
 		return -EINVAL;
+	}
 	mode = jzfb_get_mode(var, info);
 	if (mode == NULL) {
 		dev_err(info->dev, "%s get video mode failed\n", __func__);
-		return -EINVAL;
+		return 0;
+//		return -EINVAL;
 	}
 
 	jzfb_videomode_to_var(var, mode, jzfb->pdata->lcd_type);
@@ -849,6 +859,7 @@ static int jzfb_set_par(struct fb_info *info)
 	mode = jzfb_get_mode(var, info);
 	if (mode == NULL) {
 		dev_err(info->dev, "%s get video mode failed\n", __func__);
+		return 0;	/* workaround for tizen-2.3 window mananger... */
 		return -EINVAL;
 	}
 #if 0
@@ -2549,6 +2560,8 @@ static int jzfb_probe(struct platform_device *pdev)
 	jzfb->dev = &pdev->dev;
 	jzfb->pdata = pdata;
 	jzfb->mem = mem;
+
+	jzfb->open_cnt = 0;
 
 	if (pdata->lcd_type != LCD_TYPE_INTERLACED_TV &&
 	    pdata->lcd_type != LCD_TYPE_SLCD) {
