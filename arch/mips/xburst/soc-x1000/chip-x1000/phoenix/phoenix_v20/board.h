@@ -177,10 +177,10 @@
 
 #define GPIO_EFUSE_VDDQ	GPIO_PB(27)		/* EFUSE must be -ENODEV or a gpio */
 
-/* PMU ricoh619 */
-#ifdef CONFIG_REGULATOR_RICOH619
+/* PMU RN5T567 */
+#ifdef CONFIG_REGULATOR_RN5T567
 #define PMU_IRQ_N       GPIO_PC(23)
-#endif /* CONFIG_REGULATOR_RICOH619 */
+#endif /* CONFIG_REGULATOR_RN5T567 */
 
 
 #endif /* __BOARD_H__ */

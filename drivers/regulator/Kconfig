@@ -507,6 +507,14 @@ config REGULATOR_WM8994
 	  This driver provides support for the voltage regulators on the
 	  WM8994 CODEC.
 
+config REGULATOR_RN5T567
+	tristate "Ricoh RN5T567 Power regulators"
+	depends on MFD_RICOH619
+	default n
+	help
+	  This driver supports regulator driver for the Ricoh RN5T567
+	  Power Management device.
+
 config REGULATOR_RICOH619
 	tristate "Ricoh R5T619 Power regulators"
 	depends on MFD_RICOH619
