@@ -315,14 +315,16 @@ static int jz_i2s_hw_params(struct snd_pcm_substream *substream,
 		snd_soc_dai_set_dma_data(dai, substream, (void *)&jz_i2s->rx_dma_data);
 	}
 	/* sample rate */
-	if((jz_i2s->i2s_mode&I2S_MASTER)&&(jz_aic->sample_rate!=sample_rate)){
-		jz_aic->sample_rate = jz_i2s_set_rate(aic,jz_aic,sample_rate);
-		if(jz_aic->sample_rate < 0)
-			printk("set i2s sysclk failed!!\n");
-	}else if((jz_i2s->i2s_mode&I2S_SLAVE)&&(jz_aic->sysclk!=codec_sysclk)){
-		clk_set_rate(jz_aic->clk,codec_sysclk);
-		if(clk_get_rate(jz_aic->clk) > codec_sysclk)
-			printk("set i2s sysclk failed!!\n");
+	if(jz_i2s->i2s_mode && I2S_EXCODEC){
+		if((jz_i2s->i2s_mode&I2S_MASTER)&&(jz_aic->sample_rate!=sample_rate)){
+			jz_aic->sample_rate = jz_i2s_set_rate(aic,jz_aic,sample_rate);
+			if(jz_aic->sample_rate < 0)
+				printk("set i2s sysclk failed!!\n");
+		}else if((jz_i2s->i2s_mode&I2S_SLAVE)&&(jz_aic->sysclk!=codec_sysclk)){
+			clk_set_rate(jz_aic->clk,codec_sysclk);
+			if(clk_get_rate(jz_aic->clk) > codec_sysclk)
+				printk("set i2s sysclk failed!!\n");
+		}
 	}
 	return 0;
 }
@@ -560,10 +562,9 @@ static int jz_i2s_platfrom_probe(struct platform_device *pdev)
 	__i2s_select_i2s_fmt(aic);
 	__i2s_enable_sysclk_output(aic);
 	__aic_enable(aic);
-#ifndef CONFIG_SND_ASOC_JZ_ICDC_D3
-	/* for fix a soc bug */
+
+	clk_enable(jz_aic->clk_gate);
 	clk_enable(jz_aic->clk);
-#endif
 
 	ret = snd_soc_register_component(&pdev->dev, &jz_i2s_component,
 					 &jz_i2s_dai, 1);
@@ -583,6 +584,28 @@ static int jz_i2s_platfom_remove(struct platform_device *pdev)
 	return 0;
 }
 
+
+#ifdef CONFIG_PM
+static int jz_i2s_platfom_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct device *aic = pdev->dev.parent;
+	struct jz_aic *jz_aic = dev_get_drvdata(aic);
+	printk("jz aic susend!\n");
+	clk_disable(jz_aic->clk_gate);
+	clk_disable(jz_aic->clk);
+	return 0;
+}
+
+static int jz_i2s_platfom_resume(struct platform_device *pdev)
+{
+	struct device *aic = pdev->dev.parent;
+	struct jz_aic *jz_aic = dev_get_drvdata(aic);
+	clk_enable(jz_aic->clk_gate);
+	clk_enable(jz_aic->clk);
+	printk("jz aic resume!\n");
+	return 0;
+}
+#endif
 static struct platform_driver jz_i2s_plat_driver = {
 	.probe  = jz_i2s_platfrom_probe,
 	.remove = jz_i2s_platfom_remove,
@@ -590,6 +613,10 @@ static struct platform_driver jz_i2s_plat_driver = {
 		.name = "jz-asoc-aic-i2s",
 		.owner = THIS_MODULE,
 	},
+#ifdef CONFIG_PM
+	.suspend = jz_i2s_platfom_suspend,
+	.resume = jz_i2s_platfom_resume,
+#endif
 };
 
 static int jz_i2s_init(void)

@@ -205,29 +205,6 @@ static unsigned int icdc_d3_read(struct snd_soc_codec *codec, unsigned int reg)
 	return 0;
 }
 
-static int icdc_d3_set_bias_level(struct snd_soc_codec *codec,
-		enum snd_soc_bias_level level) {
-	DEBUG_MSG("%s enter set level %d\n", __func__, level);
-	switch (level) {
-	case SND_SOC_BIAS_ON:
-	case SND_SOC_BIAS_PREPARE:
-		break;
-	case SND_SOC_BIAS_STANDBY:
-		if (snd_soc_update_bits(codec, SCODA_REG_CR_VIC, SCODA_CR_VIC_SB_MASK, 0))
-			msleep(250);
-		if (snd_soc_update_bits(codec, SCODA_REG_CR_VIC, SCODA_CR_VIC_SB_SLEEP_MASK, 0)) {
-			msleep(400);
-		}
-		break;
-	case SND_SOC_BIAS_OFF:
-		snd_soc_update_bits(codec, SCODA_REG_CR_VIC, SCODA_CR_VIC_SB_SLEEP_MASK, 1);
-		snd_soc_update_bits(codec, SCODA_REG_CR_VIC, SCODA_CR_VIC_SB_MASK, 1);
-		printk("\n\n############# SND BIAS OFF!!!!!!!!!!!!!!!\n\n");
-		break;
-	}
-	codec->dapm.bias_level = level;
-	return 0;
-}
 
 static int icdc_d3_hw_params(struct snd_pcm_substream *substream,
 			    struct snd_pcm_hw_params *params,
@@ -310,10 +287,35 @@ static int icdc_d3_trigger(struct snd_pcm_substream * stream, int cmd,
 #define DLV4780_FORMATS (SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S18_3LE | \
 			 SNDRV_PCM_FMTBIT_S20_3LE |SNDRV_PCM_FMTBIT_S24_LE)
 
+static int jz_icdc_startup(struct snd_pcm_substream *substream,
+		struct snd_soc_dai *dai)
+{
+	struct snd_soc_codec *codec = dai->codec;
+	/*power on codec*/
+	if (snd_soc_update_bits(codec, SCODA_REG_CR_VIC, SCODA_CR_VIC_SB_MASK, 0))
+		msleep(250);
+	if (snd_soc_update_bits(codec, SCODA_REG_CR_VIC, SCODA_CR_VIC_SB_SLEEP_MASK, 0))
+		msleep(400);
+	return 0;
+}
+
+
+static void jz_icdc_shutdown(struct snd_pcm_substream *substream,
+		struct snd_soc_dai *dai)
+{
+	struct snd_soc_codec *codec = dai->codec;
+	/*power off codec*/
+	snd_soc_update_bits(codec, SCODA_REG_CR_VIC, SCODA_CR_VIC_SB_SLEEP_MASK, 1);
+	snd_soc_update_bits(codec, SCODA_REG_CR_VIC, SCODA_CR_VIC_SB_MASK, 1);
+	return;
+}
+
 static struct snd_soc_dai_ops icdc_d3_dai_ops = {
 	.hw_params	= icdc_d3_hw_params,
 	.digital_mute	= icdc_d3_digital_mute,
 	.trigger = icdc_d3_trigger,
+	.shutdown	= jz_icdc_shutdown,
+	.startup	= jz_icdc_startup,
 };
 
 static struct snd_soc_dai_driver  icdc_d3_codec_dai = {
@@ -534,8 +536,9 @@ static int icdc_d3_probe(struct snd_soc_codec *codec)
 	struct icdc_d3 *icdc_d3 = snd_soc_codec_get_drvdata(codec);
 
 	dev_info(codec->dev, "codec icdc-d3 probe enter\n");
-	/*power on codec*/
-	icdc_d3_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
+	/* power off codec */
+	snd_soc_update_bits(codec, SCODA_REG_CR_VIC, SCODA_CR_VIC_SB_SLEEP_MASK, 1);
+	snd_soc_update_bits(codec, SCODA_REG_CR_VIC, SCODA_CR_VIC_SB_MASK, 1);
 
 #ifdef DEBUG
 	/*dump for debug*/
@@ -569,7 +572,6 @@ static int icdc_d3_remove(struct snd_soc_codec *codec)
 {
 	/*struct icdc_d3 *icdc_d3 = snd_soc_codec_get_drvdata(codec);*/
 	dev_info(codec->dev, "codec icdc_d3 remove enter\n");
-	icdc_d3_set_bias_level(codec, SND_SOC_BIAS_OFF);
 	return 0;
 }
 
@@ -588,7 +590,6 @@ static struct snd_soc_codec_driver soc_codec_dev_icdc_d3_codec = {
 	.reg_word_size = sizeof(u8),
 	.reg_cache_step = 1,
 	.reg_cache_size = SCODA_MAX_REG_NUM,
-	.set_bias_level = icdc_d3_set_bias_level,
 
 	.controls = 	icdc_d3_snd_controls,
 	.num_controls = ARRAY_SIZE(icdc_d3_snd_controls),
