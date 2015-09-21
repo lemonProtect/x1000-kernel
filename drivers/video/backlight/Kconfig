@@ -170,12 +170,29 @@ config LCD_BYD_9177AA
 	tristate "byd 9177aa  mipi-dsi panel(540x960)"
 	depends on FB && JZ_MIPI_DSI
 	help
-	   jz mipi dsi.dpi TFT display panel  support
+	jz mipi dsi.dpi TFT display panel  support
+
 config LCD_X163
-   tristate "X163 smart mipi-dsi panel(320x320)"
-   depends on FB && JZ_MIPI_DSI
-   help
-	   jz mipi dsi.dbi smart display panel support
+	tristate "X163 smart mipi-dsi panel(320x320)"
+	depends on FB && JZ_MIPI_DSI
+	help
+	jz mipi dsi.dbi smart display panel support
+
+config SLCDC_USE_TE
+	tristate "SLCDC USE TE SIGNAL"
+	depends on BACKLIGHT_CLASS_DEVICE
+	default n
+
+config GPIO_SIMULATE
+    tristate "USE GPIO SIMULATE TO MCU INIT"
+    depends on LCD_TRULY_TFT240240_2_E || LCD_CV90_M5377_P30
+    default n
+
+config SLCDC_CONTINUA
+    tristate "SLCDC CONTINUA TRANFER"
+    depends on BACKLIGHT_CLASS_DEVICE
+    default n
+
 config AUO_X163_ROTATION_180
 	bool "AUO X163 rotation 180"
 	depends on LCD_X163
