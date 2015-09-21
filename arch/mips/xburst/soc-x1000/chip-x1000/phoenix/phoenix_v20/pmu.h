@@ -1,6 +1,6 @@
 #ifndef __PMU_H__
 #define __PMU_H__
-#ifdef CONFIG_REGULATOR_RICOH619
+#ifdef CONFIG_REGULATOR_RN5T567
 
 #define PMU_I2C_BUSNUM  1
 
