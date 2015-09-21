@@ -65,7 +65,7 @@ static struct snd_soc_dai_link mensa_dais[] = {
 static struct snd_soc_card mensa = {
 	.name = "phoenix",
 	.owner = THIS_MODULE,
-	.dai_link = mensa:_dais,
+	.dai_link = mensa_dais,
 	.num_links = ARRAY_SIZE(mensa_dais),
 };
 

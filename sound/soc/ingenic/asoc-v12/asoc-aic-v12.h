@@ -49,7 +49,6 @@ struct jz_aic {
 	void __iomem	*vaddr_base;
 	struct clk	*clk;
 	struct clk	*clk_gate;
-	struct clk	*clk_gate_dmic;
 	unsigned long sample_rate;
 	unsigned long sysclk;
 	/*for interrupt*/

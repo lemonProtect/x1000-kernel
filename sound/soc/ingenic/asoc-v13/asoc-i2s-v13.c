@@ -86,7 +86,6 @@ static int jz_i2s_startup(struct snd_pcm_substream *substream,
 				aic_work_mode_str(work_mode));
 		return -EPERM;
 	}
-
 	if (!(jz_i2s->i2s_mode&0xf)) {
 		__i2s_select_sysclk_output(aic);
 
@@ -137,127 +136,11 @@ struct clk {
 	struct clk *source;
 };
 
-
-static int calculate_exact_div(unsigned long pll, unsigned long clk, unsigned int div)
-{
-	/* sysclk = (256 or 128) * sync */
-	unsigned long sysclk = clk * div;
-	unsigned int i2scdr = pll / sysclk;
-
-	if ((pll / i2scdr - sysclk) > (sysclk - pll / (i2scdr + 1)))
-		i2scdr = i2scdr + 1;
-
-	return i2scdr;
-}
-
-static unsigned long calculate_cgu_aic_rate(struct clk *cgu_aic_clk  ,unsigned long *rate)
-{
-	int i;
-	unsigned int div;
-	int err;
-	struct clk *codec_parent = NULL;
-	struct clk *pll_clk = NULL;
-	unsigned long parent_clk;
-
-	unsigned long mrate[13] = {
-		8000, 11025, 12000, 16000,22050,24000,
-		32000,44100, 48000, 88200,96000,192000, 384000,
-	};
-
-	/* sysclk_div = sysclk / sync
-	 * You can change it just follow your board.
-	 * Now 4775 apll set to 948MHZ, mpll set to 492MHZ, sysclk_div[] is calculated refer to it.
-	 * If you change pll clk, you should reset it again.
-	*/
-	unsigned int sysclk_div[13] = {
-		256, 256, 256, 256, 256, 256,
-		256, 256, 256, 256, 256, 256, 256,
-	};
-
-	for (i=0; i<=12; i++) {
-		if (*rate <= mrate[i]) {
-			*rate = mrate[i];
-			div = sysclk_div[i];
-			break;
-		}
-	}
-	if (i > 12) {
-		printk("The rate isnot be support, here fix to 44100 sample rate\n");
-		*rate = 44100; /*unsupport rate use default*/
-		div = 256;
-	}
-
-	codec_parent = clk_get_parent(cgu_aic_clk);
-	if (IS_ERR(codec_parent)) {
-		printk(KERN_ERR"cgu_aic clk_get_parent failed\n");
-	}
-
-	parent_clk = clk_get_rate(codec_parent);
-
-	if (*rate == 44100 || *rate == 88200){
-		if (strcmp(codec_parent->name, "apll")){
-			pll_clk = clk_get(NULL, "apll");
-			if (IS_ERR(pll_clk)) {
-				printk(KERN_ERR"I2s get apll failed\n");
-			}
-			err = clk_set_parent(cgu_aic_clk , pll_clk);
-			if (err < 0){
-				printk(KERN_ERR"I2s clk_set_parent to apll error\n");
-			}else{
-				parent_clk = clk_get_rate(pll_clk);
-			}
-			clk_put(pll_clk);
-		}
-	}else{
-		if (strcmp(codec_parent->name, "mpll")){
-			pll_clk = clk_get(NULL, "mpll");
-			if (IS_ERR(pll_clk)) {
-				printk(KERN_ERR"I2s get mpll failed\n");
-			}
-			err = clk_set_parent(cgu_aic_clk, pll_clk);
-			if (err < 0){
-				printk(KERN_ERR"I2s clk_set_parent to mpll error\n");
-			}else{
-				parent_clk = clk_get_rate(pll_clk);
-			}
-			clk_put(pll_clk);
-		}
-	}
-
-	/* pll / i2scdr = sysclk */
-	div = calculate_exact_div(parent_clk, *rate, div);
-
-	return parent_clk / div;
-}
-
-
-static unsigned long  __i2s_set_sample_rate(struct jz_aic* jz_aic, unsigned long sys_clk, unsigned long sync){
-	unsigned long tmp_val;
-	int div = sys_clk/(64*sync);
-	if ((sys_clk - 64*sync*div) > (64*sync*(div+1) - sys_clk))
-		div = div + 1;
-
-	tmp_val = readl(jz_aic->vaddr_base + I2SDIV);
-	tmp_val &= ~I2SDIV_DV_BIT;
-	writel(tmp_val,jz_aic->vaddr_base + I2SDIV);
-
-	printk("replay sysclk = %d * sync\n", 64 * div);
-	return sys_clk/(64*div);
-}
-
-
 static int jz_i2s_set_rate(struct device *aic ,struct jz_aic* jz_aic, unsigned long sample_rate){
-	unsigned long sysclk;
 	struct clk* cgu_aic_clk = jz_aic->clk;
 	__i2s_stop_bitclk(aic);
-	sysclk = calculate_cgu_aic_rate(cgu_aic_clk,&sample_rate);
-	clk_set_rate(cgu_aic_clk, sysclk);
-	jz_aic->sysclk = clk_get_rate(cgu_aic_clk);
-	if (jz_aic->sysclk > sysclk) {
-		printk("external codec set sysclk fail.\n");
-		return -1;
-	}
-	__i2s_set_sample_rate(jz_aic, sysclk, sample_rate);
+	clk_set_rate(cgu_aic_clk, sample_rate);
+	writel(0xa,(void*)I2S_CPM_VALID);
 	__i2s_start_bitclk(aic);
 	return sample_rate;
 }
@@ -317,14 +200,16 @@ static int jz_i2s_hw_params(struct snd_pcm_substream *substream,
 		snd_soc_dai_set_dma_data(dai, substream, (void *)&jz_i2s->rx_dma_data);
 	}
 	/* sample rate */
-	if((jz_i2s->i2s_mode&I2S_MASTER)&&(jz_aic->sample_rate!=sample_rate)){
-		jz_aic->sample_rate = jz_i2s_set_rate(aic,jz_aic,sample_rate);
-		if(jz_aic->sample_rate < 0)
-			printk("set i2s sysclk failed!!\n");
-	}else if((jz_i2s->i2s_mode&I2S_SLAVE)&&(jz_aic->sysclk!=codec_sysclk)){
-		clk_set_rate(jz_aic->clk,codec_sysclk);
-		if(clk_get_rate(jz_aic->clk) > codec_sysclk)
-			printk("set i2s sysclk failed!!\n");
+	if(jz_i2s->i2s_mode && I2S_EXCODEC){
+		if((jz_i2s->i2s_mode&I2S_MASTER)&&(jz_aic->sample_rate!=sample_rate)){
+			jz_aic->sample_rate = jz_i2s_set_rate(aic,jz_aic,sample_rate);
+			if(jz_aic->sample_rate < 0)
+				printk("set i2s sysclk failed!!\n");
+		}else if((jz_i2s->i2s_mode&I2S_SLAVE)&&(jz_aic->sysclk!=codec_sysclk)){
+			clk_set_rate(jz_aic->clk,codec_sysclk);
+			if(clk_get_rate(jz_aic->clk) > codec_sysclk)
+				printk("set i2s sysclk failed!!\n");
+		}
 	}
 	return 0;
 }
@@ -393,7 +278,6 @@ static void jz_i2s_stop_substream(struct snd_pcm_substream *substream,
 		__i2s_disable_record(aic);
 		__aic_clear_ror(aic);
 	}
-
 	return;
 }
 
@@ -411,7 +295,6 @@ static int jz_i2s_trigger(struct snd_pcm_substream *substream, int cmd, struct s
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		if (atomic_read(&prtd->stopped_pending))
 			return -EPIPE;
-		printk(KERN_DEBUG"i2s start\n");
 		jz_i2s_start_substream(substream, dai);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
@@ -419,7 +302,6 @@ static int jz_i2s_trigger(struct snd_pcm_substream *substream, int cmd, struct s
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
 		if (atomic_read(&prtd->stopped_pending))
 			return 0;
-		printk(KERN_DEBUG"i2s stop\n");
 		jz_i2s_stop_substream(substream, dai);
 		break;
 	}
@@ -455,6 +337,7 @@ static int jz_i2s_probe(struct snd_soc_dai *dai)
 {
 	struct jz_i2s *jz_i2s = dev_get_drvdata(dai->dev);
 	struct device *aic = jz_i2s->aic;
+	struct jz_aic *jz_aic = dev_get_drvdata(aic);
 	I2S_DEBUG_MSG("enter %s\n", __func__);
 	/* dlv4780 codec probe must have mclk */
 	__i2s_select_sysclk_output(aic);
@@ -474,6 +357,8 @@ static int jz_i2s_probe(struct snd_soc_dai *dai)
 	__i2s_select_i2s_fmt(aic);
 	__i2s_enable_sysclk_output(aic);
 	__aic_enable(aic);
+	clk_enable(jz_aic->clk_gate);
+	clk_enable(jz_aic->clk);
 	return 0;
 }
 
@@ -572,6 +457,28 @@ static int jz_i2s_platfom_remove(struct platform_device *pdev)
 	return 0;
 }
 
+
+#ifdef CONFIG_PM
+static int jz_i2s_platfom_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct device *aic = pdev->dev.parent;
+	struct jz_aic *jz_aic = dev_get_drvdata(aic);
+	printk("jz aic susend!\n");
+	clk_disable(jz_aic->clk_gate);
+	clk_disable(jz_aic->clk);
+	return 0;
+}
+
+static int jz_i2s_platfom_resume(struct platform_device *pdev)
+{
+	struct device *aic = pdev->dev.parent;
+	struct jz_aic *jz_aic = dev_get_drvdata(aic);
+	clk_enable(jz_aic->clk_gate);
+	clk_enable(jz_aic->clk);
+	printk("jz aic resume!\n");
+	return 0;
+}
+#endif
 static struct platform_driver jz_i2s_plat_driver = {
 	.probe  = jz_i2s_platfrom_probe,
 	.remove = jz_i2s_platfom_remove,
@@ -579,6 +486,10 @@ static struct platform_driver jz_i2s_plat_driver = {
 		.name = "jz-asoc-aic-i2s",
 		.owner = THIS_MODULE,
 	},
+#ifdef CONFIG_PM
+	.suspend = jz_i2s_platfom_suspend,
+	.resume = jz_i2s_platfom_resume,
+#endif
 };
 
 static int jz_i2s_init(void)
