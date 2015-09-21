@@ -2540,7 +2540,6 @@ static int jzfb_suspend(struct device *dev)
 
 static int jzfb_resume(struct device *dev)
 {
-	int tmp;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct jzfb *jzfb = platform_get_drvdata(pdev);
 
