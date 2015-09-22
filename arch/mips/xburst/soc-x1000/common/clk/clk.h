@@ -81,7 +81,7 @@ enum {
 	CLK_ID_CGU_CIM,
 #define CLK_NAME_CGU_CIM	"cgu_cim"
 	CLK_ID_CGU_SFC,
-#define CLK_NAME_CGU_SFC	"cgu_sfc"
+#define CLK_NAME_CGU_SFC	"cgu_ssi"
 	CLK_ID_CGU_MSC_MUX,
 #define CLK_NAME_CGU_MSC_MUX	"cgu_msc_mux"
 	CLK_ID_CGU_USB,
@@ -128,7 +128,7 @@ enum {
 	CLK_ID_SYS_OST,
 #define CLK_NAME_SYS_OST	"sys_ost"
 	CLK_ID_SSI,
-#define CLK_NAME_SSI		"ssi"
+#define CLK_NAME_SSI		"ssi0"
 	CLK_ID_TCU,
 #define CLK_NAME_TCU		"tcu"
 	CLK_ID_DMIC,

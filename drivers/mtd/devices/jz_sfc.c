@@ -519,6 +519,11 @@ static int jz_sfc_init_setup(struct jz_sfc *flash)
 
 	sfc_transfer_mode(flash, SLAVE_MODE);
 
+	if(flash->src_clk >= 100000000){
+//		printk("############## the cpm = %x\n",*(volatile unsigned int*)(0xb0000074));
+		sfc_smp_delay(flash,DEV_CONF_HALF_CYCLE_DELAY);
+	}
+
 	flash->swap_buf = kmalloc(SWAP_BUF_SIZE + PAGE_SIZE,GFP_KERNEL);
 	if(flash->swap_buf == NULL){
 		dev_err(flash->dev,"alloc mem error\n");
@@ -584,7 +589,7 @@ static int jz_spi_norflash_wait_till_ready(struct jz_sfc *flash)
 		cond_resched();
 	} while (!time_after_eq(jiffies, deadline));
 
-	printk("error happen wait timeout");
+	printk("error happen wait timeout\n");
 	return -ETIMEDOUT;
 }
 
@@ -626,7 +631,7 @@ static int jz_spi_norflash_set_quad_mode(struct jz_sfc *flash)
 		transfer[0].tx_buf  = command_stage1;
 		transfer[0].tx_buf1 = command_stage2;
 		transfer[0].rx_buf =  NULL;
-		transfer[0].len = 1;//sizeof(command_stage2);
+		transfer[0].len = flash->board_info->quad_mode->WD_DATE_SIZE,//1;//sizeof(command_stage2);
 		ret = jz_sfc_pio_txrx(flash, transfer);
 		if(ret != transfer[0].len)
 			dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
@@ -640,7 +645,7 @@ static int jz_spi_norflash_set_quad_mode(struct jz_sfc *flash)
 		transfer[0].tx_buf = command_stage1;
 		transfer[0].tx_buf1 = NULL;
 		transfer[0].rx_buf = command_stage2;
-		transfer[0].len = 1;//sizeof(command_stage2);
+		transfer[0].len = flash->board_info->quad_mode->RD_DATE_SIZE;//1;//sizeof(command_stage2);
 		ret = jz_sfc_pio_txrx(flash, transfer);
 		if(ret != transfer[0].len){
 			dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
@@ -987,7 +992,7 @@ static int jz_spi_norflash_match_device(struct jz_sfc *flash)
 	if(ret != transfer[0].len)
 		dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
 
-	id = command_stage2[0];
+	id = (command_stage2[0] << 16) | (command_stage2[1] << 8) | command_stage2[2];
 
 	for (i = 0; i < flash->board_info_size; i++) {
 		board_info = &flash->board_info[i];
@@ -998,14 +1003,14 @@ static int jz_spi_norflash_match_device(struct jz_sfc *flash)
 	}
 
 	if (i == flash->board_info_size) {
-		if ((id != 0)&&(id != 0xff)){
+		if ((id != 0)&&(id != 0xff)&&(quad_mode == 0)){
 			board_info = &flash->board_info[0];
 			printk("the id code = %x, the flash name is %s\n",id,board_info->name);
 			printk("#####unsupport ID is %04x if the id not be 0x00,the flash can be ok,but the quad mode may be not support!!!!! \n",id);
 			mdelay(200);
 		}else{
 			mutex_unlock(&flash->lock);
-			printk("ingenic: Unsupported ID %04x\n", id);
+			printk("error happen !!!!,ingenic: Unsupported ID %04x,the quad mode is not support\n", id);
 			return EINVAL;
 		}
 	}
@@ -1082,7 +1087,7 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 		goto err_no_irq;
 	}
 
-	flash->clk = clk_get(&pdev->dev, "cgu_sfc");
+	flash->clk = clk_get(&pdev->dev, "cgu_ssi");
 	if (IS_ERR(flash->clk)) {
 		dev_err(&pdev->dev, "Cannot get ssi clock\n");
 		goto err_no_clk;
@@ -1095,7 +1100,14 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 		goto err_no_clk;
 	}
 
-	flash->src_clk = flash->pdata->max_clk;
+	res = platform_get_resource(pdev, IORESOURCE_BUS, 0);
+	if (res == NULL) {
+		dev_err(&pdev->dev, "Cannot get IORESOURCE_BUS\n");
+		err = -ENOENT;
+		goto err_no_iores;
+	}
+
+	flash->src_clk = res->start * 1000000;
 
 	if (clk_get_rate(flash->clk) >= flash->src_clk) {
 		clk_set_rate(flash->clk, flash->src_clk);

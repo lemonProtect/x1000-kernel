@@ -106,9 +106,10 @@
 #define GLB_BURST_MD_MSK		(0x3  << GLB_BURST_MD_OFFSET)
 
 /* For SFC_DEV_CONF */
-#define	DEV_CONF_ONE_AND_HALF_CYCLE_DELAY	(3 << DEV_CONF_SMP_DELAY_OFFSET)
-#define	DEV_CONF_ONE_CYCLE_DELAY	(2 << DEV_CONF_SMP_DELAY_OFFSET)
-#define	DEV_CONF_HALF_CYCLE_DELAY	(1 << DEV_CONF_SMP_DELAY_OFFSET)
+#define	DEV_CONF_ONE_AND_HALF_CYCLE_DELAY	(3)
+#define	DEV_CONF_ONE_CYCLE_DELAY	(2)
+#define	DEV_CONF_HALF_CYCLE_DELAY	(1)
+#define	DEV_CONF_NO_DELAY	        (0)
 #define	DEV_CONF_SMP_DELAY_OFFSET	(16)
 #define	DEV_CONF_SMP_DELAY_MSK		(0x3 << DEV_CONF_SMP_DELAY_OFFSET)
 #define DEV_CONF_CMD_TYPE		(0x1 << 15)
@@ -441,6 +442,17 @@ void sfc_threshold(struct jz_sfc *sfc, int value)
 	tmp |= value << GLB_THRESHOLD_OFFSET;
 	sfc_writel(sfc, SFC_GLB, tmp);
 }
+
+
+void sfc_smp_delay(struct jz_sfc *sfc, int value)
+{
+	unsigned int tmp;
+	tmp = sfc_readl(sfc, SFC_DEV_CONF);
+	tmp &= ~DEV_CONF_SMP_DELAY_MSK;
+	tmp |= value << DEV_CONF_SMP_DELAY_OFFSET | 1 << 9;
+	sfc_writel(sfc, SFC_DEV_CONF, tmp);
+}
+
 
 void sfc_transfer_direction(struct jz_sfc *sfc, int value)
 {
