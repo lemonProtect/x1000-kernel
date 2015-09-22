@@ -772,6 +772,10 @@ static struct resource jz_sfc_resources[] = {
 	[1] = {
 		.flags = IORESOURCE_IRQ,
 		.start = IRQ_SFC,
+	},
+	[2] = {
+		.start = CONFIG_SFC_SPEED,
+		.flags = IORESOURCE_BUS,
 	}
 };
 

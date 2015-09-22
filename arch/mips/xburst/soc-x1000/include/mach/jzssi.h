@@ -66,8 +66,10 @@ struct spi_nor_block_info {
 
 struct spi_quad_mode {
 	u8 RDSR_CMD;
+	unsigned int RD_DATE_SIZE;//the data is write the spi status register for QE bit
 	u8 sfc_mode;
 	u8 WRSR_CMD;
+	unsigned int WD_DATE_SIZE;//the data is write the spi status register for QE bit
 	u8 cmd_read;
 	unsigned int RDSR_DATE;//the data is write the spi status register for QE bit
 	unsigned int WRSR_DATE;//this bit should be the flash QUAD mode enable
@@ -121,7 +123,6 @@ struct jz_sfc_info {
 	u8	chnl;				/* the chanel of SSI controller */
 	u16	bus_num;			/* spi_master.bus_num */
 	unsigned is_pllclk:1;			/* source clock: 1---pllclk;0---exclk */
-	unsigned long	max_clk;
 	unsigned long	board_size;		/* spi_master.num_chipselect */
 	u32	 num_chipselect;
 	u32	 allow_cs_same;

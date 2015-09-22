@@ -80,6 +80,17 @@ config SFC_DMA
 	help
 		SFC dma mode for Ingenic JZ series SoCs
 
+config SFC_SPEED
+    int "JZ SFC speed in MHZ"
+	range 10 200
+	default 100
+	depends on JZ_SFC
+	help
+	    Select sfc speed.
+		Examples:
+			100 =>  100 MHZ
+
+
 if JZ_SFC
 
 choice
