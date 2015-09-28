@@ -310,9 +310,23 @@ static void jz_icdc_shutdown(struct snd_pcm_substream *substream,
 	return;
 }
 
+
+int icdc_d3_mute_stream(struct snd_soc_dai *dai, int mute, int stream)
+{
+	struct snd_soc_codec *codec = dai->codec;
+
+	if(stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		snd_soc_update_bits(codec, SCODA_REG_CR_DAC, SCODA_CR_DAC_SMUTE_MASK, mute << SCODA_CR_DAC_SMUTE_SHIFT);
+	} else if(stream == SNDRV_PCM_STREAM_CAPTURE) {
+		snd_soc_update_bits(codec, SCODA_REG_CR_ADC, SCODA_CR_ADC_SMUTE_MASK, mute << SCODA_CR_ADC_SMUTE_SHIFT);
+	}
+}
+
+
 static struct snd_soc_dai_ops icdc_d3_dai_ops = {
 	.hw_params	= icdc_d3_hw_params,
-	.digital_mute	= icdc_d3_digital_mute,
+	.mute_stream = icdc_d3_mute_stream,
+//	.digital_mute	= icdc_d3_digital_mute,
 	.trigger = icdc_d3_trigger,
 	.shutdown	= jz_icdc_shutdown,
 	.startup	= jz_icdc_startup,
@@ -563,6 +577,7 @@ static int icdc_d3_probe(struct snd_soc_codec *codec)
 	/*codec clear all irq*/
 	snd_soc_write(codec, SCODA_REG_IFR, SCODA_IMR_COMMON_MASK);
 	snd_soc_write(codec, SCODA_REG_IFR2, SCODA_IMR2_COMMON_MASK);
+
 
 	icdc_d3->codec = codec;
 	return 0;
