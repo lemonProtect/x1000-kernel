@@ -721,7 +721,7 @@ static int jz_camera_set_bus_param(struct soc_camera_device *icd) {
 
 	if ((common_flags & V4L2_MBUS_VSYNC_ACTIVE_HIGH) &&
 	    (common_flags & V4L2_MBUS_VSYNC_ACTIVE_LOW)) {
-		if (pcdev->pdata->flags & jz_CAMERA_VSYNC_HIGH)
+		if (pcdev->pdata->flags & JZ_CAMERA_VSYNC_HIGH)
 			common_flags &= ~V4L2_MBUS_VSYNC_ACTIVE_HIGH;
 		else
 			common_flags &= ~V4L2_MBUS_VSYNC_ACTIVE_LOW;
@@ -729,7 +729,7 @@ static int jz_camera_set_bus_param(struct soc_camera_device *icd) {
 
 	if ((common_flags & V4L2_MBUS_PCLK_SAMPLE_RISING) &&
 	    (common_flags & V4L2_MBUS_PCLK_SAMPLE_FALLING)) {
-		if (pcdev->pdata->flags & jz_CAMERA_PCLK_RISING)
+		if (pcdev->pdata->flags & JZ_CAMERA_PCLK_RISING)
 			common_flags &= ~V4L2_MBUS_PCLK_SAMPLE_FALLING;
 		else
 			common_flags &= ~V4L2_MBUS_PCLK_SAMPLE_RISING;
@@ -737,7 +737,7 @@ static int jz_camera_set_bus_param(struct soc_camera_device *icd) {
 
 	if ((common_flags & V4L2_MBUS_DATA_ACTIVE_HIGH) &&
 	    (common_flags & V4L2_MBUS_DATA_ACTIVE_LOW)) {
-		if (pcdev->pdata->flags & jz_CAMERA_DATA_HIGH)
+		if (pcdev->pdata->flags & JZ_CAMERA_DATA_HIGH)
 			common_flags &= ~V4L2_MBUS_DATA_ACTIVE_LOW;
 		else
 			common_flags &= ~V4L2_MBUS_DATA_ACTIVE_HIGH;
