@@ -249,6 +249,14 @@ static int __init pmu_dev_init(void)
 	int busnum = PMU_I2C_BUSNUM;
 	int i;
 
+	/*output high for pmu slp pin*/
+	if (gpio_request_one(PMU_SLP_N,
+				GPIOF_DIR_OUT, "pmu_slp_rst")) {
+		pr_err("The GPIO %d is requested by other driver,"
+				" not available for RICOH619\n",PMU_SLP_N);
+	}
+	gpio_direction_output(PMU_SLP_N, SLP_PIN_DISABLE_VALUE);
+
 	if (gpio_request_one(PMU_IRQ_N,
 				GPIOF_DIR_IN, "ricoh619_irq")) {
 		pr_err("The GPIO %d is requested by other driver,"
