@@ -45,9 +45,6 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_SERIAL_JZ47XX_UART2
 	DEF_DEVICE(&jz_uart2_device, 0, 0),
 #endif
-#ifdef CONFIG_SERIAL_JZ47XX_UART3
-	DEF_DEVICE(&jz_uart3_device, 0, 0),
-#endif
 #ifdef CONFIG_JZMMC_V11_MMC1
 	DEF_DEVICE(&jz_msc1_device,&tf_pdata,sizeof(struct jzmmc_platform_data)),
 #endif

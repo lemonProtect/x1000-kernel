@@ -1531,12 +1531,14 @@ config SERIAL_JZ47XX_UART1_DMA
 
 choice
 	prompt "JZ SERIAL GPIO function pins select"
-	depends on SERIAL_JZ47XX_UART1 && SOC_X1000
+	depends on SERIAL_JZ47XX_UART1
 	default SERIAL_JZ47XX_UART1_PD
 
 config SERIAL_JZ47XX_UART1_PA
-	bool "PORT A"
+	depends on SOC_X1000
+        bool "PORT A"
 config SERIAL_JZ47XX_UART1_PD
+	depends on SOC_X1000
 	bool "GPIO D"
 endchoice
 
@@ -1550,32 +1552,21 @@ config SERIAL_JZ47XX_UART2_DMA
 
 choice
 	prompt "JZ SERIAL GPIO function pins select"
-	depends on SERIAL_JZ47XX_UART2 && SOC_X1000
+	depends on SERIAL_JZ47XX_UART2
 	default SERIAL_JZ47XX_UART2_PD
+
 config SERIAL_JZ47XX_UART2_PA
+	depends on SOC_X1000
 	bool "PORT A"
 config SERIAL_JZ47XX_UART2_PD
-    bool "PORT D"
-endchoice
-
-choice
-	prompt "JZ SERIAL GPIO function pins select"
-	depends on SERIAL_JZ47XX_UART2 && SOC_4775
-	default SERIAL_JZ47XX_UART2_PC
+	depends on SOC_X1000
+	bool "PORT D"
 config SERIAL_JZ47XX_UART2_PF
+	depends on SOC_4775 || SOC_M200
 	bool "PORT F"
 config SERIAL_JZ47XX_UART2_PC
-    bool "PORT C"
-endchoice
-
-choice
-	prompt "JZ SERIAL GPIO function pins select"
-	depends on SERIAL_JZ47XX_UART2 && SOC_M200
-	default SERIAL_JZ47XX_UART2_PC
-config SERIAL_JZ47XX_UART2_PF
-	bool "PORT F"
-config SERIAL_JZ47XX_UART2_PC
-    bool "PORT C"
+	depends on SOC_4775 || SOC_M200
+        bool "PORT C"
 endchoice
 
 config SERIAL_JZ47XX_UART3
@@ -1593,11 +1584,13 @@ config SERIAL_JZ47XX_UART4_DMA
 	depends on SERIAL_JZ47XX_UART4
 choice
 	prompt "JZ SERIAL GPIO function pins select"
-	depends on SERIAL_JZ47XX_UART4 && SOC_M200
+	depends on SERIAL_JZ47XX_UART4
 	default SERIAL_JZ47XX_UART4_PB
 config SERIAL_JZ47XX_UART4_PB
+	depends on SOC_M200
 	bool "GPIO B"
 config SERIAL_JZ47XX_UART4_PF
+	depends on SOC_M200
 	bool "GPIO F"
 endchoice
 

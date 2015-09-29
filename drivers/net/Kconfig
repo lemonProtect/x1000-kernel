@@ -307,51 +307,6 @@ source "drivers/net/wan/Kconfig"
 
 source "drivers/net/ieee802154/Kconfig"
 
-config JZ_MAC
-	tristate "JZ on-chip MAC support"
-#depends on NET_ETHERNET
-	select CRC32
-	select MII
-	select PHYLIB
-	select PHY_RESET
-	help
-	  This is the driver for JZ on-chip mac device.
-
-choice
-	prompt "JZSOC MAC mode"
-	depends on JZ_MAC
-	default CONFIG_JZ_MAC_MII
-
-config JZ_MAC_MII
-	bool "MII"
-	help
-	  Select Media Independent Interface
-
-config JZ_MAC_GMII
-	bool "GMII"
-	help
-	  Select Gigabit Media Independent Interface
-
-config JZ_MAC_RMII
-	bool "RMII"
-	help
-	  Select Reduced Media Independent Interface
-
-config JZ_MAC_RGMII
-	bool "RGMII"
-	help
-	  Select Reduced Gigabit Media Independent Interface
-endchoice
-
-config JZGPIO_PHY_RESET
-	bool "PHY_RESET"
-	depends on JZ_MAC
-	help
-	  This is the gpio for phy reset for  net
-	  if there is no special porpose
-	  do open this item
-
-
 config XEN_NETDEV_FRONTEND
 	tristate "Xen network device frontend driver"
 	depends on XEN

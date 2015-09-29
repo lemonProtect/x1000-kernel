@@ -37,7 +37,7 @@
 #include <soc/cpm.h>
 #include <soc/base.h>
 
-#include "jz_mac.h"
+#include "jz_mac_v13.h"
 
 #define IOCTL_DUMP_REGISTER  SIOCDEVPRIVATE+1
 #define IOCTL_DUMP_DESC      SIOCDEVPRIVATE+2
@@ -2134,6 +2134,7 @@ static int  jz_mii_bus_probe(struct platform_device *pdev)
 #endif
 	clk_gate = clk_get(NULL, "mac");
 	clk_cgu = clk_get(NULL, "cgu_macphy");
+
 	if (clk_enable(clk_gate) < 0) {
 		printk("enable mac clk gate failed\n");
 		goto out_err_alloc;

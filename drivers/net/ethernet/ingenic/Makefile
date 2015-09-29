@@ -27,6 +27,5 @@ EXTRA_CFLAGS += -DENH_DESC -DENH_DESC_8W
 #EXTRA_CFLAGS += -DENH_DESC -DENH_DESC_8W -DAVB_SUPPORT
 #EXTRA_CFLAGS += -DENH_DESC -DENH_DESC_8W
 
-obj-$(CONFIG_JZ_MAC) += jz_mac.o synopGMAC_plat.o synopGMAC_Dev.o
-
-
+obj-$(CONFIG_JZ_MAC) += synopGMAC_plat.o synopGMAC_Dev.o
+obj-$(CONFIG_JZ_MAC_V13) += jz_mac_v13.o
