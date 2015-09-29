@@ -211,7 +211,7 @@ static int jz_pcm_trigger(struct snd_pcm_substream *substream, int cmd, struct s
 		if (atomic_read(&prtd->stopped_pending))
 			return -EPIPE;
 #endif
-		printk(KERN_DEBUG"pcm start\n");
+		PCM_DEBUG_MSG("pcm start\n");
 		jz_pcm_start_substream(substream, dai);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
@@ -221,7 +221,7 @@ static int jz_pcm_trigger(struct snd_pcm_substream *substream, int cmd, struct s
 		if (atomic_read(&prtd->stopped_pending))
 			return 0;
 #endif
-		printk(KERN_DEBUG"pcm stop\n");
+		PCM_DEBUG_MSG("pcm stop\n");
 		jz_pcm_stop_substream(substream, dai);
 		break;
 	}
@@ -297,6 +297,7 @@ static struct snd_soc_dai_driver jz_pcm_dai = {
 		},
 		.ops = &jz_pcm_dai_ops,
 };
+
 static const struct snd_soc_component_driver jz_pcm_component = {
 	.name		= "jz-pcm",
 };
@@ -329,18 +330,18 @@ static int jz_pcm_platfrom_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	jz_pcm->clk_gate = clk_get(&pdev->dev, "pcm");
+	jz_pcm->clk_gate = devm_clk_get(&pdev->dev, "pcm");
 	if (IS_ERR_OR_NULL(jz_pcm->clk_gate)) {
 		ret = PTR_ERR(jz_pcm->clk_gate);
 		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
 		jz_pcm->clk_gate = NULL;
 		return ret;
 	}
-	jz_pcm->clk = clk_get(&pdev->dev, "cgu_pcm");
+	jz_pcm->clk = devm_clk_get(&pdev->dev, "cgu_pcm");
 	if (IS_ERR_OR_NULL(jz_pcm->clk)) {
 		ret = PTR_ERR(jz_pcm->clk);
 		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
-		goto err_get_clk;
+		return ret;
 	}
 	platform_set_drvdata(pdev, (void *)jz_pcm);
 
@@ -357,34 +358,22 @@ static int jz_pcm_platfrom_probe(struct platform_device *pdev)
 	}
 
 	ret = snd_soc_register_component(&pdev->dev, &jz_pcm_component,
-					 &jz_pcm_dai, 1);
-	if (ret)
-		goto err_register_cpu_dai;
+			&jz_pcm_dai, 1);
+	if (ret) {
+		platform_set_drvdata(pdev, NULL);
+		return ret;
+	}
 	dev_info(&pdev->dev, "pcm platform probe success\n");
-	return ret;
-
-err_register_cpu_dai:
-	platform_set_drvdata(pdev, NULL);
-	clk_put(jz_pcm->clk);
-	jz_pcm->clk = NULL;
-err_get_clk:
-	clk_put(jz_pcm->clk_gate);
-	jz_pcm->clk_gate = NULL;
 	return ret;
 }
 
 static int jz_pcm_platfom_remove(struct platform_device *pdev)
 {
-	struct jz_pcm *jz_pcm = platform_get_drvdata(pdev);
 	int i;
 	for (i = 0; i < ARRAY_SIZE(jz_pcm_sysfs_attrs); i++)
 		device_remove_file(&pdev->dev, &jz_pcm_sysfs_attrs[i]);
-	snd_soc_unregister_component(&pdev->dev);
-	clk_disable(jz_pcm->clk_gate);
-	clk_disable(jz_pcm->clk);
-	clk_put(jz_pcm->clk_gate);
-	clk_put(jz_pcm->clk);
 	platform_set_drvdata(pdev, NULL);
+	snd_soc_unregister_component(&pdev->dev);
 	return 0;
 }
 

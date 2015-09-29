@@ -147,9 +147,6 @@ static int dorado_dlv_dai_link_init(struct snd_soc_pcm_runtime *rtd)
 		icdc_d1_hp_detect(codec, &dorado_icdc_d1_jack, SND_JACK_HEADSET);
 	}
 
-	snd_soc_dapm_force_enable_pin(dapm, "Speaker");
-	snd_soc_dapm_force_enable_pin(dapm, "Mic Buildin");
-
 	snd_soc_dapm_sync(dapm);
 	return 0;
 }

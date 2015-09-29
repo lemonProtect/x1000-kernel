@@ -81,7 +81,7 @@ static int jzaic_add_subdevs(struct jz_aic *jz_aic)
 do { \
 	jz_aic->psubdev_##name = platform_device_register_data(jz_aic->dev, \
 			"jz-asoc-aic-"#name,	\
-			-1,	\
+			PLATFORM_DEVID_NONE,	\
 			(void *)&jz_aic->subdev_pdata,	\
 			sizeof(struct jz_aic_subdev_pdata));	\
 	if (IS_ERR(jz_aic->psubdev_##name)) {	\
@@ -90,7 +90,7 @@ do { \
 				PTR_ERR(jz_aic->psubdev_##name));	\
 		jz_aic->psubdev_##name	= NULL;\
 	}	\
-} while (0)	/*FIXME*/
+} while (0)
 
 	AIC_REGISTER_SUBDEV(i2s);
 	AIC_REGISTER_SUBDEV(spdif);
@@ -183,18 +183,18 @@ static int jz_aic_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 #ifndef CONFIG_PRODUCT_X1000_FPGA
-	jz_aic->clk_gate = clk_get(&pdev->dev, "aic");
+	jz_aic->clk_gate = devm_clk_get(&pdev->dev, "aic");
 	if (IS_ERR_OR_NULL(jz_aic->clk_gate)) {
 		ret = PTR_ERR(jz_aic->clk_gate);
 		jz_aic->clk_gate = NULL;
 		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
 		return ret;
 	}
-	jz_aic->clk = clk_get(&pdev->dev, "cgu_i2s");
+	jz_aic->clk = devm_clk_get(&pdev->dev, "cgu_i2s");
 	if (IS_ERR_OR_NULL(jz_aic->clk)) {
 		ret = PTR_ERR(jz_aic->clk);
 		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
-		goto err_clk_get;
+		return ret;
 	}
 #ifndef CONFIG_SND_ASOC_JZ_ICDC_D3
 	/* for fix a soc bug */
@@ -220,20 +220,12 @@ static int jz_aic_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, (void *)jz_aic);
 	ret = jzaic_add_subdevs(jz_aic);
-	if (ret)
-		goto err_add_subdevs;
-
+	if (ret) {
+		platform_set_drvdata(pdev, NULL);
+		return ret;
+	}
 	dev_info(&pdev->dev, "Aic core probe success\n");
 	return 0;
-
-err_add_subdevs:
-	platform_set_drvdata(pdev, NULL);
-	clk_disable(jz_aic->clk);
-	clk_disable(jz_aic->clk_gate);
-	clk_put(jz_aic->clk);
-err_clk_get:
-	clk_put(jz_aic->clk_gate);
-	return ret;
 }
 
 static int jz_aic_remove(struct platform_device *pdev)
@@ -241,17 +233,31 @@ static int jz_aic_remove(struct platform_device *pdev)
 	struct jz_aic * jz_aic = platform_get_drvdata(pdev);
 	if (!jz_aic) return 0;
 	jzaic_del_subdevs(jz_aic);
-	clk_disable(jz_aic->clk_gate);
-	clk_put(jz_aic->clk_gate);
-	clk_disable(jz_aic->clk);
-	clk_put(jz_aic->clk);
 	platform_set_drvdata(pdev, NULL);
+	return 0;
+}
+
+int jz_aic_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	struct jz_aic * jz_aic = platform_get_drvdata(pdev);
+	clk_disable(jz_aic->clk);
+	clk_disable(jz_aic->clk_gate);
+	return 0;
+}
+
+int jz_aic_resume(struct platform_device *pdev)
+{
+	struct jz_aic * jz_aic = platform_get_drvdata(pdev);
+	clk_enable(jz_aic->clk_gate);
+	clk_enable(jz_aic->clk);
 	return 0;
 }
 
 struct platform_driver jz_asoc_aic_driver = {
 	.probe  = jz_aic_probe,
 	.remove = jz_aic_remove,
+	.suspend = jz_aic_suspend,
+	.resume = jz_aic_resume,
 	.driver = {
 		.name   = "jz-asoc-aic",
 		.owner  = THIS_MODULE,
