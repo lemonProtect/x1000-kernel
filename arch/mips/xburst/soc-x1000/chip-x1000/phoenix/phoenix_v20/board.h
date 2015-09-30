@@ -60,9 +60,9 @@
 
 /*wifi  LED */
 #ifdef CONFIG_LEDS_GPIO
-#define	WL_LED_R	GPIO_PC(5)
-#define	WL_LED_G	GPIO_PC(4)
-#define	WL_LED_B	GPIO_PC(13)
+#define	WL_LED_R	GPIO_PB(27)
+#define	WL_LED_G	-1//GPIO_PC(4)
+#define	WL_LED_B	-1//GPIO_PC(13)
 #endif
 
 #ifdef CONFIG_SPI_GPIO
@@ -180,6 +180,8 @@
 /* PMU RN5T567 */
 #ifdef CONFIG_REGULATOR_RN5T567
 #define PMU_IRQ_N       GPIO_PC(23)
+#define PMU_SLP_N       GPIO_PC(22)
+#define SLP_PIN_DISABLE_VALUE  1
 #endif /* CONFIG_REGULATOR_RN5T567 */
 
 

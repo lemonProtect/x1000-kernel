@@ -48,8 +48,8 @@
 #define LDO1_BOOT_ON    1
 #define LDO2_BOOT_ON    0
 #define LDO3_BOOT_ON    0
-#define LDO4_BOOT_ON    1
-#define LDO5_BOOT_ON    1
+#define LDO4_BOOT_ON    0
+#define LDO5_BOOT_ON    0
 /* ****************************PMU DC/LDO BOOT ON END************************ */
 
 /* ****************************PMU DC/LDO INIT ENABLE************************ */

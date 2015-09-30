@@ -37,7 +37,7 @@ __initdata int gpio_ss_table[][2] = {
 	{32*0+24,	GSS_OUTPUT_LOW	},	/* MSC0_CLK */
 	{32*0+25,	GSS_OUTPUT_LOW	},	/* MSC0_CMD */
 	{32*0+26,	GSS_OUTPUT_LOW	},	/* SFC_CLK */
-	{32*0+27,	GSS_OUTPUT_LOW	},	/* SFC_CE */
+	{32*0+27,	GSS_OUTPUT_HIGH	},	/* SFC_CE */
 	{32*0+28,	GSS_OUTPUT_LOW	},	/* SFC_DR */
 	{32*0+29,	GSS_OUTPUT_LOW	},	/* SFC_DT */
 	{32*0+30,	GSS_OUTPUT_LOW	},	/* SFC_WP */
@@ -105,7 +105,12 @@ __initdata int gpio_ss_table[][2] = {
 	{32*3+1,	GSS_OUTPUT_LOW	},	/* SSI0_CE0 */
 	{32*3+2,	GSS_OUTPUT_LOW	},	/* SSI0_DT */
 	{32*3+3,	GSS_OUTPUT_LOW	},	/* SSI0_DR */
+#ifdef CONFIG_SERIAL_JZ47XX_UART2_PD
+	{32*3+4,	GSS_IGNORE	},	/* UART2_TXD */
+	{32*3+5,	GSS_IGNORE	},	/* UART2_RXD */
+#else
 	{32*3+4,	GSS_OUTPUT_LOW	},	/* UART2_TXD */
 	{32*3+5,	GSS_OUTPUT_LOW	},	/* UART2_RXD */
+#endif
 	{GSS_TABLET_END,GSS_TABLET_END	}	/* GPIO Group Set End */
 };

@@ -3,8 +3,8 @@
 ## WARNING! DO NOT change this lists order because power sleep order depends on it!! ##
 
 obj-y += setup.o
-#obj-y += reset.o
-#obj-y += ddr.o
+obj-y += reset.o
+obj-y += ddr.o
 obj-$(CONFIG_TIMER_SYS_OST) += timer_sys_ost.o
 obj-$(CONFIG_TIMER_TCU) += timer_tcu.o
 
@@ -27,3 +27,4 @@ obj-y += pm_p0.o
 obj-$(CONFIG_DWC_LM_INTERFACE)  += lm.o lm-device.o
 
 obj-y += rtc.o
+obj-y += proc_idle.o
