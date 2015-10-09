@@ -377,7 +377,7 @@ static int jz_i2s_probe(struct snd_soc_dai *dai)
 	I2S_DEBUG_MSG("enter %s\n", __func__);
 #if 1
 	/* ic said inner codec(icdc) probe must have mclk, it's work?*/
-	___i2s_select_sysclk_output(aic);
+	__i2s_select_sysclk_output(aic);
 	__aic_select_internal_codec(aic);
 	__aic_select_i2s(aic);
 	__aic_enable(aic);

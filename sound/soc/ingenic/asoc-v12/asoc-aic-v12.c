@@ -227,6 +227,7 @@ static int jz_aic_probe(struct platform_device *pdev)
 		*(volatile unsigned int *)0xb0020000 &= ~(1 << 5);
 		*(volatile unsigned int *)0xb0020010 |= (1 << 4);
 	}
+#endif
 	clk_enable(jz_aic->clk);
 	clk_enable(jz_aic->clk_gate);
 #endif
