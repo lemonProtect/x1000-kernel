@@ -3,7 +3,7 @@
  *  ALSA Soc Audio Layer -- ingenic pcm (part of aic controller) driver
  *
  *  Copyright 2014 Ingenic Semiconductor Co.,Ltd
- *	cli <chen.li@ingenic.com>
+ *	cscheng <shicheng.cheng@ingenic.com>
  *
  *  This program is free software; you can redistribute  it and/or modify it
  *  under  the terms of  the GNU General  Public License as published by the
@@ -399,7 +399,7 @@ static void jz_pcm_exit(void)
 }
 module_exit(jz_pcm_exit);
 
-MODULE_AUTHOR("cli <chen.li@ingenic.com>");
+MODULE_AUTHOR("shicheng.cheng@ingenic.com");
 MODULE_DESCRIPTION("JZ AIC PCM SoC Interface");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:jz-pcm");

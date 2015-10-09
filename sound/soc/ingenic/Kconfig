@@ -9,12 +9,6 @@ if SND_ASOC_INGENIC
 config SND_ASOC_JZ_AIC_V12
 	tristate
 
-config SND_ASOC_JZ_INCODEC
-	tristate
-
-config SND_ASOC_JZ_EXTCODEC
-	tristate
-
 config SND_ASOC_DMA_V13
 	tristate
 
@@ -62,12 +56,10 @@ config SND_ASOC_JZ_SPDIF_V13
 config SND_ASOC_JZ_ICDC_D1
 	tristate
 	select SND_ASOC_JZ_AIC_V12
-	select SND_ASOC_JZ_INCODEC
 
 config SND_ASOC_JZ_ICDC_D2
 	tristate
 	select SND_ASOC_JZ_AIC_V12
-	select SND_ASOC_JZ_INCODEC
 
 config SND_ASOC_JZ_ICDC_D3
 	tristate
@@ -93,7 +85,6 @@ choice
 	tristate "Audio support for dorado with internal codec"
 	select SND_ASOC_DMA_V12
 	select SND_ASOC_JZ_AIC_I2S_V12
-	select SND_ASOC_JZ_INCODEC
 	select SND_ASOC_JZ_ICDC_D1
 	select SND_ASOC_JZ_PCM_V12
 	help
@@ -108,7 +99,6 @@ choice
 	bool "Audio support for mensa with internal codec"
 	select SND_ASOC_DMA_V12
 	select SND_ASOC_JZ_AIC_I2S_V12
-	select SND_ASOC_JZ_INCODEC
 	select SND_ASOC_JZ_ICDC_D2
 	select SND_ASOC_JZ_PCM_V12
 
@@ -142,10 +132,6 @@ endchoice
 
 config SND_ASOC_INGENIC_DMIC
 	bool "Support DMIC for record"
-	depends on SND_ASOC_JZ_INCODEC
-config JZ_AIC_MASTER
-	bool "Aic used as master"
-	depends on SND_ASOC_JZ_EXTCODEC
 endmenu
 
 

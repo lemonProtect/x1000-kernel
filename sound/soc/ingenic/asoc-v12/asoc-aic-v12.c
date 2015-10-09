@@ -72,6 +72,19 @@ out:
 }
 EXPORT_SYMBOL_GPL(aic_set_work_mode);
 
+int aic_set_rate(struct device *aic, unsigned long freq)
+{
+	struct jz_aic *jz_aic = dev_get_drvdata(aic);
+	int ret;
+	if (jz_aic->clk_rate != freq) {
+		ret = clk_set_rate(jz_aic->clk, freq);
+		if (!ret)
+			jz_aic->clk_rate = clk_get_rate(jz_aic->clk);
+	}
+	return jz_aic->clk_rate;
+}
+EXPORT_SYMBOL_GPL(aic_set_rate);
+
 static int jzaic_add_subdevs(struct jz_aic *jz_aic)
 {
 	int ret = 0;
@@ -157,6 +170,12 @@ static irqreturn_t jz_aic_irq_handler(int irq, void *dev_id)
 	return IRQ_NONE;
 }
 
+#ifdef CONFIG_SND_ASOC_JZ_ICDC_D3
+#define CODEC_DEF_RATE (24000000)
+#else
+#define CODEC_DEF_RATE (12000000)
+#endif
+
 static int jz_aic_probe(struct platform_device *pdev)
 {
 	struct jz_aic *jz_aic;
@@ -182,11 +201,10 @@ static int jz_aic_probe(struct platform_device *pdev)
 	if (!jz_aic->vaddr_base)
 		return -ENOMEM;
 
-#ifndef CONFIG_PRODUCT_X1000_FPGA
+#ifndef CONFIG_FPGA_TEST
 	jz_aic->clk_gate = devm_clk_get(&pdev->dev, "aic");
 	if (IS_ERR_OR_NULL(jz_aic->clk_gate)) {
 		ret = PTR_ERR(jz_aic->clk_gate);
-		jz_aic->clk_gate = NULL;
 		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
 		return ret;
 	}
@@ -196,12 +214,21 @@ static int jz_aic_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
 		return ret;
 	}
-#ifndef CONFIG_SND_ASOC_JZ_ICDC_D3
-	/* for fix a soc bug */
-	clk_set_rate(jz_aic->clk, 12000000);		/*set default rate*/
-#else
-	clk_set_rate(jz_aic->clk, 24000000);		/*set default rate*/
-#endif
+	clk_set_rate(jz_aic->clk, CODEC_DEF_RATE);
+	jz_aic->clk_rate = CODEC_DEF_RATE;
+
+#if defined(CONFIG_SOC_4775)
+	/* If i2scdr clk source select pll,
+	 * the following I2S registers need to be set up,
+	 * ESCLK = 1, AUSEL = 1, BCKD = 1, ICDC = 0,
+	 * Otherwise PLL will always be in 'busy' state */
+	if ((*(volatile unsigned int*)0xb0000060) & (1 << 31)) {
+		*(volatile unsigned int *)0xb0020000 |= (1 << 2) | (1 << 4) /*| (1 << 0) */;
+		*(volatile unsigned int *)0xb0020000 &= ~(1 << 5);
+		*(volatile unsigned int *)0xb0020010 |= (1 << 4);
+	}
+	clk_enable(jz_aic->clk);
+	clk_enable(jz_aic->clk_gate);
 #endif
 	spin_lock_init(&jz_aic->mode_lock);
 	jz_aic->irqno = -1;

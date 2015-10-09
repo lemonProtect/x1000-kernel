@@ -3,10 +3,10 @@
  * ALSA SoC Audio driver -- ingenic internal codec (icdc_d3) driver
 
  * Copyright 2014 Ingenic Semiconductor Co.,Ltd
- *	cli <chen.li@ingenic.com>
+ *	cscheng <shicheng.cheng@ingenic.com>
  *
  * Note: icdc_d3 is an internal codec for jz SOC
- *	 used for jz4780 m200 and so on
+ *	 used for x1000 and so on
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
