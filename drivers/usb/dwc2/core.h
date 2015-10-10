@@ -144,6 +144,10 @@ struct dwc2_ep {
 	struct list_head	garbage_list;
 
 	const struct usb_endpoint_descriptor	*desc;
+
+        void                   *align_addr;
+        dma_addr_t              align_dma_addr;
+#define DWC2_DEP_ALIGN_ALLOC_SIZE (1 * PAGE_SIZE)
 };
 
 /**
@@ -582,6 +586,8 @@ struct dwc2 {
 	struct dentry		*root;
 	u8			test_mode;
 	u8			test_mode_nr;
+
+        unsigned long           deps_align_addr;
 };
 
 #define USECS_INFINITE		((unsigned int)~0)

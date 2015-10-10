@@ -1239,6 +1239,13 @@ void dwc2_gadget_giveback(struct dwc2_ep *dep,
 		req->mapped = 0;
 	}
 
+        if ((unsigned int)(req->request.buf) % 4 &&
+            dep->align_dma_addr && status != 0) {
+                        dma_unmap_single(dwc->dev, dep->align_dma_addr, req->xfersize,
+                                         dep->is_in ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
+                        dep->align_dma_addr = 0;
+        }
+
 	dev_dbg(dwc->dev, "request %p from %s completed %d/%d ===> %d\n",
 		req, real_dep->name, req->request.actual,
 		req->request.length, status);
@@ -1334,6 +1341,13 @@ static void dwc2_gadget_start_in_transfer(struct dwc2_ep *dep) {
 	DWC2_GADGET_DEBUG_MSG("%s: trans req 0x%p, addr = 0x%08x xfersize = %d pktcnt = %d left = %d\n",
 			dep->name, req, req->next_dma_addr, req->xfersize, req->pktcnt, req->trans_count_left);
 
+        if ((unsigned int)(req->request.buf) % 4) {
+                memcpy(dep->align_addr, req->request.buf + req->request.length -
+                       req->trans_count_left, req->xfersize);
+                dep->align_dma_addr = dma_map_single(dwc->dev, dep->align_addr, req->xfersize,
+                                                     dep->is_in ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
+        }
+
 	/* Write the DMA register */
 	if (dwc->dma_enable) {
 		if (!dwc->dma_desc_enable) {
@@ -1347,7 +1361,10 @@ static void dwc2_gadget_start_in_transfer(struct dwc2_ep *dep) {
 			}
 
 			dwc_writel(deptsiz.d32, &in_regs->dieptsiz);
-			dwc_writel(req->next_dma_addr, &in_regs->diepdma);
+                        if ((unsigned int)(req->request.buf) % 4 == 0)
+                                dwc_writel(req->next_dma_addr, &in_regs->diepdma);
+                        else
+                                dwc_writel(dep->align_dma_addr, &in_regs->diepdma);
 		} else {
 			/* TODO: Scatter/Gather DMA Mode here */
 		}
@@ -1413,10 +1430,18 @@ static void dwc2_gadget_start_out_transfer(struct dwc2_ep *dep) {
 	DWC2_GADGET_DEBUG_MSG("%s: trans req 0x%p, addr = 0x%08x xfersize = %d pktcnt = %d left = %d\n",
 		dep->name, req, req->next_dma_addr, req->xfersize, req->pktcnt, req->trans_count_left);
 
+        if ((unsigned int)(req->request.buf) % 4) {
+                dep->align_dma_addr = dma_map_single(dwc->dev, dep->align_addr, req->xfersize,
+                                                     dep->is_in ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
+        }
+
 	if (dwc->dma_enable) {
 		if (!dwc->dma_desc_enable) {
 			dwc_writel(deptsiz.d32, &out_regs->doeptsiz);
-			dwc_writel(req->next_dma_addr, &out_regs->doepdma);
+                        if ((unsigned int)(req->request.buf) % 4 == 0)
+                                dwc_writel(req->next_dma_addr, &out_regs->doepdma);
+                        else
+                                dwc_writel(dep->align_dma_addr, &out_regs->doepdma);
 		} else {
 			/* TODO: Scatter/Gather DMA Mode here */
 		}
@@ -1482,7 +1507,10 @@ static int __dwc2_gadget_ep_queue(struct dwc2_ep *dep, struct dwc2_request *req)
 	req->trans_count_left = r->length;
 	req->next_dma_addr = r->dma;
 	req->zlp_transfered = 0;
-	req->mapped = 1;
+	if (!(unsigned int)(r->buf) % 4)
+            req->mapped = 1;
+	else
+            req->mapped = 0;
 
 	ep_idle = list_empty(&dep->request_list);
 
@@ -1886,14 +1914,20 @@ static int __dwc2_gadget_init_endpoints(struct dwc2 *dwc, int is_in) {
 		if (epnum == 0) {
 			dep->usb_ep.maxpacket = 64;
 			dep->usb_ep.ops = &dwc2_gadget_ep0_ops;
-			if (!is_in)
+			if (!is_in) {
 				dwc->gadget.ep0 = &dep->usb_ep;
+			}
+			dep->align_addr = NULL;
 		} else {
 			dep->usb_ep.maxpacket = 1024;
 			dep->usb_ep.ops = &dwc2_gadget_ep_ops;
 			list_add_tail(&dep->usb_ep.ep_list,
-				&dwc->gadget.ep_list);
+					&dwc->gadget.ep_list);
+			dep->align_addr = (void *)(dwc->deps_align_addr +
+					DWC2_DEP_ALIGN_ALLOC_SIZE *
+					((eps_offset ? 7 : 0) + epnum - 1));
 		}
+        dep->align_dma_addr = 0;
 
 		INIT_LIST_HEAD(&dep->request_list);
 		INIT_LIST_HEAD(&dep->garbage_list);
@@ -1905,6 +1939,14 @@ static int __dwc2_gadget_init_endpoints(struct dwc2 *dwc, int is_in) {
 static int dwc2_gadget_init_endpoints(struct dwc2 *dwc)
 {
 	int ret;
+	int epnum = dwc->dev_if.num_in_eps + dwc->dev_if.num_out_eps - 2;
+
+	dwc->deps_align_addr = __get_free_pages(GFP_KERNEL,
+			get_order(epnum * DWC2_DEP_ALIGN_ALLOC_SIZE));
+	if (!dwc->deps_align_addr) {
+		dev_err(dwc->dev, "can't allocate dep align memery\n");
+		return -ENOMEM;
+	}
 
 	INIT_LIST_HEAD(&dwc->gadget.ep_list);
 
@@ -1937,6 +1979,13 @@ static void dwc2_gadget_free_endpoints(struct dwc2 *dwc)
 
 		kfree(dep);
 	}
+        free_pages(dwc->deps_align_addr,
+                   get_order((num_eps - 2) * DWC2_DEP_ALIGN_ALLOC_SIZE));
+}
+
+static void dwc2_gadget_release(struct device *dev)
+{
+	dev_dbg(dev, "%s\n", __func__);
 }
 
 static void dwc2_gadget_handle_early_suspend_intr(struct dwc2 *dwc)
@@ -1997,6 +2046,11 @@ static void dwc2_gadget_in_ep_xfer_complete(struct dwc2_ep *dep) {
 			u32 low_limit = req->request.dma;
 			u32 up_limit = req->request.dma + ((req->request.length + 0x3) & ~0x3);
 
+			if ((unsigned int)(req->request.buf) % 4) {
+				low_limit = dep->align_dma_addr;
+				up_limit = low_limit + ((req->request.length + 0x3) & ~0x3);
+			}
+
 			if ( (curr_dma < low_limit) || (up_limit < curr_dma) ) {
 				dev_err(dwc->dev, "IN_COMPL error: dma address not match, "
 					"curr_dma = 0x%08x, r.dma = 0x%08x, len=%d\n",
@@ -2018,6 +2072,12 @@ static void dwc2_gadget_in_ep_xfer_complete(struct dwc2_ep *dep) {
 				DWC2_GADGET_DEBUG_MSG("%s: req 0x%p done, give back\n", dep->name, req);
 				dwc2_gadget_giveback(dep, req, 0);
 				/* start new transfer */
+			}
+
+			if ((unsigned int)(req->request.buf) % 4) {
+				dma_unmap_single(dwc->dev, dep->align_dma_addr, req->xfersize,
+						dep->is_in ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
+				dep->align_dma_addr = 0;
 			}
 
 			dwc2_gadget_ep_start_transfer(dep);
@@ -2129,12 +2189,25 @@ static void dwc2_gadget_out_ep_xfer_complete(struct dwc2_ep *dep) {
 			u32 low_limit = req->request.dma;
 			u32 up_limit = req->request.dma + ((req->request.length + 0x3) & ~0x3);
 
+                        if ((unsigned int)(req->request.buf) % 4) {
+                                low_limit = dep->align_dma_addr;
+                                up_limit = low_limit + ((req->request.length + 0x3) & ~0x3);
+                        }
+
 			if ( (curr_dma < low_limit) || (up_limit < curr_dma) ) {
 				dev_err(dwc->dev, "OUT_COMPL error: dma address not match, "
 					"curr_dma = 0x%08x, r.dma = 0x%08x, len=%d\n",
 					curr_dma, req->request.dma, req->request.length);
 				return;
 			}
+
+             if ((unsigned int)(req->request.buf) % 4) {
+                                dma_unmap_single(dwc->dev, dep->align_dma_addr, req->xfersize,
+                                                 dep->is_in ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
+                                memcpy(req->request.buf + req->request.length -
+                                       req->trans_count_left, dep->align_addr, req->xfersize);
+                                dep->align_dma_addr = 0;
+                        }
 
 			deptsiz.d32 = dwc_readl(&out_ep_regs->doeptsiz);
 			trans_count = req->xfersize - deptsiz.b.xfersize;
