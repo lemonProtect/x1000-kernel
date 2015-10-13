@@ -200,4 +200,9 @@ config JZ_IMEM
 	  Register two nodes:/proc/jz/imem and /proc/jz/imem1,
 	  The two node will take 16M and 8M memory space,
 	  Which is used such as by mplayer to encode and decode video and audio
+
+config SUPPORT_OTA
+     bool "jz ota updata"
+     default n
+
 endif
