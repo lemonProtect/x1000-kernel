@@ -1868,8 +1868,8 @@ static int jz_mac_close(struct net_device *dev)
 
 	netif_carrier_off(dev);
 
-	/* phy_stop(lp->phydev); */
-	/* //phy_write(lp->phydev, MII_BMCR, BMCR_PDOWN); */
+	phy_stop(lp->phydev);
+	phy_write(lp->phydev, MII_BMCR, BMCR_PDOWN);
 
 	/* free the rx/tx buffers */
 	desc_list_free(lp);
