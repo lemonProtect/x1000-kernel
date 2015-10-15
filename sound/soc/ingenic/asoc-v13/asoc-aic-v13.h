@@ -20,7 +20,9 @@
 #include <linux/types.h>
 #include "asoc-dma-v13.h"
 
-extern unsigned long codec_sysclk;
+#define JZ_I2S_INNER_CODEC 0
+#define JZ_I2S_EX_CODEC 1
+
 
 #ifdef CONFIG_PRODUCT_X1000_FPGA
 #define AUDIO_WRITE(n) (*(volatile unsigned int*)(n))
@@ -49,8 +51,7 @@ struct jz_aic {
 	void __iomem	*vaddr_base;
 	struct clk	*clk;
 	struct clk	*clk_gate;
-	unsigned long sample_rate;
-	unsigned long sysclk;
+	unsigned long clk_rate;
 	/*for interrupt*/
 	int irqno;
 	int irqflags;
@@ -68,6 +69,7 @@ struct jz_aic {
 };
 
 const char* aic_work_mode_str(enum aic_mode mode);
+int aic_set_rate(struct device *aic, unsigned long freq);
 enum aic_mode aic_set_work_mode(struct device *aic, enum aic_mode module_mode, bool enable);
 
 static void inline jz_aic_write_reg(struct device *dev, unsigned int reg,
@@ -622,8 +624,6 @@ static unsigned int inline jz_aic_read_reg(struct device *dev, unsigned int reg)
 	jz_aic_set_reg(parent, I2SCR, 1, I2SCR_ESCLK_MASK, I2SCR_ESCLK_BIT)
 #define __i2s_disable_sysclk_output(parent)  \
 	jz_aic_set_reg(parent, I2SCR, 0, I2SCR_ESCLK_MASK, I2SCR_ESCLK_BIT)
-#define __i2s_send_rfirst(parent)            \
-	jz_aic_set_reg(parent, I2SCR, 1, I2SCR_RFIRST_MASK, I2SCR_RFIRST_BIT)
 #define __i2s_stop_bitclk(parent)            \
 	jz_aic_set_reg(parent, I2SCR, 1, I2SCR_STPBK_MASK, I2SCR_STPBK_BIT)
 #define __i2s_start_bitclk(parent)		\
@@ -642,5 +642,10 @@ static unsigned int inline jz_aic_read_reg(struct device *dev, unsigned int reg)
 #define __i2s_receiver_is_busy(parent)	\
 	(!!(jz_aic_read_reg(parent, I2SSR) & I2SSR_TBSY_MASK))
 
+/*i2s_div*/
+#define __i2s_set_idv(parent, div)	\
+	jz_aic_set_reg(parent, I2SDIV, div, I2SDIV_IDV_MASK, I2SDIV_IDV_BIT)
+#define __i2s_set_dv(parent, div)	\
+	jz_aic_set_reg(parent, I2SDIV, div, I2SDIV_DV_MASK, I2SDIV_DV_BIT)
 #endif  /*__ASOC_AIC_H__*/
 

@@ -578,6 +578,7 @@ static int icdc_d3_probe(struct snd_soc_codec *codec)
 	snd_soc_write(codec, SCODA_REG_IFR, SCODA_IMR_COMMON_MASK);
 	snd_soc_write(codec, SCODA_REG_IFR2, SCODA_IMR2_COMMON_MASK);
 
+	icdc_d3_write(codec, SCODA_MIX_3, icdc_d3_mixer_input_sel[2]);
 
 	icdc_d3->codec = codec;
 	return 0;

@@ -69,6 +69,79 @@ static void dump_registers(struct device *aic)
 	return;
 }
 
+static int jz_set_dai_fmt(struct snd_soc_dai *dai, unsigned int fmt)
+{
+	struct jz_i2s *jz_i2s = dev_get_drvdata(dai->dev);
+	struct device *aic = jz_i2s->aic;
+
+	I2S_DEBUG_MSG("enter %s dai fmt %x\n", __func__, fmt);
+
+	switch (fmt & SND_SOC_DAIFMT_FORMAT_MASK) {
+	default:
+	case SND_SOC_DAIFMT_I2S:		/*i2s format*/
+		__i2s_select_i2s_fmt(aic);
+		break;
+	case SND_SOC_DAIFMT_MSB:
+		__i2s_select_msb_fmt(aic);	/*msb format*/
+		break;
+	}
+	switch (fmt & SND_SOC_DAIFMT_MASTER_MASK) {
+	default:
+	case SND_SOC_DAIFMT_CBM_CFM:	/*sync and bit clk (codec master : i2s slave)*/
+		__i2s_bclk_input(aic);
+		__i2s_sync_input(aic);
+		break;
+	case SND_SOC_DAIFMT_CBS_CFM:
+		__i2s_bclk_output(aic);
+		__i2s_sync_output(aic);
+		break;
+	}
+
+	return 0;
+}
+
+static int jz_set_sysclk(struct snd_soc_dai *dai, int clk_id,
+		unsigned int freq, int dir)
+{
+	struct jz_i2s *jz_i2s = dev_get_drvdata(dai->dev);
+	struct device *aic = jz_i2s->aic;
+
+	I2S_DEBUG_MSG("enter %s clk_id %d req %d clk dir %d\n", __func__,
+			clk_id, freq, dir);
+
+	if (clk_id == JZ_I2S_INNER_CODEC) {
+		__aic_select_internal_codec(aic);
+	} else
+		__aic_select_external_codec(aic);
+
+	aic_set_rate(aic, freq);
+
+	if (dir  == SND_SOC_CLOCK_OUT)
+		__i2s_select_sysclk_output(aic);
+	else
+		__i2s_select_sysclk_input(aic);
+	return 0;
+}
+
+static int jz_set_clkdiv(struct snd_soc_dai *dai, int div_id, int div)
+{
+	struct jz_i2s *jz_i2s = dev_get_drvdata(dai->dev);
+	struct device *aic = jz_i2s->aic;
+
+	I2S_DEBUG_MSG("enter %s div_id %d div %d\n", __func__, div_id , div);
+
+	/*BIT CLK fix 64FS*/
+	/*SYS_CLK is 256, 384, 512, 768*/
+	if (div != 256 && div != 384 &&
+			div != 512 && div != 768)
+		return -EINVAL;
+
+	__i2s_set_dv(aic, (div/64));
+	__i2s_set_idv(aic, (div/64));
+	return 0;
+}
+
+
 static int jz_i2s_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
@@ -86,22 +159,8 @@ static int jz_i2s_startup(struct snd_pcm_substream *substream,
 				aic_work_mode_str(work_mode));
 		return -EPERM;
 	}
-	if (!(jz_i2s->i2s_mode&0xf)) {
-		__i2s_select_sysclk_output(aic);
 
-		if(jz_i2s->i2s_mode&I2S_INCODEC){
-			__aic_select_internal_codec(aic);
-		}else{
-			__aic_select_external_codec(aic);
-			if(jz_i2s->i2s_mode&I2S_MASTER){
-				__i2s_bclk_output(aic);
-				__i2s_sync_output(aic);
-			}else{
-				__i2s_bclk_input(aic);
-				__i2s_sync_input(aic);
-			}
-		}
-		__i2s_select_i2s_fmt(aic);
+	if (!jz_i2s->i2s_mode) {
 		__aic_select_i2s(aic);
 		__i2s_play_lastsample(aic);
 		__i2s_set_transmit_trigger(aic, I2S_TFIFO_DEPTH/4);
@@ -123,26 +182,8 @@ static int jz_i2s_startup(struct snd_pcm_substream *substream,
 		jz_i2s->i2s_mode |= I2S_READ;
 	}
 	printk("start set AIC register....\n");
+
 	return 0;
-}
-
-struct clk {
-	const char *name;
-	unsigned long rate;
-	struct clk *parent;
-	unsigned long flags;
-	struct clk_ops *ops;
-	int count;
-	struct clk *source;
-};
-
-static int jz_i2s_set_rate(struct device *aic ,struct jz_aic* jz_aic, unsigned long sample_rate){
-	struct clk* cgu_aic_clk = jz_aic->clk;
-	__i2s_stop_bitclk(aic);
-	clk_set_rate(cgu_aic_clk, sample_rate);
-	writel(0xa,(void*)I2S_CPM_VALID);
-	__i2s_start_bitclk(aic);
-	return sample_rate;
 }
 
 static int jz_i2s_hw_params(struct snd_pcm_substream *substream,
@@ -152,10 +193,9 @@ static int jz_i2s_hw_params(struct snd_pcm_substream *substream,
 	int fmt_width = snd_pcm_format_width(params_format(params));
 	struct jz_i2s *jz_i2s = dev_get_drvdata(dai->dev);
 	struct device *aic = jz_i2s->aic;
-	struct jz_aic *jz_aic = dev_get_drvdata(aic);
 	enum dma_slave_buswidth buswidth;
 	int trigger;
-	unsigned long sample_rate = params_rate(params);
+
 	I2S_DEBUG_MSG("enter %s, substream = %s\n", __func__,
 		      (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? "playback" : "capture");
 	if (!((1 << params_format(params)) & JZ_I2S_FORMATS) ||
@@ -199,18 +239,7 @@ static int jz_i2s_hw_params(struct snd_pcm_substream *substream,
 		__i2s_set_receive_trigger(aic, (trigger/2 - 1));
 		snd_soc_dai_set_dma_data(dai, substream, (void *)&jz_i2s->rx_dma_data);
 	}
-	/* sample rate */
-	if(jz_i2s->i2s_mode && I2S_EXCODEC){
-		if((jz_i2s->i2s_mode&I2S_MASTER)&&(jz_aic->sample_rate!=sample_rate)){
-			jz_aic->sample_rate = jz_i2s_set_rate(aic,jz_aic,sample_rate);
-			if(jz_aic->sample_rate < 0)
-				printk("set i2s sysclk failed!!\n");
-		}else if((jz_i2s->i2s_mode&I2S_SLAVE)&&(jz_aic->sysclk!=codec_sysclk)){
-			clk_set_rate(jz_aic->clk,codec_sysclk);
-			if(clk_get_rate(jz_aic->clk) > codec_sysclk)
-				printk("set i2s sysclk failed!!\n");
-		}
-	}
+
 	return 0;
 }
 
@@ -328,7 +357,7 @@ static void jz_i2s_shutdown(struct snd_pcm_substream *substream,
 	else
 		jz_i2s->i2s_mode &= ~I2S_READ;
 
-	if (!(jz_i2s->i2s_mode & 0xf))
+	if (!jz_i2s->i2s_mode)
 		__aic_disable(aic);
 	return;
 }
@@ -339,26 +368,11 @@ static int jz_i2s_probe(struct snd_soc_dai *dai)
 	struct device *aic = jz_i2s->aic;
 	struct jz_aic *jz_aic = dev_get_drvdata(aic);
 	I2S_DEBUG_MSG("enter %s\n", __func__);
-	/* dlv4780 codec probe must have mclk */
+
 	__i2s_select_sysclk_output(aic);
-	if(jz_i2s->i2s_mode&I2S_INCODEC)
-		__aic_select_internal_codec(aic);
-	else{
-		__aic_select_external_codec(aic);
-		if(jz_i2s->i2s_mode&I2S_MASTER){
-			__i2s_bclk_output(aic);
-			__i2s_sync_output(aic);
-		}else{
-			__i2s_bclk_input(aic);
-			__i2s_sync_input(aic);
-		}
-	}
+	__aic_select_internal_codec(aic);
 	__aic_select_i2s(aic);
-	__i2s_select_i2s_fmt(aic);
-	__i2s_enable_sysclk_output(aic);
 	__aic_enable(aic);
-	clk_enable(jz_aic->clk_gate);
-	clk_enable(jz_aic->clk);
 	return 0;
 }
 
@@ -368,6 +382,9 @@ static struct snd_soc_dai_ops jz_i2s_dai_ops = {
 	.trigger 	= jz_i2s_trigger,
 	.hw_params 	= jz_i2s_hw_params,
 	.shutdown	= jz_i2s_shutdown,
+	.set_fmt	= jz_set_dai_fmt,
+	.set_sysclk	= jz_set_sysclk,
+	.set_clkdiv	= jz_set_clkdiv,
 };
 
 #define jz_i2s_suspend	NULL
@@ -418,16 +435,7 @@ static int jz_i2s_platfrom_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	jz_i2s->aic = pdev->dev.parent;
-
-#ifdef CONFIG_SND_ASOC_JZ_INCODEC
-	jz_i2s->i2s_mode = I2S_INCODEC;
-#else
-	#ifdef CONFIG_JZ_AIC_MASTER
-		jz_i2s->i2s_mode = I2S_EXCODEC | I2S_MASTER;
-	#else
-		jz_i2s->i2s_mode = I2S_EXCODEC | I2S_SLAVE;
-	#endif
-#endif
+	jz_i2s->i2s_mode = 0;
 	jz_i2s->tx_dma_data.dma_addr = pdata->dma_base + AICDR;
 	jz_i2s->rx_dma_data.dma_addr = pdata->dma_base + AICDR;
 	platform_set_drvdata(pdev, (void *)jz_i2s);

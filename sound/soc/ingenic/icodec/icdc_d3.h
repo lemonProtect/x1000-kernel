@@ -345,8 +345,8 @@ static int icdc_d3_hw_write_extend(struct icdc_d3 *icdc_d3, u8 sreg, u8 sdata){
 
 	cdata = (icdc_d3_hw_read_normal(icdc_d3,creg)&(~0x3f))|((sreg&0x3f)|0x40);
 
-	icdc_d3_hw_write_normal(icdc_d3, dreg, sdata);
 	icdc_d3_hw_write_normal(icdc_d3, creg, cdata);
+	icdc_d3_hw_write_normal(icdc_d3, dreg, sdata);
 	if(sdata!=icdc_d3_hw_read_normal(icdc_d3,dreg))
 		return -1;
 	return 0;
