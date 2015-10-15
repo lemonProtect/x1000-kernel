@@ -1565,7 +1565,7 @@ config SERIAL_JZ47XX_UART2_PF
 	depends on SOC_4775 || SOC_M200
 	bool "PORT F"
 config SERIAL_JZ47XX_UART2_PC
-	depends on SOC_4775 || SOC_M200
+	depends on SOC_4775 || SOC_M200 || SOC_X1000
         bool "PORT C"
 endchoice
 
