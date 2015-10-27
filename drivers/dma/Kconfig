@@ -95,8 +95,8 @@ config XBURST_DMAC_V13
        help
          Support the XBURST DMA controller. Now only support the
          SOC_X1000 chip.
-config XBURST_DMAC_V12
-       tristate "XBURST DMA V12 support"
+config XBURST_DMAC
+       tristate "XBURST DMA support"
        depends on MACH_XBURST
        select DMA_ENGINE
        help
