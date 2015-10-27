@@ -45,6 +45,7 @@ static bool filter(struct dma_chan *chan, void *data)
 	nand_dma *nddma = data;
 	return (void *)nddma->chan_type == chan->private;
 }
+
 static void mcu_reset(void)
 {
 	int tmp = *(volatile unsigned int *)MCU_CONTROL;

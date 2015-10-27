@@ -1261,11 +1261,15 @@ static int __init jzdma_probe(struct platform_device *pdev)
 	jzdma_mcu_init(dma);
 	save_and_replace_gpio0_irq_chip();
 #endif
-	device_create_file(&pdev->dev, &dev_attr_dma_regs);
+	ret = device_create_file(&pdev->dev, &dev_attr_dma_regs);
+	if (ret)
+		goto release_dma;
+
 	platform_set_drvdata(pdev, dma);
 	dev_info(dma->dev, "JZ SoC DMA initialized\n");
 	return 0;
-
+release_dma:
+	dma_async_device_unregister(&dma->dma_device);
 release_irq:
 	free_irq(irq_pdmam, dma);
 	free_irq(irq, dma);
@@ -1285,6 +1289,7 @@ free_dma:
 static int __exit jzdma_remove(struct platform_device *pdev)
 {
 	struct jzdma_master *dma = platform_get_drvdata(pdev);
+	device_remove_file(&pdev->dev, &dev_attr_dma_regs);
 	dma_async_device_unregister(&dma->dma_device);
 	kfree(dma);
 	return 0;

@@ -230,9 +230,6 @@ static int bch_clk_enable(void)
 	struct clk *gate = (struct clk *)ndd_private.base->bch.gate;
 	struct clk *clk = (struct clk *)ndd_private.base->bch.clk;
 
-
-	clk_disable(clk);
-
 #ifdef BCH_USE_NEMC_RATE
 	rate = ndd_private.base->nfi.rate;
 #else
@@ -243,7 +240,8 @@ static int bch_clk_enable(void)
 	ret = clk_set_rate(clk, rate);
 	if (ret)
 		return ret;
-    clk_enable(clk);
+
+	clk_enable(clk);
 	ret = clk_enable(gate);
 	return ret;
 }

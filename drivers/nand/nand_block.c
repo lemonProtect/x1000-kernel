@@ -65,6 +65,7 @@ struct __nand_block {
 };
 
 static struct __nand_block nand_block;
+
 /*for example: div_s64_32(3,2) = 2*/
 static inline int div_s64_32(long long dividend , int divisor)
 {
@@ -104,7 +105,6 @@ static unsigned int rd_sum_bytes = 0;
 static unsigned int wr_sum_bytes = 0;
 static struct __data_distrib rd_dbg_distrib = {0};
 static struct __data_distrib wr_dbg_distrib = {0};
-
 
 static inline void calc_bytes(int mode, int bytes)
 {
@@ -1181,6 +1181,7 @@ static int __init nand_block_init(void)
 	if (ret)
 		printk("WARNING(nand block): driver_create_file error!\n");
 #endif
+
 #ifdef CONFIG_PM
 	nand_block.pm_notify.notifier_call = nand_pm_notify;
 	ret = register_pm_notifier(&nand_block.pm_notify);
@@ -1189,11 +1190,14 @@ static int __init nand_block_init(void)
 		goto out_pm;
 	}
 #endif
+
 	if (((nand_block.nm_handler = NM_open())) == 0) {
 		printk("ERROR(nand block): NM_open error!\n");
 		goto out_open;
 	}
+
 	NM_startNotify(nand_block.nm_handler, nand_block_start, 0);
+
 	return 0;
 
 out_open:
