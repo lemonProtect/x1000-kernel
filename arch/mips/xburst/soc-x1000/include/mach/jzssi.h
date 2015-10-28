@@ -130,4 +130,33 @@ struct jz_sfc_info {
 	u32  board_info_size;
 };
 
+#define SIZEOF_NAME         32
+struct jz_spi_support {
+	u8 id_manufactory;
+	u8 id_device;
+	char name[SIZEOF_NAME];
+	int page_size;
+	int oobsize;
+	int sector_size;
+	int block_size;
+	int size;
+	int page_num;
+
+	/* MAX Busytime for page read, unit: us */
+	u32 tRD_maxbusy;
+	/* MAX Busytime for Page Program, unit: us */
+	u32 tPROG_maxbusy;
+	/* MAX Busytime for block erase, unit: us */
+	u32 tBERS_maxbusy;
+
+	unsigned short column_cmdaddr_bits;/* read from cache ,the bits of cmd + addr */
+
+};
+
+struct jz_spi_nand_platform_data {
+	struct jz_spi_support *jz_spi_support;
+	int num_spi_flash;
+	struct mtd_partition *mtd_partition;
+	int num_partitions;
+};
 #endif

@@ -49,11 +49,7 @@ extern struct jz_spi_info spi0_info_cfg;
 #ifdef CONFIG_JZ_SFC
 extern struct jz_sfc_info sfc_info_cfg;
 #endif
-#ifdef CONFIG_JZ_SPI_NOR
-extern struct spi_board_info jz_spi0_board_info[];
-extern int jz_spi0_devs_size;
-#endif
-#ifdef CONFIG_MTD_JZ_SPI_NORFLASH
+#if defined(CONFIG_JZ_SPI_NOR) || defined(CONFIG_MTD_JZ_SPI_NORFLASH) || defined(CONFIG_MTD_JZ_SPI_NAND) || defined(CONFIG_SPI_GPIO)
 extern struct spi_board_info jz_spi0_board_info[];
 extern int jz_spi0_devs_size;
 #endif
