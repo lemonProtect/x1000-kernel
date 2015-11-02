@@ -40,8 +40,11 @@ quiet_cmd_srec = OBJCOPY $@
       cmd_srec = $(OBJCOPY) -S -O srec $(strip-flags) $(VMLINUX) $@
 $(obj)/vmlinux.srec: $(VMLINUX) FORCE
 	$(call if_changed,srec)
-
+ifeq ($(shell uname -m), x86_64)
 UIMAGE_LOADADDR  = $(VMLINUX_LOAD_ADDRESS)
+else
+UIMAGE_LOADADDR  = $(subst ffffffff,,$(VMLINUX_LOAD_ADDRESS))
+endif
 UIMAGE_ENTRYADDR = $(VMLINUX_ENTRY_ADDRESS)
 
 $(obj)/vmlinux.bin.gz: $(obj)/vmlinux.bin FORCE
