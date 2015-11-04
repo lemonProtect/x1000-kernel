@@ -85,6 +85,7 @@ CONFIG_JZRISC_PEP=y
 # CONFIG_EARLY_INIT_RUN is not set
 # CONFIG_TEST_RESET_DLL is not set
 # CONFIG_JZ_IMEM is not set
+# CONFIG_SUPPORT_OTA is not set
 CONFIG_RWSEM_GENERIC_SPINLOCK=y
 # CONFIG_ARCH_HAS_ILOG2_U32 is not set
 # CONFIG_ARCH_HAS_ILOG2_U64 is not set
@@ -865,7 +866,6 @@ CONFIG_WLAN=y
 # Enable WiMAX (Networking options) to see the WiMAX drivers
 #
 # CONFIG_WAN is not set
-# CONFIG_JZ_MAC is not set
 # CONFIG_ISDN is not set
 
 #
@@ -1060,6 +1060,8 @@ CONFIG_LEGACY_PTY_COUNT=256
 # CONFIG_TRACE_SINK is not set
 # CONFIG_JZ_DMIC_V12 is not set
 # CONFIG_TEST_SECOND_REFRESH is not set
+# CONFIG_MTD_NV_WR is not set
+# CONFIG_MTD_NV_RO is not set
 # CONFIG_DEVMEM is not set
 # CONFIG_DEVKMEM is not set
 
@@ -1992,8 +1994,16 @@ CONFIG_DMADEVICES=y
 #
 # CONFIG_DW_DMAC is not set
 # CONFIG_XBURST_DMAC_V13 is not set
-# CONFIG_XBURST_DMAC_V12 is not set
+CONFIG_XBURST_DMAC=y
 # CONFIG_TIMB_DMA is not set
+CONFIG_DMA_ENGINE=y
+
+#
+# DMA Clients
+#
+# CONFIG_NET_DMA is not set
+# CONFIG_ASYNC_TX_DMA is not set
+# CONFIG_DMATEST is not set
 # CONFIG_AUXDISPLAY is not set
 # CONFIG_UIO is not set
 # CONFIG_VIRT_DRIVERS is not set

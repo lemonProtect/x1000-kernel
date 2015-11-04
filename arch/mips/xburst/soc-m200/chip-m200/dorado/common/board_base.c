@@ -69,7 +69,7 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_I2C3_V12_JZ
 	DEF_DEVICE(&jz_i2c3_device, 0, 0),
 #endif
-#ifdef CONFIG_XBURST_DMAC_V12
+#ifdef CONFIG_XBURST_DMAC
 	DEF_DEVICE(&jz_pdma_device, 0, 0),
 #endif
 #ifdef CONFIG_LCD_KD50G2_40NM_A2
