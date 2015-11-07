@@ -1,0 +1,416 @@
+Archive member included to satisfy reference by file (symbol)
+
+./lib/libivw3_6.a(IvwObj.o)   ./src/voice_wakeup.o (IvwSetParam)
+./lib/libivw3_6.a(IvwEngine.o)
+                              ./lib/libivw3_6.a(IvwObj.o) (Ivw582A3038F8E94230886E8034F0B5D)
+./lib/libivw3_6.a(IvwFront.o)
+                              ./lib/libivw3_6.a(IvwEngine.o) (Ivw188A484C5F41443CA65C632DCEB00)
+./lib/libivw3_6.a(IvwMiniDecoder.o)
+                              ./lib/libivw3_6.a(IvwEngine.o) (Ivw6FF21B97FD10412FA6EDD5A515290)
+./lib/libivw3_6.a(IvwMemory.o)
+                              ./lib/libivw3_6.a(IvwFront.o) (Ivw6F3AC527286E4ACE8A9D00C043242)
+./lib/libivw3_6.a(IvwMath.o)  ./lib/libivw3_6.a(IvwEngine.o) (Ivw0873AEAB2019445EA5D4EBE39BE96)
+./lib/libivw3_6.a(IvwFrontConst.o)
+                              ./lib/libivw3_6.a(IvwMath.o) (Ivw27E189A73CA101486161704102408A5E3)
+./lib/libivw3_6.a(IvwFrontCache.o)
+                              ./lib/libivw3_6.a(IvwFront.o) (Ivw22E87D039917F40EF0FA2C2447EEA46CC)
+
+Discarded input sections
+
+ .reginfo       0x0000000000000000       0x18 ./src/start.o
+ .reginfo       0x0000000000000000       0x18 ./src/interface.o
+ .comment       0x0000000000000000       0x1e ./src/interface.o
+ .gnu.attributes
+                0x0000000000000000       0x10 ./src/interface.o
+ .reginfo       0x0000000000000000       0x18 ./src/dmic_ops.o
+ .comment       0x0000000000000000       0x1e ./src/dmic_ops.o
+ .gnu.attributes
+                0x0000000000000000       0x10 ./src/dmic_ops.o
+ .reginfo       0x0000000000000000       0x18 ./src/dma_ops.o
+ .comment       0x0000000000000000       0x1e ./src/dma_ops.o
+ .gnu.attributes
+                0x0000000000000000       0x10 ./src/dma_ops.o
+ .reginfo       0x0000000000000000       0x18 ./src/rtc_ops.o
+ .comment       0x0000000000000000       0x1e ./src/rtc_ops.o
+ .gnu.attributes
+                0x0000000000000000       0x10 ./src/rtc_ops.o
+ .reginfo       0x0000000000000000       0x18 ./src/jz_dma.o
+ .comment       0x0000000000000000       0x1e ./src/jz_dma.o
+ .gnu.attributes
+                0x0000000000000000       0x10 ./src/jz_dma.o
+ .reginfo       0x0000000000000000       0x18 ./src/trigger_value_adjust.o
+ .comment       0x0000000000000000       0x1e ./src/trigger_value_adjust.o
+ .gnu.attributes
+                0x0000000000000000       0x10 ./src/trigger_value_adjust.o
+ .reginfo       0x0000000000000000       0x18 ./src/voice_wakeup.o
+ .comment       0x0000000000000000       0x1e ./src/voice_wakeup.o
+ .gnu.attributes
+                0x0000000000000000       0x10 ./src/voice_wakeup.o
+ .reginfo       0x0000000000000000       0x18 ./src/tcu_timer.o
+ .comment       0x0000000000000000       0x1e ./src/tcu_timer.o
+ .gnu.attributes
+                0x0000000000000000       0x10 ./src/tcu_timer.o
+ .reginfo       0x0000000000000000       0x18 ./lib/libivw3_6.a(IvwObj.o)
+ .comment       0x0000000000000000       0x31 ./lib/libivw3_6.a(IvwObj.o)
+ .gnu.attributes
+                0x0000000000000000       0x10 ./lib/libivw3_6.a(IvwObj.o)
+ .reginfo       0x0000000000000000       0x18 ./lib/libivw3_6.a(IvwEngine.o)
+ .comment       0x0000000000000000       0x31 ./lib/libivw3_6.a(IvwEngine.o)
+ .gnu.attributes
+                0x0000000000000000       0x10 ./lib/libivw3_6.a(IvwEngine.o)
+ .reginfo       0x0000000000000000       0x18 ./lib/libivw3_6.a(IvwFront.o)
+ .comment       0x0000000000000000       0x31 ./lib/libivw3_6.a(IvwFront.o)
+ .gnu.attributes
+                0x0000000000000000       0x10 ./lib/libivw3_6.a(IvwFront.o)
+ .reginfo       0x0000000000000000       0x18 ./lib/libivw3_6.a(IvwMiniDecoder.o)
+ .comment       0x0000000000000000       0x31 ./lib/libivw3_6.a(IvwMiniDecoder.o)
+ .gnu.attributes
+                0x0000000000000000       0x10 ./lib/libivw3_6.a(IvwMiniDecoder.o)
+ .reginfo       0x0000000000000000       0x18 ./lib/libivw3_6.a(IvwMemory.o)
+ .comment       0x0000000000000000       0x31 ./lib/libivw3_6.a(IvwMemory.o)
+ .gnu.attributes
+                0x0000000000000000       0x10 ./lib/libivw3_6.a(IvwMemory.o)
+ .reginfo       0x0000000000000000       0x18 ./lib/libivw3_6.a(IvwMath.o)
+ .comment       0x0000000000000000       0x31 ./lib/libivw3_6.a(IvwMath.o)
+ .gnu.attributes
+                0x0000000000000000       0x10 ./lib/libivw3_6.a(IvwMath.o)
+ .reginfo       0x0000000000000000       0x18 ./lib/libivw3_6.a(IvwFrontConst.o)
+ .comment       0x0000000000000000       0x31 ./lib/libivw3_6.a(IvwFrontConst.o)
+ .gnu.attributes
+                0x0000000000000000       0x10 ./lib/libivw3_6.a(IvwFrontConst.o)
+ .reginfo       0x0000000000000000       0x18 ./lib/libivw3_6.a(IvwFrontCache.o)
+ .comment       0x0000000000000000       0x31 ./lib/libivw3_6.a(IvwFrontCache.o)
+ .gnu.attributes
+                0x0000000000000000       0x10 ./lib/libivw3_6.a(IvwFrontCache.o)
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+voice_mem        0x0000000081f00000 0x0000000000028000 rw
+voice_res        0x0000000081f28000 0x0000000000018000 rw
+*default*        0x0000000000000000 0xffffffffffffffff
+
+Linker script and memory map
+
+
+.voice_mem      0x0000000081f00000     0x88c0
+                0x0000000081f00000                . = ALIGN (0x4)
+ *(.text)
+ .text          0x0000000081f00000       0x50 ./src/start.o
+                0x0000000081f00000                interface
+ .text          0x0000000081f00050      0xa70 ./src/interface.o
+                0x0000000081f00248                dump_voice_wakeup
+                0x0000000081f00318                module_init
+                0x0000000081f00394                module_exit
+                0x0000000081f0039c                open
+                0x0000000081f004c4                handler
+                0x0000000081f00754                close
+                0x0000000081f00848                set_handler
+                0x0000000081f00858                get_dma_address
+                0x0000000081f0087c                ioctl
+                0x0000000081f00898                cache_prefetch
+                0x0000000081f008c0                get_resource_addr
+                0x0000000081f008fc                process_data
+                0x0000000081f00918                is_cpu_wakeup_by_dmic
+                0x0000000081f00960                set_sleep_buffer
+                0x0000000081f009b4                get_sleep_process
+                0x0000000081f00a7c                set_dma_channel
+                0x0000000081f00aa4                voice_wakeup_enable
+                0x0000000081f00ab0                is_voice_wakeup_enabled
+ .text          0x0000000081f00ac0      0xa00 ./src/dmic_ops.o
+                0x0000000081f00ac0                dump_dmic_regs
+                0x0000000081f00bec                dump_gpio
+                0x0000000081f00c64                dump_cpm_reg
+                0x0000000081f00cc8                dmic_clk_config
+                0x0000000081f00d44                gpio_as_dmic
+                0x0000000081f00db4                dmic_set_channel
+                0x0000000081f00e20                dmic_init
+                0x0000000081f00e8c                cpu_should_sleep
+                0x0000000081f00ec4                dmic_init_mode
+                0x0000000081f010c4                dmic_enable
+                0x0000000081f010f4                dmic_disable_tri
+                0x0000000081f01128                dmic_disable
+                0x0000000081f01144                reconfig_thr_value
+                0x0000000081f011d8                dmic_set_samplerate
+                0x0000000081f01254                dmic_ioctl
+                0x0000000081f012a8                dmic_handler
+ .text          0x0000000081f014c0      0xbd0 ./src/dma_ops.o
+                0x0000000081f014c0                build_circ_descs
+                0x0000000081f015a8                dump_descs
+                0x0000000081f0171c                dump_tcsm
+                0x0000000081f0179c                dump_dma_register
+                0x0000000081f01e1c                dma_set_channel
+                0x0000000081f01e64                dma_config_normal
+                0x0000000081f01f2c                dma_config_early_sleep
+                0x0000000081f02030                dma_close
+                0x0000000081f02054                dma_start
+                0x0000000081f02070                dma_stop
+ .text          0x0000000081f02090      0x720 ./src/rtc_ops.o
+                0x0000000081f02224                rtc_set_alarm
+                0x0000000081f02278                rtc_init
+                0x0000000081f024e4                rtc_exit
+                0x0000000081f0250c                process_dmic_timer
+                0x0000000081f02528                rtc_int_handler
+ .text          0x0000000081f027b0      0x3b0 ./src/jz_dma.o
+                0x0000000081f027b0                build_one_desc
+                0x0000000081f02840                pdma_config
+                0x0000000081f029e4                pdma_start
+                0x0000000081f02a14                pdma_wait
+                0x0000000081f02a9c                pdma_end
+                0x0000000081f02ac4                pdma_trans_addr
+ .text          0x0000000081f02b60       0x30 ./src/trigger_value_adjust.o
+                0x0000000081f02b60                quantity_tri
+                0x0000000081f02b6c                adjust_trigger_value
+ .text          0x0000000081f02b90      0xa20 ./src/voice_wakeup.o
+                0x0000000081f02be0                send_data_to_process
+                0x0000000081f02fcc                wakeup_reset_fifo
+                0x0000000081f02fe8                wakeup_open
+                0x0000000081f0310c                wakeup_close
+                0x0000000081f03114                get_valid_bytes
+                0x0000000081f03164                process_nbytes
+                0x0000000081f03294                process_dma_data_3
+                0x0000000081f032c8                process_dma_data_2
+                0x0000000081f03450                process_dma_data
+                0x0000000081f0356c                process_buffer_data
+ .text          0x0000000081f035b0      0x370 ./src/tcu_timer.o
+                0x0000000081f036b4                tcu_timer_del
+                0x0000000081f036f0                ms_to_count
+                0x0000000081f03710                tcu_timer_mod
+                0x0000000081f037d0                tcu_timer_request
+                0x0000000081f03870                tcu_timer_release
+                0x0000000081f038e0                tcu_timer_handler
+ .text          0x0000000081f03920      0xb10 ./lib/libivw3_6.a(IvwObj.o)
+                0x0000000081f03920                IvwSetParam
+                0x0000000081f03c14                IvwRunStep
+                0x0000000081f03c88                IvwRunStepEx
+                0x0000000081f03d30                IvwAppendAudioData
+                0x0000000081f03dc0                IvwReset
+                0x0000000081f03e10                IvwGetVersion
+                0x0000000081f03e4c                IvwChkNeededSize
+                0x0000000081f04018                IvwCreateEx
+                0x0000000081f041a8                IvwCreate
+                0x0000000081f04304                IvwSetThresh
+ .text          0x0000000081f04430      0x7d0 ./lib/libivw3_6.a(IvwEngine.o)
+                0x0000000081f04430                Ivw582A3038F8E94230886E8034F0B5D
+                0x0000000081f04524                Ivw20CE383A817684C9CA7B801E08BCC5E1E
+                0x0000000081f0454c                Ivw16E3158F17AD496CB71B7DB0EE820
+                0x0000000081f045f4                Ivw9B2872550B104C21A43D30AE8F977
+                0x0000000081f04a4c                Ivw2681C72D235E04AAB07BE4B52CFC2455C
+                0x0000000081f04a7c                IvwResValidate
+                0x0000000081f04b28                IvwInitResidentRAM
+ .text          0x0000000081f04c00      0xdc0 ./lib/libivw3_6.a(IvwFront.o)
+                0x0000000081f04c00                Ivw6D2E95BD768E495BA5730EC448141
+                0x0000000081f04c44                Ivw188A484C5F41443CA65C632DCEB00
+                0x0000000081f04ca8                Ivw26983DA04861D5FBEA8BC3031B0E4FDA8
+                0x0000000081f04d3c                Ivw235355BEEBC4D4A84148ADDC67987B9A1
+                0x0000000081f04e6c                Ivw2022E43F49DAC4CA0BRB8C778473A7E5E
+                0x0000000081f055a0                Ivw2837A62AC32B84B58FDAF33ACA28B682D
+                0x0000000081f05698                IvwB3380E2D10DD4CF09C6BFF24D6237
+                0x0000000081f05738                Ivw2022E41F49DAC4CF0BCC85778473A7E5F
+ .text          0x0000000081f059c0     0x24d0 ./lib/libivw3_6.a(IvwMiniDecoder.o)
+                0x0000000081f059c0                ivwDecodeInitScore
+                0x0000000081f05c40                Ivw6FF21B97FD10412FA6EDD5A515290
+                0x0000000081f05e18                Ivw299454EE8C4541DF9A741BB09595E
+                0x0000000081f06200                Ivw6F3AC527286E4ACE8A6700C043241
+                0x0000000081f063c8                Ivw6F3AC527286E4ACE8323700C043241
+                0x0000000081f06540                Ivw7AD047857C3441B28BDC3CCC479D7
+                0x0000000081f067d4                Ivw2D6D5D04A8B9C45A4C98CF08A6D1330A9
+                0x0000000081f06848                Ivw8C99CEA68F55487A896D56F2C578F
+                0x0000000081f06dd4                IvwDB22C02C987F4A75A7E19AB5D1B29
+                0x0000000081f06f2c                Ivw5A9FFFE5F7674764AF1077495118A
+                0x0000000081f074d0                Ivw49F0CE68AF0346218FB4F4AD8A121
+                0x0000000081f075f8                Ivw94DD4B42EB7648F29A6F95A1756DC
+                0x0000000081f0786c                Ivw021156235A784BA89796335AF580B
+                0x0000000081f07ccc                IvwEAFF272FA3D149A1842D98E4CF87E
+                0x0000000081f07dcc                IvwCCC1A45DB2A74B96A92DD89E87CAB
+ .text          0x0000000081f07e90       0xc0 ./lib/libivw3_6.a(IvwMemory.o)
+                0x0000000081f07e90                Ivw6F3AC527286E4ACE8A9D00C043242
+                0x0000000081f07eb0                Ivw138EB59E9E47409CA505802FBDF80
+                0x0000000081f07ed8                ivwMemComp
+ .text          0x0000000081f07f50      0x1a0 ./lib/libivw3_6.a(IvwMath.o)
+                0x0000000081f07f50                Ivw2702C1573CA101486161704102408A5E3
+                0x0000000081f07fac                Ivw26983DA03761D4E6EA1BE30A1B0E4FDA8
+                0x0000000081f08090                Ivw0873AEAB2019445EA5D4EBE39BE96
+ .text          0x0000000081f080f0        0x0 ./lib/libivw3_6.a(IvwFrontConst.o)
+ .text          0x0000000081f080f0      0x7d0 ./lib/libivw3_6.a(IvwFrontCache.o)
+                0x0000000081f080f0                Ivw24AFEE9E6B23D4568D38D2304C9C89072
+                0x0000000081f085d8                Ivw22E87D039917F40EF0FA2C2447EEA46CC
+
+.rodata.str1.4  0x0000000081f088c0      0xea8
+ .rodata.str1.4
+                0x0000000081f088c0      0x18a ./src/interface.o
+                                        0x18c (size before relaxing)
+ *fill*         0x0000000081f08a4a        0x2 
+ .rodata.str1.4
+                0x0000000081f08a4c      0x279 ./src/dmic_ops.o
+                                        0x27c (size before relaxing)
+ *fill*         0x0000000081f08cc5        0x3 
+ .rodata.str1.4
+                0x0000000081f08cc8      0x650 ./src/dma_ops.o
+                                        0x658 (size before relaxing)
+ .rodata.str1.4
+                0x0000000081f09318      0x392 ./src/rtc_ops.o
+                                        0x394 (size before relaxing)
+ *fill*         0x0000000081f096aa        0x2 
+ .rodata.str1.4
+                0x0000000081f096ac       0x49 ./src/jz_dma.o
+                                         0x4c (size before relaxing)
+ *fill*         0x0000000081f096f5        0x3 
+ .rodata.str1.4
+                0x0000000081f096f8       0x70 ./src/tcu_timer.o
+
+.data           0x0000000081f09770     0x1380
+ *(.data)
+ .data          0x0000000081f09770        0x0 ./src/start.o
+ .data          0x0000000081f09770       0x10 ./src/interface.o
+                0x0000000081f09770                _dma_channel
+ .data          0x0000000081f09780        0x0 ./src/dmic_ops.o
+ .data          0x0000000081f09780       0x10 ./src/dma_ops.o
+                0x0000000081f09780                dma_channel
+ .data          0x0000000081f09790        0x0 ./src/rtc_ops.o
+ .data          0x0000000081f09790        0x0 ./src/jz_dma.o
+ .data          0x0000000081f09790       0x10 ./src/trigger_value_adjust.o
+                0x0000000081f09790                tri_cnt
+                0x0000000081f09798                thr_table
+ .data          0x0000000081f097a0        0x0 ./src/voice_wakeup.o
+ .data          0x0000000081f097a0       0x10 ./src/tcu_timer.o
+ .data          0x0000000081f097b0        0x0 ./lib/libivw3_6.a(IvwObj.o)
+ .data          0x0000000081f097b0        0x0 ./lib/libivw3_6.a(IvwEngine.o)
+ .data          0x0000000081f097b0        0x0 ./lib/libivw3_6.a(IvwFront.o)
+ .data          0x0000000081f097b0        0x0 ./lib/libivw3_6.a(IvwMiniDecoder.o)
+ .data          0x0000000081f097b0        0x0 ./lib/libivw3_6.a(IvwMemory.o)
+ .data          0x0000000081f097b0        0x0 ./lib/libivw3_6.a(IvwMath.o)
+ .data          0x0000000081f097b0        0x0 ./lib/libivw3_6.a(IvwFrontConst.o)
+ .data          0x0000000081f097b0        0x0 ./lib/libivw3_6.a(IvwFrontCache.o)
+ *(.rodata)
+ .rodata        0x0000000081f097b0       0x10 ./src/dma_ops.o
+ .rodata        0x0000000081f097c0       0x20 ./src/rtc_ops.o
+ .rodata        0x0000000081f097e0       0x30 ./lib/libivw3_6.a(IvwObj.o)
+ .rodata        0x0000000081f09810       0x70 ./lib/libivw3_6.a(IvwMiniDecoder.o)
+ .rodata        0x0000000081f09880     0x1270 ./lib/libivw3_6.a(IvwFrontConst.o)
+                0x0000000081f09880                g_ps16CMNCoefMin
+                0x0000000081f0989c                g_ps16CMNCoefMax
+                0x0000000081f098b8                g_ps16CMNCoef
+                0x0000000081f098d4                Ivw27E189A73CA101486161704102408A5E3
+                0x0000000081f09cd4                Ivw283835773CA101486161704102408A5E3
+                0x0000000081f09f14                Ivw27F72D573CA101486161704102408A5E3
+                0x0000000081f0a234                Ivw28226EA73CA101486161704102408A5E3
+                0x0000000081f0a3c4                Ivw2749BA873CA101486161704102408A5E3
+                0x0000000081f0a6c4                Ivw275F8CA73CA101486161704102408A5E3
+
+.__bss_end      0x0000000081f0aaf0        0x0
+ .__bss_end     0x0000000081f0aaf0        0x0 ./src/interface.o
+
+.__bss_start    0x0000000081f0aaf0        0x0
+ .__bss_start   0x0000000081f0aaf0        0x0 ./src/interface.o
+
+.bss            0x0000000081f0ab00     0x5290
+                0x0000000081f0ab00                . = ALIGN (0x4)
+                0x0000000081f0ab00                __bss_start = .
+ *(.sbss.*)
+ *(.bss.*)
+ *(COMMON)
+                0x0000000081f0ab00                . = ALIGN (0x4)
+                0x0000000081f0ab00                __bss_end = .
+ .bss           0x0000000081f0ab00        0x0 ./src/start.o
+ .bss           0x0000000081f0ab00       0x30 ./src/interface.o
+                0x0000000081f0ab00                rtc_count
+                0x0000000081f0ab04                powerdown_sleep
+                0x0000000081f0ab08                g_sleep_buffer
+                0x0000000081f0ab0c                current_mode
+                0x0000000081f0ab10                open_cnt
+                0x0000000081f0ab14                cpu_wakeup_by
+                0x0000000081f0ab18                h_handler
+ .bss           0x0000000081f0ab30       0x20 ./src/dmic_ops.o
+                0x0000000081f0ab30                last_dma_count
+                0x0000000081f0ab34                dmic_recommend_thr
+                0x0000000081f0ab38                wakeup_failed_times
+                0x0000000081f0ab3c                cur_thr_value
+                0x0000000081f0ab40                dmic_current_state
+ .bss           0x0000000081f0ab50      0x150 ./src/dma_ops.o
+                0x0000000081f0ab50                sleep_desc
+                0x0000000081f0ac50                desc
+                0x0000000081f0ac54                config
+                0x0000000081f0ac98                dst_buf
+                0x0000000081f0ac9c                src_buf
+ .bss           0x0000000081f0aca0       0x30 ./src/rtc_ops.o
+ .bss           0x0000000081f0acd0        0x0 ./src/jz_dma.o
+ .bss           0x0000000081f0acd0        0x0 ./src/trigger_value_adjust.o
+ *fill*         0x0000000081f0acd0       0x10 
+ .bss           0x0000000081f0ace0     0x50a0 ./src/voice_wakeup.o
+                0x0000000081f0ace0                rx_fifo
+                0x0000000081f0ace0                pResidentRAM
+                0x0000000081f0ad00                pIvwObj
+                0x0000000081f0ad20                nReisdentBuf
+                0x0000000081f0ad60                pIvwObjBuf
+                0x0000000081f0fd60                total_process_len
+ .bss           0x0000000081f0fd80       0x10 ./src/tcu_timer.o
+                0x0000000081f0fd80                save_tcsr
+                0x0000000081f0fd84                time
+                0x0000000081f0fd88                clk_enabled
+ .bss           0x0000000081f0fd90        0x0 ./lib/libivw3_6.a(IvwObj.o)
+ .bss           0x0000000081f0fd90        0x0 ./lib/libivw3_6.a(IvwEngine.o)
+ .bss           0x0000000081f0fd90        0x0 ./lib/libivw3_6.a(IvwFront.o)
+ .bss           0x0000000081f0fd90        0x0 ./lib/libivw3_6.a(IvwMiniDecoder.o)
+ .bss           0x0000000081f0fd90        0x0 ./lib/libivw3_6.a(IvwMemory.o)
+ .bss           0x0000000081f0fd90        0x0 ./lib/libivw3_6.a(IvwMath.o)
+ .bss           0x0000000081f0fd90        0x0 ./lib/libivw3_6.a(IvwFrontConst.o)
+ .bss           0x0000000081f0fd90        0x0 ./lib/libivw3_6.a(IvwFrontCache.o)
+
+.voice_res      0x0000000081f28000        0x0
+ .voice_res     0x0000000081f28000        0x0 ./src/voice_wakeup.o
+
+/DISCARD/
+ *(COMMON)
+ *(.pdri)
+ *(.comment)
+ *(.gnu.attributes)
+ *(.reginfo)
+LOAD ./src/start.o
+LOAD ./src/interface.o
+LOAD ./src/dmic_ops.o
+LOAD ./src/dma_ops.o
+LOAD ./src/rtc_ops.o
+LOAD ./src/jz_dma.o
+LOAD ./src/trigger_value_adjust.o
+LOAD ./src/voice_wakeup.o
+LOAD ./src/tcu_timer.o
+LOAD ./lib/libivw3_6.a
+OUTPUT(./tmp.elf elf32-tradlittlemips)
+
+.pdr            0x0000000000000000     0x1040
+ .pdr           0x0000000000000000        0x0 ./src/start.o
+ .pdr           0x0000000000000000      0x2a0 ./src/interface.o
+ .pdr           0x00000000000002a0      0x200 ./src/dmic_ops.o
+ .pdr           0x00000000000004a0      0x140 ./src/dma_ops.o
+ .pdr           0x00000000000005e0      0x100 ./src/rtc_ops.o
+ .pdr           0x00000000000006e0       0xc0 ./src/jz_dma.o
+ .pdr           0x00000000000007a0       0x40 ./src/trigger_value_adjust.o
+ .pdr           0x00000000000007e0      0x160 ./src/voice_wakeup.o
+ .pdr           0x0000000000000940      0x100 ./src/tcu_timer.o
+ .pdr           0x0000000000000a40      0x140 ./lib/libivw3_6.a(IvwObj.o)
+ .pdr           0x0000000000000b80       0xe0 ./lib/libivw3_6.a(IvwEngine.o)
+ .pdr           0x0000000000000c60      0x100 ./lib/libivw3_6.a(IvwFront.o)
+ .pdr           0x0000000000000d60      0x1e0 ./lib/libivw3_6.a(IvwMiniDecoder.o)
+ .pdr           0x0000000000000f40       0x60 ./lib/libivw3_6.a(IvwMemory.o)
+ .pdr           0x0000000000000fa0       0x60 ./lib/libivw3_6.a(IvwMath.o)
+ .pdr           0x0000000000001000        0x0 ./lib/libivw3_6.a(IvwFrontConst.o)
+ .pdr           0x0000000000001000       0x40 ./lib/libivw3_6.a(IvwFrontCache.o)
+
+.mdebug.abi32   0x0000000000000000        0x0
+ .mdebug.abi32  0x0000000000000000        0x0 ./src/interface.o
+ .mdebug.abi32  0x0000000000000000        0x0 ./src/dmic_ops.o
+ .mdebug.abi32  0x0000000000000000        0x0 ./src/dma_ops.o
+ .mdebug.abi32  0x0000000000000000        0x0 ./src/rtc_ops.o
+ .mdebug.abi32  0x0000000000000000        0x0 ./src/jz_dma.o
+ .mdebug.abi32  0x0000000000000000        0x0 ./src/trigger_value_adjust.o
+ .mdebug.abi32  0x0000000000000000        0x0 ./src/voice_wakeup.o
+ .mdebug.abi32  0x0000000000000000        0x0 ./src/tcu_timer.o
+ .mdebug.abi32  0x0000000000000000        0x0 ./lib/libivw3_6.a(IvwObj.o)
+ .mdebug.abi32  0x0000000000000000        0x0 ./lib/libivw3_6.a(IvwEngine.o)
+ .mdebug.abi32  0x0000000000000000        0x0 ./lib/libivw3_6.a(IvwFront.o)
+ .mdebug.abi32  0x0000000000000000        0x0 ./lib/libivw3_6.a(IvwMiniDecoder.o)
+ .mdebug.abi32  0x0000000000000000        0x0 ./lib/libivw3_6.a(IvwMemory.o)
+ .mdebug.abi32  0x0000000000000000        0x0 ./lib/libivw3_6.a(IvwMath.o)
+ .mdebug.abi32  0x0000000000000000        0x0 ./lib/libivw3_6.a(IvwFrontConst.o)
+ .mdebug.abi32  0x0000000000000000        0x0 ./lib/libivw3_6.a(IvwFrontCache.o)

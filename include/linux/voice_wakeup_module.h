@@ -23,9 +23,16 @@ struct sleep_buffer {
 
 #define DMIC_IOCTL_SET_SAMPLERATE	0x200
 
+#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
+#define DMIC_IOCTL_SET_CHANNEL	0x201
+#endif
 
-
+#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
+#define WAKEUP_HANDLER_ADDR	(0x81f00004)
+#else
 #define WAKEUP_HANDLER_ADDR	(0x8ff00004)
+#endif
+
 #define SYS_WAKEUP_OK		(0x1)
 #define SYS_WAKEUP_FAILED	(0x2)
 #define SYS_NEED_DATA		(0x3)

@@ -47,7 +47,11 @@ __initdata int gpio_ss_table[][2] = {
 	{32*1+2,	GSS_OUTPUT_LOW	},	/* I2S_LRCK */
 	{32*1+3,	GSS_OUTPUT_LOW	},	/* I2S_DI */
 	{32*1+4,	GSS_INPUT_NOPULL	},	/* I2S_DO */
+#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
+	{32*1+5,	GSS_IGNORE	},	/* DMIC_IN1 */
+#else
 	{32*1+5,	GSS_OUTPUT_LOW	},	/* DMIC_IN1 */
+#endif
 	{32*1+6,	GSS_OUTPUT_LOW	},	/* MAC_PHY_CLK */
 	{32*1+7,	GSS_OUTPUT_LOW	},	/* MAC_CRS_DV */
 	{32*1+8,	GSS_OUTPUT_LOW	},	/* MAC_RXD1 */
@@ -63,8 +67,13 @@ __initdata int gpio_ss_table[][2] = {
 	{32*1+18,	GSS_OUTPUT_LOW	},	/* SLCD_CE */
 	{32*1+19,	GSS_OUTPUT_LOW	},	/* SLCD_TE */
 	{32*1+20,	GSS_OUTPUT_LOW	},	/* SLCD_DC */
-	{32*1+21,	GSS_OUTPUT_LOW	},	/* DMIC_CLK */
-	{32*1+22,	GSS_OUTPUT_LOW	},	/* DMIC_IN0 */
+#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
+	{32*1+21,	GSS_IGNORE	},	/* DMIC_CLK */
+	{32*1+22,	GSS_IGNORE	},	/* DMIC_IN0 */
+#else
+	{32*1+23,	GSS_OUTPUT_LOW	},	/* DMIC_CLK */
+	{32*1+24,	GSS_OUTPUT_LOW	},	/* DMIC_IN0 */
+#endif
 	{32*1+23,	GSS_OUTPUT_LOW	},	/* SMB0_SCK */
 	{32*1+24,	GSS_OUTPUT_LOW	},	/* SMB0_SDA */
 	{32*1+25,	GSS_OUTPUT_LOW	},	/* DRVVBUS */
