@@ -71,8 +71,8 @@ __initdata int gpio_ss_table[][2] = {
 	{32*1+21,	GSS_IGNORE	},	/* DMIC_CLK */
 	{32*1+22,	GSS_IGNORE	},	/* DMIC_IN0 */
 #else
-	{32*1+23,	GSS_OUTPUT_LOW	},	/* DMIC_CLK */
-	{32*1+24,	GSS_OUTPUT_LOW	},	/* DMIC_IN0 */
+	{32*1+21,	GSS_OUTPUT_LOW	},	/* DMIC_CLK */
+	{32*1+22,	GSS_OUTPUT_LOW	},	/* DMIC_IN0 */
 #endif
 	{32*1+23,	GSS_OUTPUT_LOW	},	/* SMB0_SCK */
 	{32*1+24,	GSS_OUTPUT_LOW	},	/* SMB0_SDA */
