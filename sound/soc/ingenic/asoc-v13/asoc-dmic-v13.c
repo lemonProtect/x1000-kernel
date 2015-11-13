@@ -226,7 +226,9 @@ static void jz_dmic_shutdown(struct snd_pcm_substream *substream,
 static int jz_dmic_probe(struct snd_soc_dai *dai)
 {
 	struct device *dev = dai->dev;
+	struct jz_dmic *jz_dmic = dev_get_drvdata(dai->dev);
 
+	clk_enable(jz_dmic->clk_gate_dmic);
 	/*gain: 0, ..., e*/
 	__dmic_reset(dev);
 	while(__dmic_get_reset(dev));
@@ -245,6 +247,7 @@ static int jz_dmic_probe(struct snd_soc_dai *dai)
 	__dmic_set_thr_low(dev,16);
 	__dmic_enable_tri(dev);
 
+	clk_disable(jz_dmic->clk_gate_dmic);
 
 
 	return 0;
@@ -336,7 +339,6 @@ static int jz_dmic_platfrom_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
 		return ret;
 	}
-	clk_enable(jz_dmic->clk_gate_dmic);
 	ret = snd_soc_register_component(&pdev->dev, &jz_dmic_component,
 					 &jz_dmic_dai, 1);
 	if (ret)
