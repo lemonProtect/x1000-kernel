@@ -172,7 +172,7 @@ static struct fb_videomode *jzfb_get_mode(struct fb_var_screeninfo *var,
 /*
 	dev_err(info->dev, "%s L%d\n", __func__, __LINE__);
 	dev_err(info->dev, "var->vmode=%x, var->xres=%d, var->yres=%d, var->pixclock=%d, var->xres_virtual=%d, var->yres_virtual=%d, var->xoffset=%d, var->yoffset=%d, var->bits_per_pixel=%d, var->height=%d, var->width=%d, var->left_margin=%d, var->right_margin=%d, var->upper_margin=%d, var->lower_margin=%d, var->hsync_len=%d, var->vsync_len=%d, var->sync=%d\n", var->vmode, var->xres, var->yres, var->pixclock, var->xres_virtual, var->yres_virtual, var->xoffset, var->yoffset, var->bits_per_pixel, var->height, var->width, var->left_margin, var->right_margin, var->upper_margin, var->lower_margin, var->hsync_len, var->vsync_len, var->sync);
-	dev_err(info->dev, "mode->flag=%x, mode->vmode=%x, mode->xres=%d, mode->yres=%d, mode->pixclock=%d, mode->right_margin=%d", 
+	dev_err(info->dev, "mode->flag=%x, mode->vmode=%x, mode->xres=%d, mode->yres=%d, mode->pixclock=%d, mode->right_margin=%d",
 		mode->flag, mode->vmode, mode->xres, mode->yres, mode->pixclock, mode->right_margin);
 */
 	for (i = 0; i < jzfb->pdata->num_modes; ++i, ++mode) {
@@ -341,6 +341,10 @@ jzfb_config_tft_lcd_dma(struct fb_info *info,
 		framedesc->cpos = LCDC_CPOS_ALPHAMD1;
 	else
 		framedesc->cpos = 0;
+
+#ifdef CONFIG_LINUX_DESKTOP_SUPPORT
+	framedesc->cpos = 0;
+#endif
 
 	switch (jzfb->osd.fg0.bpp) {
 	case 16:

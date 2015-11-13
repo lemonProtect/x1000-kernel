@@ -2342,7 +2342,9 @@ static void dwc2_disable_channel(struct dwc2 *dwc, struct dwc2_channel *chan,
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	timeout = wait_event_timeout(chan->disable_wq, (chan->disable_stage == 2), HZ);
-	WARN((timeout == 0), "wait channel%d disable timeout!\n", chan->number);
+//	WARN((timeout == 0), "wait channel%d disable timeout!\n", chan->number);
+	if(timeout == 0)
+		printk("wait channel%d disable timeout!\n", chan->number);
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	chan->waiting = 0;

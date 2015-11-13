@@ -25,6 +25,13 @@ config DSI_DPI_DEBUG
 	depends on JZ_MIPI_DSI
 	default n
 
+config LINUX_DESKTOP_SUPPORT
+	bool "linux desktop support"
+    depends on FB_JZ_V12
+	default n
+	help
+		this config is for jz_fb suport the buildroot or the debain desktop
+
 choice
 	depends on FB_JZ_V12 && (!JZ_MIPI_DSI)
 	prompt "set lcd gpio"
