@@ -42,9 +42,8 @@ void pdma_start(int channel){
 
 void pdma_wait(channel){
 	while(!(REG_DMADCS(channel)&1<<3)){
-		printf("dma channel %d wait TT\n",channel);
+		printk("dma channel %d wait TT\n",channel);
 	}
-	printf("channel %d Transfer done.\n",channel);
 }
 
 void pdma_end(int channel){
@@ -58,7 +57,7 @@ unsigned int pdma_trans_addr(int channel, int direction)
 	} else if (direction == DMA_DEV_TO_MEM){/*device to dma*/
 		return REG_DMADTA(channel);
 	} else if(direction == DMA_MEM_TO_MEM) {
-		printf("src:%08x , dst:%08x\n", REG_DMADSA(channel), REG_DMADTA(channel));
+		printk("src:%08x , dst:%08x\n", REG_DMADSA(channel), REG_DMADTA(channel));
 	}
 	return 0;
 }

@@ -151,17 +151,23 @@ void wakeup_reset_fifo()
 int wakeup_open(void)
 {
 	ivSize nIvwObjSize = 20 * 1024;
-	pIvwObj = (ivPointer)pIvwObjBuf;
+//	pIvwObj = (ivPointer)pIvwObjBuf;
 	ivUInt16 nResidentRAMSize = 38;
-	pResidentRAM = (ivPointer)nReisdentBuf;
+//	pResidentRAM = (ivPointer)nReisdentBuf;
 	unsigned char __attribute__((aligned(32))) *pResKey = (unsigned char *)wakeup_res;
 	unsigned int dma_addr;
 
 	ivUInt16 nWakeupNetworkID = 0;
 
 	ivStatus iStatus;
+	struct circ_buf *xfer = &rx_fifo->xfer;
+	unsigned int buf_start_pa;
+	unsigned int buf_end_pa;
 	//printf("wakeu module init#####\n");
 	//printf("pIvwObj:%x, pResidentRAM:%x, pResKey:%x\n", pIvwObj, pResidentRAM, pResKey);
+	pIvwObj = (ivPointer)pIvwObjBuf;
+	pResidentRAM = (ivPointer)nReisdentBuf;
+
 	iStatus = IvwCreate(pIvwObj, &nIvwObjSize, pResidentRAM, &nResidentRAMSize, pResKey, nWakeupNetworkID);
 	if( IvwErrID_OK != iStatus ){
 		//printf("IvwVreate Error: %d\n", iStatus);
@@ -172,11 +178,12 @@ int wakeup_open(void)
 	IvwSetParam( pIvwObj, IVW_CM_THRESHOLD, 20, 1 ,0);
 	IvwSetParam( pIvwObj, IVW_CM_THRESHOLD, 15, 2 ,0);
 	/* code that need rewrite */
-	struct circ_buf *xfer = &rx_fifo->xfer;
-	rx_fifo->n_size	= BUF_SIZE; /*tcsm 4kBytes*/
-	xfer->buf = (char *)TCSM_DATA_BUFFER_ADDR;
-	dma_addr = pdma_trans_addr(DMA_CHANNEL, 2);
-	if((dma_addr >= (TCSM_DATA_BUFFER_ADDR & 0x1fffffff)) && (dma_addr <= ((TCSM_DATA_BUFFER_ADDR + BUF_SIZE)& 0x1fffffff))) {
+	rx_fifo->n_size	= VOICE_TCSM_DATA_BUF_SIZE; /*tcsm 4kBytes*/
+	xfer->buf = (char *)VOICE_TCSM_DATA_BUF;
+	buf_start_pa=V_TO_P(xfer->buf);
+	buf_end_pa=V_TO_P(xfer->buf + rx_fifo->n_size);
+	dma_addr = pdma_trans_addr(DMA_CHANNEL, DMA_DEV_TO_MEM);
+	if((dma_addr >= buf_start_pa) && (dma_addr <= buf_end_pa)) {
 		xfer->head = (char *)(dma_addr | 0xA0000000) - xfer->buf;
 	} else {
 		xfer->head = 0;

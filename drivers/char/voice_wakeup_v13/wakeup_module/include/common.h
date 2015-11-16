@@ -68,34 +68,25 @@ typedef unsigned int	u32;
 			: "i" (op), "R" (*(unsigned char *)(addr))  \
 			: "memory"                  \
 			)
+#define Index_Prefetch_I	0x1c
 
-
-
-
-/**
- *      |-------------|     <--- SLEEP_TCSM_BOOTCODE_TEXT
- *      | BOOT CODE   |
- *      |-------------|     <--- SLEEP_TCSM_RESUMECODE_TEXT
- *      |    ...      |
- *      | RESUME CODE |
- *      |    ...      |
- *      |-------------|     <--- SLEEP_TCSM_RESUME_DATA
- *      | RESUME DATA |
- *      |_____________|
- */
-
-#define SLEEP_TCSM_SPACE           0xb3422200
-#define SLEEP_TCSM_LEN             4096
-
-#define SLEEP_TCSM_BOOT_LEN        512
-#define SLEEP_TCSM_DATA_LEN        64
-#define SLEEP_TCSM_RESUME_LEN      (SLEEP_TCSM_LEN - SLEEP_TCSM_BOOT_LEN - SLEEP_TCSM_DATA_LEN)
-
-#define SLEEP_TCSM_BOOT_TEXT       (SLEEP_TCSM_SPACE)
-#define SLEEP_TCSM_RESUME_TEXT     (SLEEP_TCSM_BOOT_TEXT + SLEEP_TCSM_BOOT_LEN)
-#define SLEEP_TCSM_RESUME_DATA     (SLEEP_TCSM_RESUME_TEXT + SLEEP_TCSM_RESUME_LEN)
-
-#define CPU_RESMUE_SP				0xb3423FFC//	BANK2
+#define cache_prefetch_voice(label,size)				\
+do{									\
+	unsigned long addr,end;						\
+	/* Prefetch codes from label */					\
+	addr = (unsigned long)(&&label) & ~(32 - 1);			\
+	end = (unsigned long)(&&label + size) & ~(32 - 1);		\
+	end += 32;							\
+	for (; addr < end; addr += 32) {				\
+		__asm__ volatile (					\
+				".set mips32\n\t"			\
+				" cache %0, 0(%1)\n\t"			\
+				".set mips32\n\t"			\
+				:					\
+				: "I" (Index_Prefetch_I), "r"(addr));	\
+	}								\
+}									\
+while(0)
 
 #define _cpu_switch_restore()									\
 	do {														\

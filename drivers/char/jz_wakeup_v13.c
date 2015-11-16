@@ -292,7 +292,7 @@ static int wakeup_suspend(void)
 			goto _allocate_failed;
 		}
 	}
-	dma_cache_wback_inv(&sleep_buffer->buffer[0], sleep_buffer->total_len);
+	dma_cache_wback_inv((unsigned int)(&sleep_buffer->buffer[0]), sleep_buffer->total_len);
 	ret = wakeup_module_set_sleep_buffer(&wakeup->sleep_buffer);
 
 	return 0;

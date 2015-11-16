@@ -1,6 +1,10 @@
 #ifndef __DMIC_OPS_H_
 #define __DMIC_OPS_H_
 
+#include "common.h"
+#include "jz_dmic.h"
+#include "jz_dma.h"
+
 enum dmic_status {
 	WAITING_TRIGGER = 1,
 	WAITING_DATA,

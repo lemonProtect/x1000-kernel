@@ -3,13 +3,11 @@
 
 #include "rtc-jz.h"
 
-#define pr_info	printk
-
 
 
 /*#define __RTC_ALRM_IS_ENABLED()	()*/
 /*#define __RTC_ALRM_ENABLE()	()*/
-
+#define ALARM_VALUE		(30)/*10s*/
 
 int rtc_init(void);
 int rtc_set_alarm(unsigned long alarm_seconds);

@@ -1,17 +1,15 @@
 #ifndef __INTERFACE_H__
 #define __INTERFACE_H__
-
+#include <tcsm_layout.h>
 
 extern int (*h_handler)(const char *fmt, ...);
-#define CONFIG_SLEEP_DEBUG
+#define SLEEP_VOICE_DEBUG
 
-#ifdef CONFIG_SLEEP_DEBUG
+#ifdef SLEEP_VOICE_DEBUG
 #define printk	h_handler
-#define printf printk
 #else
 #define debug_print(fmt, args...) do{} while(0)
 #define printk debug_print
-#define printf printk
 #endif
 
 enum open_mode {
@@ -39,14 +37,7 @@ struct sleep_buffer {
 #define LOAD_ADDR	0x81f00000 /* 31M */
 #define LOAD_SIZE	(256 * 1024)
 
-#define TCSM_DESC_ADDR			(0xa1f40000)
-#define TCSM_SP_ADDR			(0xb3422ffc) /*TCSM bank2 end */
-
-#define TCSM_DATA_BUFFER_ADDR	(TCSM_DESC_ADDR + 1024)
-#define TCSM_DATA_BUFFER_SIZE	(1024*4)
-
-
-
+#ifdef SLEEP_VOICE_DEBUG
 #define OFF_TDR         (0x00)
 #define OFF_LCR         (0x0C)
 #define OFF_LSR         (0x14)
@@ -55,11 +46,10 @@ struct sleep_buffer {
 #define LSR_TEMT        (1 << 6)
 
 #define UART1_IOBASE    0x10032000
-#define U1_IOBASE (UART1_IOBASE + 0xa0000000)
-#ifdef CONFIG_SLEEP_DEBUG
+#define UART_IOBASE (UART1_IOBASE + 0xa0000000)
 #define TCSM_PCHAR(x)                           \
-	*((volatile unsigned int*)(U1_IOBASE+OFF_TDR)) = x;     \
-while ((*((volatile unsigned int*)(U1_IOBASE + OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
+	*((volatile unsigned int*)(UART_IOBASE+OFF_TDR)) = x;     \
+while ((*((volatile unsigned int*)(UART_IOBASE + OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
 
 static inline void serial_put_hex(unsigned int x) {
 	int i;
