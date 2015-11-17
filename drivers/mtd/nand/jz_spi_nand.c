@@ -279,7 +279,7 @@ static size_t jz_spi_nandflash_read_ops(struct jz_spi_nandflash *flash,u_char *b
 		pr_info("%s -- %s --%d  spi_sync() error !\n",__FILE__,__func__,__LINE__);
 		return -EIO;
 	}
-	*rel_rlen = message.actual_length - sizeof(command);
+	*rel_rlen = message.actual_length - transfer[0].len;
 	return ret;
 }
 static int jz_spi_nandflash_read(struct mtd_info *mtd,loff_t addr,int column,size_t len,u_char *buf,size_t *retlen)
