@@ -115,7 +115,7 @@ choice
 	depends on SOC_X1000
 	config SND_ASOC_INGENIC_PHOENIX_ICDC
 	tristate "Audio support for phoenix with internal codec"
-	select SND_ASOC_DMA_V13
+	select SND_ASOC_DMA_V12
 	select SND_ASOC_JZ_AIC_I2S_V13
 	select SND_ASOC_JZ_ICDC_D3
 	select SND_ASOC_JZ_PCM_V13
@@ -142,7 +142,7 @@ config JZ_ASOC_DMA_AUTO_CLR_DRT_MEM
 	  clear by slience_threshold set by user app
 config JZ_ASOC_DMA_HRTIMER_MODE
 	bool "JZ audio dma cyclic dma with hrtimer callback mode"
-	depends on (HIGH_RES_TIMERS && (SOC_4775 || SOC_M200 || SOC_4780))
+	depends on (HIGH_RES_TIMERS && (SOC_4775 || SOC_M200 || SOC_4780 || SOC_X1000))
 	default n
 	help
 	  Say Y if you want suport sandard cyclic dma interface, Say N, that
