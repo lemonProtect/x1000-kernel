@@ -79,7 +79,14 @@ static void wdt_stop_count(void)
 
 static void inline rtc_write_reg(int reg,int value)
 {
-	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
+	int timeout = 0x2000;
+	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY) && timeout--);
+	if(!timeout)
+	{
+		printk("ERROR:RTC WRDY FAIL!!!!!\n");
+		printk("please do select CONFIG_RESET_KEEP_POWER\n");
+		return;
+	}
 	outl(0xa55a,(RTC_IOBASE + RTC_WENR));
 	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
 	while(!(inl(RTC_IOBASE + RTC_WENR) & WENR_WEN));

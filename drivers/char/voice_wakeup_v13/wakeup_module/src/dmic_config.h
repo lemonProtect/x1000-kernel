@@ -12,10 +12,9 @@
 #define NR_DESC         (4)
 #define DMIC_RX_FIFO    (DMIC_BASE_ADDR + DMICDR)
 
-#define DMA_DESC_ADDR		(TCSM_DESC_ADDR)
+#define DMA_DESC_ADDR		(VOICE_TCSM_DMA_DESC_ADDR)
 #define DMA_DESC_SIZE	(NR_DESC * 8)
 
-#define BUF_SIZE    TCSM_DATA_BUFFER_SIZE
 
 
 

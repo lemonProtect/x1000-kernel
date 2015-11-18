@@ -2,11 +2,8 @@
 #include <jz_gpio.h>
 #include "dmic_config.h"
 #include "dmic_ops.h"
-#include "jz_dma.h"
 #include "voice_wakeup.h"
-#include "jz_dmic.h"
 #include "interface.h"
-#include "common.h"
 #include "trigger_value_adjust.h"
 #include "tcu_timer.h"
 
@@ -33,38 +30,39 @@ unsigned int last_dma_count;
 		while(REG_DMIC_CR0 & (1<<DMICCR0_RESET_TRI));	\
 	} while(0)
 
+#ifdef DMIC_VOICE_DEBUG
 void dump_dmic_regs(void)
 {
-	printf("REG_DMIC_CR0			%08x\n",	REG_DMIC_CR0		);
-	printf("REG_DMIC_GCR            %08x\n",    REG_DMIC_GCR		);
-	printf("REG_DMIC_IMR            %08x\n",    REG_DMIC_IMR		);
-	printf("REG_DMIC_ICR            %08x\n",    REG_DMIC_ICR		);
-	printf("REG_DMIC_TRICR          %08x\n",    REG_DMIC_TRICR	);
-	printf("REG_DMIC_THRH           %08x\n",    REG_DMIC_THRH		);
-	printf("REG_DMIC_THRL           %08x\n",    REG_DMIC_THRL		);
-	printf("REG_DMIC_TRIMMAX        %08x\n",    REG_DMIC_TRIMMAX	);
-	printf("REG_DMIC_TRINMAX        %08x\n",    REG_DMIC_TRINMAX	);
-	printf("REG_DMIC_DR             %08x\n",    REG_DMIC_DR		);
-	printf("REG_DMIC_FCR            %08x\n",    REG_DMIC_FCR		);
-	printf("REG_DMIC_FSR            %08x\n",    REG_DMIC_FSR		);
-	printf("REG_DMIC_CGDIS          %08x\n",    REG_DMIC_CGDIS	);
+	printk("REG_DMIC_CR0			%08x\n",	REG_DMIC_CR0		);
+	printk("REG_DMIC_GCR            %08x\n",    REG_DMIC_GCR		);
+	printk("REG_DMIC_IMR            %08x\n",    REG_DMIC_IMR		);
+	printk("REG_DMIC_ICR            %08x\n",    REG_DMIC_ICR		);
+	printk("REG_DMIC_TRICR          %08x\n",    REG_DMIC_TRICR	);
+	printk("REG_DMIC_THRH           %08x\n",    REG_DMIC_THRH		);
+	printk("REG_DMIC_THRL           %08x\n",    REG_DMIC_THRL		);
+	printk("REG_DMIC_TRIMMAX        %08x\n",    REG_DMIC_TRIMMAX	);
+	printk("REG_DMIC_TRINMAX        %08x\n",    REG_DMIC_TRINMAX	);
+	printk("REG_DMIC_DR             %08x\n",    REG_DMIC_DR		);
+	printk("REG_DMIC_FCR            %08x\n",    REG_DMIC_FCR		);
+	printk("REG_DMIC_FSR            %08x\n",    REG_DMIC_FSR		);
+	printk("REG_DMIC_CGDIS          %08x\n",    REG_DMIC_CGDIS	);
 }
 
 
 void dump_gpio()
 {
-	printf("REG_GPIO_PXINT(5)%08x\n", REG_GPIO_PXINT(5));
-	printf("REG_GPIO_PXMASK(5):%08x\n", REG_GPIO_PXMASK(5));
-	printf("REG_GPIO_PXPAT1(5):%08x\n", REG_GPIO_PXPAT1(5));
-	printf("REG_GPIO_PXPAT0(5):%08x\n", REG_GPIO_PXPAT0(5));
+	printk("REG_GPIO_PXINT(5)%08x\n", REG_GPIO_PXINT(5));
+	printk("REG_GPIO_PXMASK(5):%08x\n", REG_GPIO_PXMASK(5));
+	printk("REG_GPIO_PXPAT1(5):%08x\n", REG_GPIO_PXPAT1(5));
+	printk("REG_GPIO_PXPAT0(5):%08x\n", REG_GPIO_PXPAT0(5));
 }
 void dump_cpm_reg()
 {
-	printf("CPM_LCR:%08x\n", REG32(CPM_IOBASE + CPM_LCR));
-	printf("CPM_CLKGR0:%08x\n", REG32(CPM_IOBASE + CPM_CLKGR0));
-	printf("I2S_DEVCLK:%08x\n", REG32(CPM_IOBASE + CPM_I2SCDR));
+	printk("CPM_LCR:%08x\n", REG32(CPM_IOBASE + CPM_LCR));
+	printk("CPM_CLKGR0:%08x\n", REG32(CPM_IOBASE + CPM_CLKGR0));
+	printk("I2S_DEVCLK:%08x\n", REG32(CPM_IOBASE + CPM_I2SCDR));
 }
-
+#endif
 void dmic_clk_config(void)
 {
 	/*1. cgu config 24MHz , extern clock */
@@ -82,8 +80,9 @@ void dmic_clk_config(void)
 	REG32(CPM_IOBASE + CPM_OPCR) |= 1 << 4;
 	/*4. l2 cache power on */
 	REG32(CPM_IOBASE + CPM_OPCR) &= ~(1 << 25);
-
+#ifdef DMIC_VOICE_DEBUG
 	dump_cpm_reg();
+#endif
 }
 void gpio_as_dmic(void)
 {
@@ -98,7 +97,9 @@ void gpio_as_dmic(void)
 	REG_GPIO_PXMASKC(1) |= 1 << 5;
 	REG_GPIO_PXPAT1C(1) |= 1 << 5;
 	REG_GPIO_PXPAT0S(1) |= 1 << 5;
+#ifdef DMIC_VOICE_DEBUG
 	dump_gpio();
+#endif
 }
 
 int dmic_set_channel(unsigned long channels)
@@ -203,7 +204,9 @@ int dmic_init_mode(int mode)
 int dmic_enable(void)
 {
 	REG_DMIC_CR0 |= 1 << 0; /*ENABLE DMIC*/
+#ifdef DMIC_VOICE_DEBUG
 	dump_dmic_regs();
+#endif
 	return 0;
 }
 

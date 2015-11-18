@@ -16,7 +16,7 @@
 #define INPUT_KEYEVENT_PWR	26
 
 
-char data_buf[4096];
+static char data_buf[4096];
 int main(int argc, char *argv[])
 {
 	int i;
@@ -58,11 +58,11 @@ int main(int argc, char *argv[])
 		int read_cnt;
 		int write_cnt;
 		read_cnt = read(fd, data_buf, 4096);
-		write_cnt = write(dev_fd, data_buf, read_cnt);
 		if(read_cnt == 0) {
 			printf("read done!!!!\n");
 			break;
 		}
+		write_cnt = write(dev_fd, data_buf, read_cnt);
 	}
 
 	char temp = '1';
