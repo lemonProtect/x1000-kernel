@@ -597,6 +597,15 @@ config JZ_IRDA_V11
 	  bool "JZ V11_IRDA Driver"
 	  default n
 
+config JZ_SECURITY
+	bool "JZ SECURITY Driver(AES  && RSA)"
+	default n
+	depends on SOC_X1000
+
+config AES_DEBUG
+	bool "DEBUG of JZ_SECURITY DRIVER"
+	default n
+	depends on JZ_SECURITY
 source "drivers/misc/efuse/Kconfig"
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"

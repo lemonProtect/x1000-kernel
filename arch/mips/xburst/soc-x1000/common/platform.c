@@ -876,6 +876,11 @@ struct platform_device jz_efuse_device = {
 	.name = "jz-efuse-v13",
 };
 #endif
+#ifdef CONFIG_JZ_SECURITY
+struct platform_device jz_security_device = {
+	.name = "jz-security",
+};
+#endif
 
 #ifdef CONFIG_JZ_PWM
 struct platform_device jz_pwm_device = {

@@ -59,6 +59,7 @@ obj-$(CONFIG_INTEL_MEI)		+= mei/
 obj-$(CONFIG_VMWARE_VMCI)	+= vmw_vmci/
 obj-$(CONFIG_JZ_EFUSE_V11)  += jz_efuse_v11.o
 obj-$(CONFIG_JZ_EFUSE_V13)  += jz_efuse_v13.o
+obj-$(CONFIG_JZ_SECURITY)  += jz_security/
 obj-$(CONFIG_JZ_IRDA_V11)   += jz_irda_v11.o
 obj-$(CONFIG_LATTICE_ECP3_CONFIG)	+= lattice-ecp3-config.o
 obj-$(CONFIG_SRAM)		+= sram.o
