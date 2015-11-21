@@ -50,6 +50,7 @@ obj-$(CONFIG_MTD_NAND_JZ4740)		+= jz4740_nand.o
 obj-$(CONFIG_MTD_NAND_GPMI_NAND)	+= gpmi-nand/
 obj-$(CONFIG_MTD_NAND_XWAY)		+= xway_nand.o
 obj-$(CONFIG_MTD_JZ_SPI_NAND)           	+= jz_spi_nand.o
+obj-$(CONFIG_MTD_JZ_SFC_NAND)           	+= jz_sfcnand.o
 obj-$(CONFIG_MTD_NAND_BCM47XXNFLASH)	+= bcm47xxnflash/
 obj-$(CONFIG_MTD_NAND_JZ)           	+= ingenic/
 

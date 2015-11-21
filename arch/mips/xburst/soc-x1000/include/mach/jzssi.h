@@ -129,7 +129,16 @@ struct jz_sfc_info {
 	void  *board_info;
 	u32  board_info_size;
 };
-
+struct jz_sfc_nand_info{
+	u8      chnl;                           /* the chanel of SSI controller */
+	u16     bus_num;                        /* spi_master.bus_num */
+	unsigned is_pllclk:1;                   /* source clock: 1---pllclk;0---exclk */
+	unsigned long   board_size;             /* spi_master.num_chipselect */
+	u32      num_chipselect;
+	u32      allow_cs_same;
+	void  *board_info;
+	u32  board_info_size;
+};
 #define SIZEOF_NAME         32
 struct jz_spi_support {
 	u8 id_manufactory;
@@ -152,7 +161,6 @@ struct jz_spi_support {
 	unsigned short column_cmdaddr_bits;/* read from cache ,the bits of cmd + addr */
 
 };
-
 struct jz_spi_nand_platform_data {
 	struct jz_spi_support *jz_spi_support;
 	int num_spi_flash;

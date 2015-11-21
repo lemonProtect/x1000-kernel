@@ -60,7 +60,7 @@ struct mtd_partition jz_mtd_partition1[] = {
 	},
 };
 #endif
-#ifdef CONFIG_MTD_JZ_SPI_NAND
+#if defined(CONFIG_MTD_JZ_SPI_NAND) || defined(CONFIG_JZ_SFCNAND)
 #define SIZE_UBOOT  0x100000    /* 1M */
 #define SIZE_KERNEL 0x800000    /* 8M */
 #define SIZE_ROOTFS (0x100000 * 40)        /* -1: all of left */
@@ -372,6 +372,7 @@ struct jz_spi_info spi0_info_cfg = {
 #endif
 
 #ifdef CONFIG_JZ_SFC
+#ifdef CONFIG_JZ_SFC_NOR
 struct jz_sfc_info sfc_info_cfg = {
 	.chnl = 0,
 	.bus_num = 0,
@@ -379,6 +380,14 @@ struct jz_sfc_info sfc_info_cfg = {
 	.board_info = spi_nor_pdata,
 	.board_info_size = ARRAY_SIZE(spi_nor_pdata),
 };
+#elif defined(CONFIG_JZ_SFCNAND)
+struct jz_sfc_info sfc_info_cfg = {
+	.chnl = 0,
+	.bus_num = 0,
+	.num_chipselect = 1,
+	.board_info = &jz_spi_nand_data,
+};
+#endif
 #endif
 #ifdef CONFIG_SPI_GPIO
 static struct spi_gpio_platform_data jz_spi_gpio_data = {
