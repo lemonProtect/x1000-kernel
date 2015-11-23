@@ -33,33 +33,30 @@
 /*#define DEBUG*/
 #define DRV_NAME "jz-efuse-v13"
 
+#define CMD_GET_CHIPID  _IOW('E', 0, unsigned int)
+#define CMD_GET_RANDOM  _IOW('E', 1, unsigned int)
+#define CMD_GET_USERID  _IOR('E', 2, unsigned int)
+#define CMD_GET_PROTECTID  _IOR('E', 3, unsigned int)
+#define CMD_WRITE       _IOR('E', 4, unsigned int)
+#define CMD_READ        _IOR('E', 5, unsigned int)
+
 #define EFUSE_CTRL		0x0
 #define EFUSE_CFG		0x4
 #define EFUSE_STATE		0x8
 #define EFUSE_DATA(n)		(0xC + (n)*4)
-
-
-#define CMD_READ 100
-#define CMD_WRITE 101
+#define CUSTID_PRT (1 << 15)
+#define CHIP_PRT (1 << 14)
 
 #define CHIP_ID_ADDR	(0x200)
-#define RN_ADDR			(0x210)
-#define CUT_ID_ADDR		(0x220)
-#define PTR_ADDR		(0x23e)
-#define RK_ADDR			(0x240)
-#define CK_ADDR			(0x250)
-#define UK_ADDR			(0x260)
-#define NKU_ADDR		(0x270)
+#define RN_ADDR		(0x210)
+#define CUT_ID_ADDR	(0x220)
+#define PTR_ADDR	(0x23e)
 
 uint32_t seg_addr[] = {
 	CHIP_ID_ADDR,
 	RN_ADDR,
 	CUT_ID_ADDR,
 	PTR_ADDR,
-	RK_ADDR,
-	CK_ADDR,
-	UK_ADDR,
-	NKU_ADDR,
 };
 struct efuse_wr_info {
 	uint32_t seg_id;
@@ -116,53 +113,38 @@ int jz_efuse_read(uint32_t seg_id, uint32_t data_length, uint32_t *buf)
 	int bit_num, word_num;
 	unsigned long flags;
 	unsigned int val, addr = 0;
+	unsigned int offset;
 	bit_num = data_length * 8;
 	switch(seg_id){
-		case  CHIP_ID:
-			if(bit_num > 128) {
-				dev_err(efuse->dev, "read segment %d data length %d > 128 bit", seg_id, bit_num);
+		case CHIP_ID:
+			if(bit_num != 128) {
+				dev_err(efuse->dev, "read segment %d data must length %d = 128 bit", seg_id, bit_num);
+				return -1;
+			}
+			val = efuse_readl(EFUSE_STATE);
+			if(val & CHIP_PRT) {
+				dev_err(efuse->dev, "segment chip_id is protected\n");
 				return -1;
 			}
 			break;
-		case  RN:
-			if(bit_num > 128) {
-				dev_err(efuse->dev, "read segment %d data length %d > 128 bit", seg_id, bit_num);
-				return -1;
+		case RANDOM_ID:
+			if(bit_num != 128) {
+				dev_err(efuse->dev, "read segment %d data must length %d = 128 bit", seg_id, bit_num);
 			}
 			break;
-		case CUT_ID:
-			if(bit_num > 240) {
-				dev_err(efuse->dev, "read segment %d data length %d > 240 bit", seg_id, bit_num);
+		case USER_ID:
+			if(bit_num != 256) { /* read must word align */
+				dev_err(efuse->dev, "read segment %d data must length %d = 256 bit", seg_id, bit_num);
 				return -1;
 			}
-			break;
-		case  PTR:
-			if(bit_num > 16) {
-				dev_err(efuse->dev, "read segment %d data length %d > 16 bit", seg_id, bit_num);
-				return -1;
+			val = efuse_readl(EFUSE_STATE);
+			if(val & CUSTID_PRT) {
+				dev_err(efuse->dev, "segment user_id is protected\n");
 			}
 			break;
-		case  RK:
-			if(bit_num > 128) {
-				dev_err(efuse->dev, "read segment %d data length %d > 128 bit", seg_id, bit_num);
-				return -1;
-			}
-			break;
-		case   CK:
-			if(bit_num > 128) {
-				dev_err(efuse->dev, "read segment %d data length %d > 128 bit", seg_id, bit_num);
-				return -1;
-			}
-			break;
-		case  UK:
-			if(bit_num > 128) {
-				dev_err(efuse->dev, "read segment %d data length %d > 128 bit", seg_id, bit_num);
-				return -1;
-			}
-			break;
-		case  NKU:
-			if(bit_num > 128) {
-				dev_err(efuse->dev, "read segment %d data length %d > 128 bit", seg_id, bit_num);
+		case PROTECT_ID:
+			if(bit_num > 32) { /* read must word align */
+				dev_err(efuse->dev, "read segment %d data length %d > 32 bit", seg_id, bit_num);
 				return -1;
 			}
 			break;
@@ -173,6 +155,11 @@ int jz_efuse_read(uint32_t seg_id, uint32_t data_length, uint32_t *buf)
 	addr = efuse->id2addr[seg_id];
 	spin_lock_irqsave(&efuse->lock, flags);
 	/* set read Programming address and data length */
+	data_length = data_length - 1;
+	if(seg_id == PROTECT_ID)
+		data_length = 1;
+	if(seg_id == USER_ID)
+		data_length = 29;
 	val =  addr << 21 | data_length << 16;
 	efuse_writel(val, EFUSE_CTRL);
 	/* enable read */
@@ -184,18 +171,22 @@ int jz_efuse_read(uint32_t seg_id, uint32_t data_length, uint32_t *buf)
 
 	word_num = data_length / 4;
 	word_num += data_length % 4 ? 1 : 0;
-	switch(word_num) {
-		case 4:
-			*(buf + 3) = efuse_readl(EFUSE_DATA(3));
-		case 3:
-			*(buf + 2) = efuse_readl(EFUSE_DATA(2));
-		case 2:
-			*(buf + 1) = efuse_readl(EFUSE_DATA(1));
-		case 1:
-			*(buf + 0) = efuse_readl(EFUSE_DATA(0));
-			break;
-		default:
-			dev_warn(efuse->dev, "strongly recommend operate each segment separately\n");
+
+	if(word_num > 8) {
+		dev_warn(efuse->dev, "strongly recommend operate each segment separately\n");
+	} else {
+		for(offset = 0; offset < word_num; offset ++) {
+			val = efuse_readl(EFUSE_DATA(offset));
+			if(offset == 0 && seg_id == PROTECT_ID) {
+				val &= 0xffff;
+				data_length = 1;
+			}
+			if(offset == 7 && seg_id == USER_ID) {
+				val &= 0xffff;
+				data_length = 29;
+			}
+			*(buf + offset) = val;
+		}
 	}
 	/* clear read done staus */
 	efuse_writel(0, EFUSE_STATE);
@@ -208,55 +199,40 @@ EXPORT_SYMBOL_GPL(jz_efuse_read);
 static int jz_efuse_write(uint32_t seg_id, uint32_t data_length, uint32_t *buf)
 {
 	unsigned long flags;
-	unsigned int val, bit_num, addr, word_num;
+	unsigned int val, bit_num;
+	unsigned int addr, word_num;
+	unsigned int offset;
 
 	bit_num = data_length * 8;
 	switch(seg_id){
-		case  CHIP_ID:
-			if(bit_num > 128) {
-				dev_err(efuse->dev, "read segment %d data length %d > 128 bit", seg_id, bit_num);
+		case CHIP_ID:
+			if(bit_num != 128) {
+				dev_err(efuse->dev, "write segment %d data must length %d = 128 bit", seg_id, bit_num);
+				return -1;
+			}
+			val = efuse_readl(EFUSE_STATE);
+			if(val & CHIP_PRT) {
+				dev_err(efuse->dev, "segment chip_id is protected\n");
 				return -1;
 			}
 			break;
-		case  RN:
-			if(bit_num > 128) {
-				dev_err(efuse->dev, "read segment %d data length %d > 128 bit", seg_id, bit_num);
+		case RANDOM_ID:
+			dev_err(efuse->dev, "segment %d only support read\n", seg_id);
+			return -1;
+		case USER_ID:
+			if(bit_num != 256) { /* write must word align */
+				dev_err(efuse->dev, "write segment %d data must length %d > 256 bit", seg_id, bit_num);
+				return -1;
+			}
+			val = efuse_readl(EFUSE_STATE);
+			if(val & CUSTID_PRT) {
+				dev_err(efuse->dev, "segment user_id is protected\n");
 				return -1;
 			}
 			break;
-		case CUT_ID:
-			if(bit_num > 240) {
-				dev_err(efuse->dev, "read segment %d data length %d > 240 bit", seg_id, bit_num);
-				return -1;
-			}
-			break;
-		case  PTR:
-			if(bit_num > 16) {
-				dev_err(efuse->dev, "read segment %d data length %d > 16 bit", seg_id, bit_num);
-				return -1;
-			}
-			break;
-		case  RK:
-			if(bit_num > 128) {
-				dev_err(efuse->dev, "read segment %d data length %d > 128 bit", seg_id, bit_num);
-				return -1;
-			}
-			break;
-		case   CK:
-			if(bit_num > 128) {
-				dev_err(efuse->dev, "read segment %d data length %d > 128 bit", seg_id, bit_num);
-				return -1;
-			}
-			break;
-		case  UK:
-			if(bit_num > 128) {
-				dev_err(efuse->dev, "read segment %d data length %d > 128 bit", seg_id, bit_num);
-				return -1;
-			}
-			break;
-		case  NKU:
-			if(bit_num > 128) {
-				dev_err(efuse->dev, "read segment %d data length %d > 128 bit", seg_id, bit_num);
+		case PROTECT_ID:
+			if(bit_num > 32) { /* write must word align */
+				dev_err(efuse->dev, "write segment %d data length %d > 32 bit", seg_id, bit_num);
 				return -1;
 			}
 			break;
@@ -269,18 +245,22 @@ static int jz_efuse_write(uint32_t seg_id, uint32_t data_length, uint32_t *buf)
 	spin_lock_irqsave(&efuse->lock, flags);
 	word_num = data_length / 4;
 	word_num += data_length % 4 ? 1 : 0;
-	switch(word_num) {
-	case 4:
-		efuse_writel(*(buf + 3), EFUSE_DATA(3));
-	case 3:
-		efuse_writel(*(buf + 2), EFUSE_DATA(2));
-	case 2:
-		efuse_writel(*(buf + 1), EFUSE_DATA(1));
-	case 1:
-		efuse_writel(*(buf + 0), EFUSE_DATA(0));
-		break;
-	default:
+	data_length = data_length - 1;
+	if(word_num > 8) {
 		dev_warn(efuse->dev, "strongly recommend operate each segment separately\n");
+	} else {
+		for(offset = 0; offset < word_num; offset ++) {
+			val = *(buf + offset);
+			if(offset == 0 && seg_id == PROTECT_ID) {
+				val &= 0xffff;
+				data_length = 1;
+			}
+			if(offset == 7 && seg_id == USER_ID) {
+				val &= 0xffff;
+				data_length = 29;
+			}
+			efuse_writel(val, EFUSE_DATA(offset));
+		}
 	}
 
 	/*
@@ -320,8 +300,13 @@ static long efuse_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	int ret = 0;
 
 	arg_r =(unsigned int *)arg;
+
 	efuse->wr_info = (struct efuse_wr_info *)arg_r;
 	switch (cmd) {
+	case CMD_GET_CHIPID:
+	case CMD_GET_RANDOM:
+	case CMD_GET_USERID:
+	case CMD_GET_PROTECTID:
 	case CMD_READ:
 		ret = jz_efuse_read(efuse->wr_info->seg_id, efuse->wr_info->data_length, efuse->wr_info->buf);
 		break;
@@ -342,23 +327,29 @@ static struct file_operations efuse_misc_fops = {
 
 static int efuse_read_chip_id_proc(struct seq_file *m, void *v)
 {
-	int len = 0;
-	uint32_t buf[4];
-	jz_efuse_read(0,16, buf);
-	len =
-	    seq_printf(m,"--------> chip id: %08x-%08x-%08x-%08x\n", buf[0], buf[1],
-		    buf[2], buf[3]);
+	int len = 0, i;
+	unsigned int buf[4] = {0};
+
+	jz_efuse_read(CHIP_ID, 16, buf);
+	len = seq_printf(m,"--------> chip id: ");
+	for(i = 0; i < 4; i++) {
+		len += seq_printf(m,"%08x",buf[i]);
+	}
+	len += seq_printf(m,"\n");
+	return len;
 	return len;
 }
 
 static int efuse_read_user_id_proc(struct seq_file *m, void *v)
 {
-	int len = 0;
-	uint32_t buf[4];
-	jz_efuse_read(2,16, buf);
-	len =
-	    seq_printf(m, "--------> user id: %08x-%08x-%08x-%08x\n", buf[0], buf[1],
-		    buf[2], buf[3]);
+	int len = 0, i;
+	unsigned int buf[8] = {0};
+
+	jz_efuse_read(USER_ID, 32,buf);
+	len = seq_printf(m,"--------> user id: ");
+	for(i = 0; i < 8; i++)
+		len += seq_printf(m,"%08x",buf[i]);
+	len += seq_printf(m,"\n");
 
 	return len;
 }
@@ -404,8 +395,8 @@ static int jz_efuse_probe(struct platform_device *pdev)
 		return -1;
 	}
 	devclk = clk_get(NULL, "efuse");
-	if (IS_ERR(h2clk)) {
-		dev_err(efuse->dev, "get h2clk rate fail!\n");
+	if (IS_ERR(devclk)) {
+		dev_err(efuse->dev, "get efuse clk rate fail!\n");
 		return -1;
 	}
 	clk_enable(devclk);
@@ -512,7 +503,7 @@ static int jz_efuse_probe(struct platform_device *pdev)
 		 "wr_adj = %d | wr_strobe = %d\n", rd_adj, rd_strobe,
 		 wr_adj, wr_strobe);
 	/*set configer register*/
-	val = 1 << 31 | rd_adj << 20 | rd_strobe << 16 | wr_adj << 12 | wr_strobe;
+	val = rd_adj << 20 | rd_strobe << 16 | wr_adj << 12 | wr_strobe;
 	efuse_writel(val, EFUSE_CFG);
 
 	clk_put(h2clk);
@@ -589,6 +580,6 @@ module_init(jz_efuse_init);
 module_exit(jz_efuse_exit);
 
 MODULE_DESCRIPTION("M200 efuse driver");
-MODULE_AUTHOR("liu bo <bliu@ingenic.cn>");
+MODULE_AUTHOR("liu bo <bo.liu@ingenic.com>");
 MODULE_LICENSE("GPL v2");
-MODULE_VERSION("20140411");
+MODULE_VERSION("20151123");

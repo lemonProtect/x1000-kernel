@@ -7,13 +7,9 @@ struct jz_efuse_platform_data {
 
 enum segment_id {
 	CHIP_ID,
-	RN,
-	CUT_ID,
-	PTR,
-	RK,
-	CK,
-	UK,
-	NKU,
+	RANDOM_ID,
+	USER_ID,
+	PROTECT_ID,
 };
 
 void jz_efuse_id_read(int is_chip_id, uint32_t *buf);
