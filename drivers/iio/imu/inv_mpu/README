@@ -11,6 +11,7 @@ Table of Contents:
 - Board File Modifications for Secondary I2C Configuration
     > MPU-6050 + AKM8963 on the secondary I2C interface
     > MPU-6500 + AKM8963 on the secondary I2C interface
+    > MPU-6515 + AKM8975 and BMP280 on the secondary I2C interface
     > MPU-9150
     > MPU-9250
     > MPU-3050 + BMA250 on the secondary I2C interface
@@ -18,7 +19,9 @@ Table of Contents:
     > MPU-3050
     > ITG-3500
     > MPU-6050
+    > MPU-6515
     > MPU-6500
+    > MPU-6XXX
     > MPU-9150
     > MPU-9250
 - IIO Subsystem
@@ -29,6 +32,7 @@ Table of Contents:
     > MPU-9250
     > MPU-3050 + BMA250 on the secondary I2C interface
 - Suspend and Resume
+- Wake up CPU using event interrupt
 - DMP Event
 - Motion Event
 - Streaming Data to an Userspace Application
@@ -51,6 +55,7 @@ Linux kernel. The Invensense driver currently supports the following sensors:
 - MPU-6500
 - MPU-9250
 - MPU-3050
+- MPU-6XXX(either MPU6050 or MPU6500, driver to do auto detection)
 
 The slave address of each device is either 0x68 or 0x69, depending on the AD0
 pin value of the device. Please refer to the appropriate product specification
@@ -67,6 +72,7 @@ The following files are included in this package:
 - inv_mpu_iio.h
 - inv_mpu_ring.c
 - inv_slave_bma250.c
+- inv_slave_compass.c
 - dmpDefaultMPU6050.c
 - dmpkey.h
 - dmpmap.h
@@ -126,27 +132,77 @@ shown below:
 MPU-6050 + AKM8963 on the secondary I2C interface
 -------------------------------------------------
 static struct mpu_platform_data gyro_platform_data = {
-	.int_config  = 0x10,
+	.int_config  = 0x00,
 	.level_shifter = 0,
 	.orientation = {  -1,  0,  0,
 			   0,  1,  0,
 			   0,  0, -1 },
 	.sec_slave_type = SECONDARY_SLAVE_TYPE_COMPASS,
 	.sec_slave_id   = COMPASS_ID_AK8963,
-	.secondary_i2c_addr = 0x0E
+	.secondary_i2c_addr = 0x0E,
+        .secondary_orientation = { 0,  1, 0,
+                                   1,  0,  0,
+                                   0,  0, -1 },
 };
 
 MPU-6500 + AKM8963 on the secondary I2C interface
 -------------------------------------------------
 static struct mpu_platform_data gyro_platform_data = {
-        .int_config  = 0x10,
+        .int_config  = 0x00,
         .level_shifter = 0,
         .orientation = {  -1,  0,  0,
                            0,  1,  0,
                            0,  0, -1 },
         .sec_slave_type = SECONDARY_SLAVE_TYPE_COMPASS,
         .sec_slave_id   = COMPASS_ID_AK8963,
-        .secondary_i2c_addr = 0x0E
+        .secondary_i2c_addr = 0x0E,
+        .secondary_orientation = { 0,  1, 0,
+                                   1,  0,  0,
+                                   0,  0, -1 },
+};
+
+MPU-6500 + AK09911 on the secondary I2C interface
+-------------------------------------------------
+static struct mpu_platform_data gyro_platform_data = {
+        .int_config  = 0x00,
+        .level_shifter = 0,
+        .orientation = {  -1,  0,  0,
+                           0,  1,  0,
+                           0,  0, -1 },
+        .sec_slave_type = SECONDARY_SLAVE_TYPE_COMPASS,
+        .sec_slave_id   = COMPASS_ID_AK09911,
+        .secondary_i2c_addr = 0x0D,
+        .secondary_orientation = { 0,  1, 0,
+                                   1,  0,  0,
+                                   0,  0, -1 },
+};
+
+MPU-6515 + AK8975 + BMP280 on the secondary I2C interface
+Note: sec_slave_XXX can only be compass or accelerometer in 3050 case.
+      aux_slave_XXX can only be pressure.
+--------------------------------------------------
+static struct mpu_platform_data mpu_data = {
+        .int_config  = 0x00,
+        .level_shifter = 0,
+        .orientation = {  -1,  0,  0,
+                           0,  1,  0,
+                           0,  0, -1 },
+        .sec_slave_type = SECONDARY_SLAVE_TYPE_COMPASS,
+        .sec_slave_id   = COMPASS_ID_AK8975,
+        .secondary_i2c_addr = 0x0E,
+        .secondary_orientation = { 0,  1, 0,
+                                   1,  0,  0,
+                                   0,  0, -1 },
+        .aux_slave_type = SECONDARY_SLAVE_TYPE_PRESSURE,
+        .aux_slave_id   = PRESSURE_ID_BMP280,
+        .aux_i2c_addr = 0x77,
+};
+static struct i2c_board_info __initdata chip_board_info[] = {
+        {
+                I2C_BOARD_INFO("mpu6515", 0x68),
+                .irq = (IH_GPIO_BASE + MPUIRQ_GPIO),
+                .platform_data = &mpu_data,
+        }
 };
 
 MPU-9150
@@ -156,12 +212,15 @@ For MPU-9150, please provide the following secondary I2C bus information.
 static struct mpu_platform_data gyro_platform_data = {
 	.int_config  = 0x10,
 	.level_shifter = 0,
-	.orientation = {  -1,  0,  0,
+	.orientation = {   1,  0,  0,
 			   0,  1,  0,
-			   0,  0, -1 },
+			   0,  0,  1 },
 	.sec_slave_type = SECONDARY_SLAVE_TYPE_COMPASS,
 	.sec_slave_id   = COMPASS_ID_AK8975,
-	.secondary_i2c_addr = 0x0E
+	.secondary_i2c_addr = 0x0C,
+        .secondary_orientation = { 0,  1, 0,
+                                   1,  0,  0,
+                                   0,  0, -1 },
 };
 
 MPU-9250
@@ -169,14 +228,17 @@ MPU-9250
 For MPU-9250, please provide the following secondary I2C bus information.
 
 static struct mpu_platform_data gyro_platform_data = {
-        .int_config  = 0x10,
+        .int_config  = 0x00,
         .level_shifter = 0,
-        .orientation = {  -1,  0,  0,
+        .orientation = {   1,  0,  0,
                            0,  1,  0,
-                           0,  0, -1 },
+                           0,  0, 1 },
         .sec_slave_type = SECONDARY_SLAVE_TYPE_COMPASS,
         .sec_slave_id   = COMPASS_ID_AK8963,
-        .secondary_i2c_addr = 0x0C
+        .secondary_i2c_addr = 0x0C,
+        .secondary_orientation = { 0,  1, 0,
+                                   -1, 0,  0,
+                                   0,  0,  1 },
 };
 
 MPU-3050 + BMA250 on the secondary I2C interface
@@ -218,7 +280,7 @@ static struct i2c_board_info __initdata single_chip_board_info[] = {
 	},
 };
 
-ITG-3050
+ITG-3500
 --------
 static struct i2c_board_info __initdata single_chip_board_info[] = {
 	{
@@ -243,6 +305,16 @@ MPU6500
 static struct i2c_board_info __initdata single_chip_board_info[] = {
         {
                 I2C_BOARD_INFO("mpu6500", 0x68),
+                .irq = (IH_GPIO_BASE + MPUIRQ_GPIO),
+                .platform_data = &gyro_platform_data,
+        },
+};
+
+MPU6XXX
+-------
+static struct i2c_board_info __initdata single_chip_board_info[] = {
+        {
+                I2C_BOARD_INFO("mpu6xxx", 0x68),
                 .irq = (IH_GPIO_BASE + MPUIRQ_GPIO),
                 .platform_data = &gyro_platform_data,
         },
@@ -378,6 +450,7 @@ pedometer_steps,
 event_tap
 event_display_orientation
 event_accel_motion
+event_smd
 --Event related entries.
 Please poll these entries to read their values. Direct reads will yield
 meaningless results.
@@ -393,6 +466,22 @@ tap_threshold
 
 display_orientation_on
 --Turn on/off display orientation function of DMP.
+
+smd_enable
+enable SMD(Significant Motion Detection) detection.
+
+smd_threshold
+This set the threshold of the motion when SMD start to be triggered. The
+value is in acclerometer counts.
+
+smd_delay_threshold
+This sets the threshold of time after which SMD can be triggered.
+The value is in seconds.
+
+smd_delay_threshold2
+This sets the threshold of time during which SMD can be triggered (after the
+smd_delay_threshold timer has expired).
+The value is in seconds.
 
 quaternion_on
 --Turn on/off quaterniion data output. DMP is required for this feature.
@@ -448,18 +537,34 @@ for example, leaving pedometers running when system is off. This can save whole
 system power while letting pedometer working. Other behaviors are possible
 too.
 
+Wake up CPU using event interrupt
+====================================================
+It is common practice in current mobile device to save power as much as
+possible. Ususally the device can sleep when not use and only be wake up when in use.
+Invensense MPU series provides an efficient way of waking up CPU by events.
+The events could be pedometer steps, tap action, SMD(significant Motion Detection),
+or any customer defined actions. CPU can sleep to save power, when event happens,
+DMP will calculate the motion data to detemine whether a pre-defined event happens
+or not. If an pre-defined happens, an interrupt is generated to wake up the CPU
+to do further processing. 
+The requirements of doing event wake is the following:
+1. Add enable_irq_wake() either in the driver or in the board file.
+2. Connect the interrupt pin to the CPU wake up pin.
+3. Configure CPU to be woken up by wake up pin.
+
 DMP Event
 =========
 A DMP Event is an event that is output by the DMP unit within the Invensense
 device (MPU).
 Only the MPU-6050, MPU-6500, MPU-9250, MPU-9150, MPU-9250 feature the DMP.
 
-There are three sysfs entries for DMP events:
+There are four sysfs entries for DMP events:
 - event_tap
-- event_orientation
 - event_display_orientation
+- event_accel_motion
+- event_smd
 
-These four events must be polled before reading.
+These events must be polled before reading.
 
 The proper method to poll sysfs is as follows:
 1. open file.
@@ -567,3 +672,12 @@ please use the following command:
 
 Please use mpu_iio.c and iio_utils.h as example code for your development
 purposes.
+
+Stress test application
+=================================
+A stress test application is located under software/simple_apps/stress_iio.
+This application simulates HAL's usage calls to the driver. It creates three
+threads. One for data read; one for event read; one for sysfs control.
+It can run without any parameters or run with some control parameters. Please
+see README in the same directories for details.
+

@@ -4,10 +4,7 @@
 
 config INV_MPU_IIO
 	tristate "Invensense MPU devices"
-	depends on I2C && SYSFS && IIO && !INV_MPU && !INV_MPU6050_IIO
-	select IIO_BUFFER
-	select IIO_SW_RING
-	select IIO_KFIFO_BUF
+	depends on I2C && SYSFS && IIO && IIO_KFIFO_BUF && IIO_TRIGGER && !INV_MPU
 	default n
 	help
 	  This driver supports the Invensense MPU devices.
@@ -24,4 +21,12 @@ config INV_IIO_MPU3050_ACCEL_SLAVE_BMA250
 	  Right now, it is only bma250. For other acceleromter device,
 	  it can be added to this menu if the proper interface is filled.
 	  There are some interface function to be defined.
+
+config DTS_INV_MPU_IIO
+	bool  "Invensense MPU driver using Device Tree Structure (DTS)"
+	depends on INV_MPU_IIO
+	default n
+	help
+	  This enables Invensense MPU devices to use Device Tree Structure.
+	  DTS must be enabled in the system.
 

@@ -9,19 +9,7 @@
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 * GNU General Public License for more details.
-*
 */
-
-/**
- *  @addtogroup  DRIVERS
- *  @brief       Hardware drivers.
- *
- *  @{
- *      @file    inv_mpu_core.c
- *      @brief   A sysfs device driver for Invensense devices
- *      @details This driver currently works for the
- *               MPU3050/MPU6050/MPU9150/MPU6500/MPU9250 devices.
- */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
@@ -39,11 +27,16 @@
 #include <linux/poll.h>
 #include <linux/miscdevice.h>
 #include <linux/spinlock.h>
-
-
 #include <linux/iio/sysfs.h>
+
 #include "inv_mpu_iio.h"
 #include "inv_test/inv_counters.h"
+
+#ifdef CONFIG_DTS_INV_MPU_IIO
+#include "inv_mpu_dts.h"
+#endif
+
+#define EXT_COMPASS
 
 s64 get_time_ns(void)
 {
@@ -52,23 +45,47 @@ s64 get_time_ns(void)
 	return timespec_to_ns(&ts);
 }
 
-static const short AKM8975_ST_Lower[3] = {-100, -100, -1000};
-static const short AKM8975_ST_Upper[3] = {100, 100, -300};
-
-static const short AKM8972_ST_Lower[3] = {-50, -50, -500};
-static const short AKM8972_ST_Upper[3] = {50, 50, -100};
-
-static const short AKM8963_ST_Lower[3] = {-200, -200, -3200};
-static const short AKM8963_ST_Upper[3] = {200, 200, -800};
+/* This is for compatibility for power state. Should remove once HAL
+   does not use power_state sysfs entry */
+static bool fake_asleep;
 
 static const struct inv_hw_s hw_info[INV_NUM_PARTS] = {
 	{119, "ITG3500"},
 	{ 63, "MPU3050"},
 	{117, "MPU6050"},
 	{118, "MPU9150"},
-	{119, "MPU6500"},
-	{118, "MPU9250"},
+	{128, "MPU6500"},
+	{128, "MPU9250"},
+	{128, "MPU9350"},
+	{128, "MPU6515"},
 };
+
+static const u8 reg_gyro_offset[] = {REG_XG_OFFS_USRH,
+					REG_XG_OFFS_USRH + 2,
+					REG_XG_OFFS_USRH + 4};
+
+const u8 reg_6050_accel_offset[] = {REG_XA_OFFS_H,
+					REG_XA_OFFS_H + 2,
+					REG_XA_OFFS_H + 4};
+
+const u8 reg_6500_accel_offset[] = {REG_6500_XA_OFFS_H,
+					REG_6500_YA_OFFS_H,
+					REG_6500_ZA_OFFS_H};
+#ifdef CONFIG_INV_TESTING
+static bool suspend_state;
+static int inv_mpu_suspend(struct device *dev);
+static int inv_mpu_resume(struct device *dev);
+struct test_data_out {
+	bool gyro;
+	bool accel;
+	bool compass;
+	bool pressure;
+	bool LPQ;
+	bool SIXQ;
+	bool PEDQ;
+};
+static struct test_data_out data_out_control;
+#endif
 
 static void inv_setup_reg(struct inv_reg_map_s *reg)
 {
@@ -78,11 +95,10 @@ static void inv_setup_reg(struct inv_reg_map_s *reg)
 	reg->user_ctrl		= REG_USER_CTRL;
 	reg->fifo_en		= REG_FIFO_EN;
 	reg->gyro_config	= REG_GYRO_CONFIG;
-	reg->accl_config	= REG_ACCEL_CONFIG;
+	reg->accel_config	= REG_ACCEL_CONFIG;
 	reg->fifo_count_h	= REG_FIFO_COUNT_H;
 	reg->fifo_r_w		= REG_FIFO_R_W;
-	reg->raw_gyro		= REG_RAW_GYRO;
-	reg->raw_accl		= REG_RAW_ACCEL;
+	reg->raw_accel		= REG_RAW_ACCEL;
 	reg->temperature	= REG_TEMPERATURE;
 	reg->int_enable		= REG_INT_ENABLE;
 	reg->int_status		= REG_INT_STATUS;
@@ -94,8 +110,9 @@ static void inv_setup_reg(struct inv_reg_map_s *reg)
 };
 
 /**
- *  inv_i2c_read() - Read one or more bytes from the device registers.
+ *  inv_i2c_read_base() - Read one or more bytes from the device registers.
  *  @st:	Device driver instance.
+ *  @i2c_addr:  i2c address of device.
  *  @reg:	First device register to be read from.
  *  @length:	Number of bytes to read.
  *  @data:	Data read from device.
@@ -103,7 +120,7 @@ static void inv_setup_reg(struct inv_reg_map_s *reg)
  *       address could be specified in this case. We could have two different
  *       i2c address due to secondary i2c interface.
  */
-int inv_i2c_read_base(struct inv_mpu_iio_s *st, u16 i2c_addr,
+int inv_i2c_read_base(struct inv_mpu_state *st, u16 i2c_addr,
 	u8 reg, u16 length, u8 *data)
 {
 	struct i2c_msg msgs[2];
@@ -145,21 +162,21 @@ int inv_i2c_read_base(struct inv_mpu_iio_s *st, u16 i2c_addr,
 }
 
 /**
- *  inv_i2c_single_write() - Write a byte to a device register.
+ *  inv_i2c_single_write_base() - Write a byte to a device register.
  *  @st:	Device driver instance.
+ *  @i2c_addr:  I2C address of the device.
  *  @reg:	Device register to be written to.
  *  @data:	Byte to write to device.
  *  NOTE:This is not re-implementation of i2c_smbus_write because i2c
  *       address could be specified in this case. We could have two different
  *       i2c address due to secondary i2c interface.
  */
-int inv_i2c_single_write_base(struct inv_mpu_iio_s *st,
+int inv_i2c_single_write_base(struct inv_mpu_state *st,
 	u16 i2c_addr, u8 reg, u8 data)
 {
 	u8 tmp[2];
 	struct i2c_msg msg;
 	int res;
-
 	tmp[0] = reg;
 	tmp[1] = data;
 
@@ -180,13 +197,14 @@ int inv_i2c_single_write_base(struct inv_mpu_iio_s *st,
 		return 0;
 }
 
-static int inv_switch_engine(struct inv_mpu_iio_s *st, bool en, u32 mask)
+static int inv_switch_engine(struct inv_mpu_state *st, bool en, u32 mask)
 {
 	struct inv_reg_map_s *reg;
 	u8 data, mgmt_1;
 	int result;
+
 	reg = &st->reg;
-	/* switch clock needs to be careful. Only when gyro is on, can
+	/* Only when gyro is on, can
 	   clock source be switched to gyro. Otherwise, it must be set to
 	   internal clock */
 	if (BIT_PWR_GYRO_STBY == mask) {
@@ -228,19 +246,19 @@ static int inv_switch_engine(struct inv_mpu_iio_s *st, bool en, u32 mask)
 		if (result)
 			return result;
 	}
+	if ((BIT_PWR_ACCEL_STBY == mask) && en)
+		msleep(REG_UP_TIME);
 
 	return 0;
 }
 
-/**
+/*
  *  inv_lpa_freq() - store current low power frequency setting.
  */
-static int inv_lpa_freq(struct inv_mpu_iio_s *st, int lpa_freq)
+static int inv_lpa_freq(struct inv_mpu_state *st, int lpa_freq)
 {
 	unsigned long result;
 	u8 d;
-	struct inv_reg_map_s *reg;
-	/* this mapping makes 6500 and 6050 setting close */
 	/* 2, 4, 6, 7 corresponds to 0.98, 3.91, 15.63, 31.25 */
 	const u8 mpu6500_lpa_mapping[] = {2, 4, 6, 7};
 
@@ -252,55 +270,32 @@ static int inv_lpa_freq(struct inv_mpu_iio_s *st, int lpa_freq)
 		result = inv_i2c_single_write(st, REG_6500_LP_ACCEL_ODR, d);
 		if (result)
 			return result;
-	} else {
-		reg = &st->reg;
-		result = inv_i2c_read(st, reg->pwr_mgmt_2, 1, &d);
-		if (result)
-			return result;
-		d &= ~BIT_LPA_FREQ;
-		d |= (u8)(lpa_freq << LPA_FREQ_SHIFT);
-		result = inv_i2c_single_write(st, reg->pwr_mgmt_2, d);
-		if (result)
-			return result;
 	}
 	st->chip_config.lpa_freq = lpa_freq;
 
 	return 0;
 }
 
-static int set_power_itg(struct inv_mpu_iio_s *st, bool power_on)
+static int set_power_itg(struct inv_mpu_state *st, bool power_on)
 {
 	struct inv_reg_map_s *reg;
 	u8 data;
 	int result;
 
-	if(st->chip_config.is_asleep && !power_on)
+	if ((!power_on) == st->chip_config.is_asleep)
 		return 0;
-
 	reg = &st->reg;
-	if (power_on) {
+	if (power_on)
 		data = 0;
-	}
 	else
 		data = BIT_SLEEP;
 	result = inv_i2c_single_write(st, reg->pwr_mgmt_1, data);
 	if (result)
 		return result;
 
-	if (power_on) {
-		msleep(POWER_UP_TIME);
-		result = inv_switch_engine(st, st->chip_config.gyro_enable,
-					BIT_PWR_GYRO_STBY);
-		if (result)
-			return result;
-		result = inv_switch_engine(st, st->chip_config.accl_enable,
-					BIT_PWR_ACCL_STBY);
-		if (result)
-			return result;
-		result = inv_lpa_freq(st, st->chip_config.lpa_freq);
-		if (result)
-			return result;
-	}
+	if (power_on)
+		msleep(REG_UP_TIME);
+
 	st->chip_config.is_asleep = !power_on;
 
 	return 0;
@@ -317,16 +312,12 @@ static int set_power_itg(struct inv_mpu_iio_s *st, bool power_on)
 static int inv_init_config(struct iio_dev *indio_dev)
 {
 	struct inv_reg_map_s *reg;
-	int result;
-	struct inv_mpu_iio_s *st = iio_priv(indio_dev);
-
-	if (st->chip_config.is_asleep)
-		return -EPERM;
+	int result, i;
+	struct inv_mpu_state *st = iio_priv(indio_dev);
+	const u8 *ch;
+	u8 d[2];
 
 	reg = &st->reg;
-	result = set_inv_enable(indio_dev, false);
-	if (result)
-		return result;
 
 	result = inv_i2c_single_write(st, reg->gyro_config,
 		INV_FSR_2000DPS << GYRO_CONFIG_FSR_SHIFT);
@@ -347,30 +338,28 @@ static int inv_init_config(struct iio_dev *indio_dev)
 	st->chip_config.fifo_rate = INIT_FIFO_RATE;
 	st->irq_dur_ns            = INIT_DUR_TIME;
 	st->chip_config.prog_start_addr = DMP_START_ADDR;
-	st->chip_config.gyro_enable = 1;
-	st->chip_config.gyro_fifo_enable = 1;
-	st->chip_config.dmp_output_rate = INIT_DMP_OUTPUT_RATE;
-	if (INV_MPU6500 == st->chip_type)
-		st->self_test.samples = INIT_ST_6500_SAMPLES;
+	if (INV_MPU6050 == st->chip_type)
+		st->self_test.samples = INIT_ST_MPU6050_SAMPLES;
 	else
 		st->self_test.samples = INIT_ST_SAMPLES;
 	st->self_test.threshold = INIT_ST_THRESHOLD;
+	st->batch.wake_fifo_on = true;
 	if (INV_ITG3500 != st->chip_type) {
-		st->chip_config.accl_enable = 1;
-		st->chip_config.accl_fifo_enable = 1;
-		st->chip_config.accl_fs = INV_FS_02G;
-		result = inv_i2c_single_write(st, reg->accl_config,
-			(INV_FS_02G << ACCL_CONFIG_FSR_SHIFT));
+		st->chip_config.accel_fs = INV_FS_02G;
+		result = inv_i2c_single_write(st, reg->accel_config,
+			(INV_FS_02G << ACCEL_CONFIG_FSR_SHIFT));
 		if (result)
 			return result;
 		st->tap.time = INIT_TAP_TIME;
 		st->tap.thresh = INIT_TAP_THRESHOLD;
 		st->tap.min_count = INIT_TAP_MIN_COUNT;
-		st->tap.axis = INIT_TAP_AXIS;
-		st->tap.multi_tap_time = INIT_TAP_MULTI_TAP_TIME;
-		st->tap.shake_reject_thresh = INIT_TAP_SHAKE_REJECT_THRESH;
-		st->tap.shake_reject_time = INIT_TAP_SHAKE_REJECT_TIME;
-		st->tap.shake_reject_timeout = INIT_TAP_SHAKE_REJECT_TIMEOUT;
+		st->sample_divider = INIT_SAMPLE_DIVIDER;
+		st->smd.threshold = MPU_INIT_SMD_THLD;
+		st->smd.delay     = MPU_INIT_SMD_DELAY_THLD;
+		st->smd.delay2    = MPU_INIT_SMD_DELAY2_THLD;
+		st->ped.int_thresh = INIT_PED_INT_THRESH;
+		st->ped.step_thresh = INIT_PED_THRESH;
+		st->sensor[SENSOR_STEP].rate = MAX_DMP_OUTPUT_RATE;
 
 		result = inv_i2c_single_write(st, REG_ACCEL_MOT_DUR,
 						INIT_MOT_DUR);
@@ -383,140 +372,44 @@ static int inv_init_config(struct iio_dev *indio_dev)
 		if (result)
 			return result;
 		st->mot_int.mot_thr = INIT_MOT_THR;
+
+		for (i = 0; i < 3; i++) {
+			result = inv_i2c_read(st, reg_gyro_offset[i], 2, d);
+			if (result)
+				return result;
+			st->rom_gyro_offset[i] =
+					(short)be16_to_cpup((__be16 *)(d));
+			st->input_gyro_offset[i] = 0;
+			st->input_gyro_dmp_bias[i] = 0;
+		}
+		if (INV_MPU6050 == st->chip_type)
+			ch = reg_6050_accel_offset;
+		else
+			ch = reg_6500_accel_offset;
+		for (i = 0; i < 3; i++) {
+			result = inv_i2c_read(st, ch[i], 2, d);
+			if (result)
+				return result;
+			st->rom_accel_offset[i] =
+					(short)be16_to_cpup((__be16 *)(d));
+			st->input_accel_offset[i] = 0;
+			st->input_accel_dmp_bias[i] = 0;
+		}
+		st->ped.step = 0;
+		st->ped.time = 0;
 	}
 
 	return 0;
 }
 
-/**
- *  inv_compass_scale_show() - show compass scale.
- */
-static int inv_compass_scale_show(struct inv_mpu_iio_s *st, int *scale)
-{
-	if (COMPASS_ID_AK8975 == st->plat_data.sec_slave_id)
-		*scale = DATA_AKM8975_SCALE;
-	else if (COMPASS_ID_AK8972 == st->plat_data.sec_slave_id)
-		*scale = DATA_AKM8972_SCALE;
-	else if (COMPASS_ID_AK8963 == st->plat_data.sec_slave_id)
-		if (st->compass_scale)
-			*scale = DATA_AKM8963_SCALE1;
-		else
-			*scale = DATA_AKM8963_SCALE0;
-	else
-		return -EINVAL;
-
-	return IIO_VAL_INT;
-}
-
-/**
- *  mpu_read_raw() - read raw method.
- */
-static int mpu_read_raw(struct iio_dev *indio_dev,
-			struct iio_chan_spec const *chan,
-			int *val, int *val2, long mask)
-{
-	struct inv_mpu_iio_s  *st = iio_priv(indio_dev);
-	int result;
-	if (st->chip_config.is_asleep)
-		return -EINVAL;
-	switch (mask) {
-	case 0:
-		if (!st->chip_config.enable)
-			return -EPERM;
-		switch (chan->type) {
-		case IIO_ANGL_VEL:
-			if (!st->chip_config.gyro_enable)
-				return -EPERM;
-			*val = st->raw_gyro[chan->channel2 - IIO_MOD_X];
-			return IIO_VAL_INT;
-		case IIO_ACCEL:
-			if (!st->chip_config.accl_enable)
-				return -EPERM;
-			*val = st->raw_accel[chan->channel2 - IIO_MOD_X];
-			return IIO_VAL_INT;
-		case IIO_MAGN:
-			if (!st->chip_config.compass_enable)
-				return -EPERM;
-			*val = st->raw_compass[chan->channel2 - IIO_MOD_X];
-			return IIO_VAL_INT;
-		case IIO_QUATERNION:
-			if (!(st->chip_config.dmp_on
-				&& st->chip_config.quaternion_on))
-				return -EPERM;
-			if (IIO_MOD_R == chan->channel2)
-				*val = st->raw_quaternion[0];
-			else
-				*val = st->raw_quaternion[chan->channel2 -
-							  IIO_MOD_X + 1];
-			return IIO_VAL_INT;
-		default:
-			return -EINVAL;
-		}
-		return -EINVAL;
-	case IIO_CHAN_INFO_SCALE:
-		switch (chan->type) {
-		case IIO_ANGL_VEL:
-		{
-			const s16 gyro_scale[] = {250, 500, 1000, 2000};
-
-			*val = gyro_scale[st->chip_config.fsr];
-
-			return IIO_VAL_INT;
-		}
-		case IIO_ACCEL:
-		{
-			const s16 accel_scale[] = {2, 4, 8, 16};
-			*val = accel_scale[st->chip_config.accl_fs];
-			return IIO_VAL_INT;
-		}
-		case IIO_MAGN:
-			return inv_compass_scale_show(st, val);
-		default:
-			return -EINVAL;
-		}
-	case IIO_CHAN_INFO_CALIBBIAS:
-		if (st->chip_config.self_test_run_once == 0) {
-			result = inv_do_test(st, 0,  st->gyro_bias,
-				st->accel_bias);
-			/* Reset Accel and Gyro full scale range
-			   back to default value */
-			inv_recover_setting(st);
-			if (result)
-				return result;
-			st->chip_config.self_test_run_once = 1;
-		}
-
-		switch (chan->type) {
-		case IIO_ANGL_VEL:
-			*val = st->gyro_bias[chan->channel2 - IIO_MOD_X];
-			return IIO_VAL_INT;
-		case IIO_ACCEL:
-			*val = st->accel_bias[chan->channel2 - IIO_MOD_X] *
-					st->chip_info.multi;
-			return IIO_VAL_INT;
-		default:
-			return -EINVAL;
-		}
-	case IIO_CHAN_INFO_OFFSET:
-		switch (chan->type) {
-		case IIO_ACCEL:
-			*val = st->input_accel_bias[chan->channel2 - IIO_MOD_X];
-			return IIO_VAL_INT;
-		default:
-			return -EINVAL;
-		}
-	default:
-		return -EINVAL;
-	}
-}
-
-/**
+/*
  *  inv_write_fsr() - Configure the gyro's scale range.
  */
-static int inv_write_fsr(struct inv_mpu_iio_s *st, int fsr)
+static int inv_write_fsr(struct inv_mpu_state *st, int fsr)
 {
 	struct inv_reg_map_s *reg;
 	int result;
+
 	reg = &st->reg;
 	if ((fsr < 0) || (fsr > MAX_GYRO_FS_PARAM))
 		return -EINVAL;
@@ -537,217 +430,100 @@ static int inv_write_fsr(struct inv_mpu_iio_s *st, int fsr)
 	return 0;
 }
 
-/**
+/*
  *  inv_write_accel_fs() - Configure the accelerometer's scale range.
  */
-static int inv_write_accel_fs(struct inv_mpu_iio_s *st, int fs)
+static int inv_write_accel_fs(struct inv_mpu_state *st, int fs)
 {
 	int result;
 	struct inv_reg_map_s *reg;
-	reg = &st->reg;
 
-	if (fs < 0 || fs > MAX_ACCL_FS_PARAM)
+	reg = &st->reg;
+	if (fs < 0 || fs > MAX_ACCEL_FS_PARAM)
 		return -EINVAL;
-	if (fs == st->chip_config.accl_fs)
+	if (fs == st->chip_config.accel_fs)
 		return 0;
 	if (INV_MPU3050 == st->chip_type)
-		result = st->mpu_slave->set_fscale(st, fs);
+		result = st->slave_accel->set_fs_iio(st, fs);
 	else
-		result = inv_i2c_single_write(st, reg->accl_config,
-				(fs << ACCL_CONFIG_FSR_SHIFT));
+		result = inv_i2c_single_write(st, reg->accel_config,
+				(fs << ACCEL_CONFIG_FSR_SHIFT));
 	if (result)
 		return result;
 
-	st->chip_config.accl_fs = fs;
+	st->chip_config.accel_fs = fs;
 
 	return 0;
 }
 
-/**
- *  inv_write_compass_scale() - Configure the compass's scale range.
- */
-static int inv_write_compass_scale(struct inv_mpu_iio_s  *st, int data)
+static int inv_set_offset_reg(struct inv_mpu_state *st, int reg, int val)
 {
-	char d, en;
 	int result;
-	if (COMPASS_ID_AK8963 != st->plat_data.sec_slave_id)
-		return 0;
-	en = !!data;
-	if (st->compass_scale == en)
-		return 0;
-	d = (DATA_AKM_MODE_SM | (st->compass_scale << AKM8963_SCALE_SHIFT));
-	result = inv_i2c_single_write(st, REG_I2C_SLV1_DO, d);
+	u8 d;
+
+	d = ((val >> 8) & 0xff);
+	result = inv_i2c_single_write(st, reg, d);
 	if (result)
 		return result;
-	st->compass_scale = en;
 
-	return 0;
+	d = (val & 0xff);
+	result = inv_i2c_single_write(st, reg + 1, d);
+
+	return result;
 }
 
-static inline int check_enable(struct inv_mpu_iio_s  *st)
+int inv_reset_offset_reg(struct inv_mpu_state *st, bool en)
 {
-	return st->chip_config.is_asleep | st->chip_config.enable;
-}
+	const u8 *ch;
+	int i, result;
+	s16 gyro[3], accel[3];
 
-static inline int check_dmp_on(struct inv_mpu_iio_s  *st)
-{
-	return (!st->chip_config.is_asleep) &&
-		st->chip_config.enable && st->chip_config.dmp_on;
-}
-
-/**
- *  mpu_write_raw() - write raw method.
- */
-static int mpu_write_raw(struct iio_dev *indio_dev,
-			       struct iio_chan_spec const *chan,
-			       int val,
-			       int val2,
-			       long mask) {
-	struct inv_mpu_iio_s  *st = iio_priv(indio_dev);
-	int result;
-	if (check_enable(st))
-		return -EPERM;
-	switch (mask) {
-	case IIO_CHAN_INFO_SCALE:
-		switch (chan->type) {
-		case IIO_ANGL_VEL:
-			return inv_write_fsr(st, val);
-		case IIO_ACCEL:
-			return inv_write_accel_fs(st, val);
-		case IIO_MAGN:
-			return inv_write_compass_scale(st, val);
-		default:
-			return -EINVAL;
+	if (en) {
+		for (i = 0; i < 3; i++) {
+			gyro[i] = st->rom_gyro_offset[i];
+			accel[i] = st->rom_accel_offset[i];
 		}
-	case IIO_CHAN_INFO_OFFSET:
-		switch (chan->type) {
-		case IIO_ACCEL:
-			if (!st->chip_config.firmware_loaded)
-				return -EPERM;
-			result = inv_set_accel_bias_dmp(st);
-			if (result)
-				return result;
-			st->input_accel_bias[chan->channel2 - IIO_MOD_X] = val;
-			return 0;
-		default:
-			return -EINVAL;
-		}
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-/**
- *  inv_set_lpf() - set low pass filer based on fifo rate.
- */
-static int inv_set_lpf(struct inv_mpu_iio_s *st, int rate)
-{
-	const short hz[] = {188, 98, 42, 20, 10, 5};
-	const int   d[] = {INV_FILTER_188HZ, INV_FILTER_98HZ,
-			INV_FILTER_42HZ, INV_FILTER_20HZ,
-			INV_FILTER_10HZ, INV_FILTER_5HZ};
-	int i, h, data, result;
-	struct inv_reg_map_s *reg;
-	reg = &st->reg;
-	h = (rate >> 1);
-	i = 0;
-	while ((h < hz[i]) && (i < ARRAY_SIZE(d) - 1))
-		i++;
-	data = d[i];
-	if (INV_MPU3050 == st->chip_type) {
-		if (st->mpu_slave != NULL) {
-			result = st->mpu_slave->set_lpf(st, rate);
-			if (result)
-				return result;
-		}
-		result = inv_i2c_single_write(st, reg->lpf, data |
-			(st->chip_config.fsr << GYRO_CONFIG_FSR_SHIFT));
 	} else {
-		result = inv_i2c_single_write(st, reg->lpf, data);
+		for (i = 0; i < 3; i++) {
+			gyro[i] = st->rom_gyro_offset[i] +
+						st->input_gyro_offset[i];
+			accel[i] = st->rom_accel_offset[i] +
+					(st->input_accel_offset[i] << 1);
+		}
 	}
-	if (result)
-		return result;
-	st->chip_config.lpf = data;
+	if (INV_MPU6050 == st->chip_type)
+		ch = reg_6050_accel_offset;
+	else
+		ch = reg_6500_accel_offset;
+
+	for (i = 0; i < 3; i++) {
+		result = inv_set_offset_reg(st, reg_gyro_offset[i], gyro[i]);
+		if (result)
+			return result;
+		result = inv_set_offset_reg(st, ch[i], accel[i]);
+		if (result)
+			return result;
+	}
 
 	return 0;
 }
-
-/**
+/*
  *  inv_fifo_rate_store() - Set fifo rate.
  */
-static ssize_t inv_fifo_rate_store(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
+static int inv_fifo_rate_store(struct inv_mpu_state *st, int fifo_rate)
 {
-	u32 fifo_rate;
-	u8 data;
-	int result;
-	struct inv_mpu_iio_s *st = iio_priv(dev_get_drvdata(dev));
-	struct inv_reg_map_s *reg;
-	reg = &st->reg;
-
-	if (check_enable(st))
-		return -EPERM;
-	if (kstrtouint(buf, 10, &fifo_rate))
-		return -EINVAL;
 	if ((fifo_rate < MIN_FIFO_RATE) || (fifo_rate > MAX_FIFO_RATE))
 		return -EINVAL;
 	if (fifo_rate == st->chip_config.fifo_rate)
-		return count;
-	if (st->chip_config.has_compass) {
-		st->compass_divider = COMPASS_RATE_SCALE * fifo_rate /
-					ONE_K_HZ;
-		if (st->compass_divider > 0)
-			st->compass_divider -= 1;
-		st->compass_counter = 0;
-	}
-	data = ONE_K_HZ / fifo_rate - 1;
-	result = inv_i2c_single_write(st, reg->sample_rate_div, data);
-	if (result)
-		return result;
-	/* wait for the sampling rate change to stabilize */
-	mdelay(INV_MPU_SAMPLE_RATE_CHANGE_STABLE);
+		return 0;
 
+	st->irq_dur_ns = NSEC_PER_SEC / fifo_rate;
 	st->chip_config.fifo_rate = fifo_rate;
-	result = inv_set_lpf(st, fifo_rate);
-	if (result)
-		return result;
-	st->irq_dur_ns = (data + 1) * NSEC_PER_MSEC;
 
-	return count;
+	return 0;
 }
 
-/**
- *  inv_fifo_rate_show() - Get the current sampling rate.
- */
-static ssize_t inv_fifo_rate_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	struct inv_mpu_iio_s *st = iio_priv(dev_get_drvdata(dev));
-
-	return sprintf(buf, "%d\n", st->chip_config.fifo_rate);
-}
-
-/**
- *  inv_power_state_store() - Turn device on/off.
- */
-static ssize_t inv_power_state_store(struct device *dev,
-	struct device_attribute *attr, const char *buf, size_t count)
-{
-	int result;
-	u32 power_state;
-	struct inv_mpu_iio_s *st = iio_priv(dev_get_drvdata(dev));
-	if (kstrtouint(buf, 10, &power_state))
-		return -EINVAL;
-	if ((!power_state) == st->chip_config.is_asleep)
-		return count;
-	result = st->set_power_state(st, power_state);
-
-	return count;
-}
-
-/**
+/*
  *  inv_reg_dump_show() - Register dump for testing.
  */
 static ssize_t inv_reg_dump_show(struct device *dev,
@@ -756,8 +532,10 @@ static ssize_t inv_reg_dump_show(struct device *dev,
 	int ii;
 	char data;
 	ssize_t bytes_printed = 0;
-	struct inv_mpu_iio_s *st = iio_priv(dev_get_drvdata(dev));
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct inv_mpu_state *st = iio_priv(indio_dev);
 
+	mutex_lock(&indio_dev->mlock);
 	for (ii = 0; ii < st->hw->num_reg; ii++) {
 		/* don't read fifo r/w register */
 		if (ii == st->reg.fifo_r_w)
@@ -767,126 +545,221 @@ static ssize_t inv_reg_dump_show(struct device *dev,
 		bytes_printed += sprintf(buf + bytes_printed, "%#2x: %#2x\n",
 					 ii, data);
 	}
+	mutex_unlock(&indio_dev->mlock);
 
 	return bytes_printed;
 }
 
-int write_be32_key_to_mem(struct inv_mpu_iio_s *st,
+int write_be32_key_to_mem(struct inv_mpu_state *st,
 					u32 data, int key)
 {
 	cpu_to_be32s(&data);
 	return mem_w_key(key, sizeof(data), (u8 *)&data);
 }
 
-int write_be16_key_to_mem(struct inv_mpu_iio_s *st,
-					u32 data, int key)
+int inv_write_2bytes(struct inv_mpu_state *st, int k, int data)
 {
-	u16 sdata;
+	u8 d[2];
 
-	sdata = (u16)data;
-	cpu_to_be16s(&sdata);
-	return mem_w_key(key, sizeof(sdata), (u8 *)&sdata);
+	if (data < 0 || data > USHRT_MAX)
+		return -EINVAL;
+
+	d[0] = (u8)((data >> 8) & 0xff);
+	d[1] = (u8)(data & 0xff);
+
+	return mem_w_key(k, ARRAY_SIZE(d), d);
 }
 
-/**
- * inv_dmp_attr_store() -  calling this function will store current
- *                        dmp parameter settings
- */
-static ssize_t inv_dmp_attr_store(struct device *dev,
+static ssize_t _dmp_bias_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
-	struct inv_mpu_iio_s *st = iio_priv(indio_dev);
+	struct inv_mpu_state *st = iio_priv(indio_dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
-	int result, data;
-	u16 sdata;
-	mutex_lock(&indio_dev->mlock);
-	if (st->chip_config.is_asleep |
-		(!st->chip_config.firmware_loaded) |
-		st->chip_config.enable)
-	{
-		result = -EINVAL;
-		goto dmp_attr_store_fail;
-	}
-	result = kstrtoint(buf, 10, &data);
-	if (result)
-	{
-		goto dmp_attr_store_fail;
+	int result, data, tmp;
+
+	if (!st->chip_config.firmware_loaded)
+		return -EINVAL;
+
+	if (!st->chip_config.enable) {
+		result = st->set_power_state(st, true);
+		if (result)
+			return result;
 	}
 
+	result = kstrtoint(buf, 10, &data);
+	if (result)
+		goto dmp_bias_store_fail;
 	switch (this_attr->address) {
-	case ATTR_DMP_PEDOMETER_STEPS:
-		result = write_be32_key_to_mem(st, data, KEY_D_PEDSTD_STEPCTR);
+	case ATTR_DMP_ACCEL_X_DMP_BIAS:
+		tmp = st->input_accel_dmp_bias[0];
+		st->input_accel_dmp_bias[0] = data;
+		result = inv_set_accel_bias_dmp(st);
 		if (result)
-			goto dmp_attr_store_fail;
-		sdata = 0;	// clear buffer counter
-		cpu_to_be16s(&sdata);
-		result = mem_w((768 + 0x24), 2, (u8 *)&sdata);
-		if (result)
-			goto dmp_attr_store_fail;
+			st->input_accel_dmp_bias[0] = tmp;
 		break;
-	case ATTR_DMP_PEDOMETER_TIME:
-		result = write_be32_key_to_mem(st, data, KEY_D_PEDSTD_TIMECTR);
+	case ATTR_DMP_ACCEL_Y_DMP_BIAS:
+		tmp = st->input_accel_dmp_bias[1];
+		st->input_accel_dmp_bias[1] = data;
+		result = inv_set_accel_bias_dmp(st);
 		if (result)
-			goto dmp_attr_store_fail;
-		data = 0;	// clear buffer counter
-		cpu_to_be32s(&data);
-		result = mem_w((768 + 0xc8), 4, (u8 *)&data);
-		if (result)
-			goto dmp_attr_store_fail;
+			st->input_accel_dmp_bias[1] = tmp;
 		break;
-	case ATTR_DMP_PEDOMETER_CLIP_THRESHOLD:
-		result = write_be32_key_to_mem(st, data, KEY_D_PEDSTD_CLIP);
+	case ATTR_DMP_ACCEL_Z_DMP_BIAS:
+		tmp = st->input_accel_dmp_bias[2];
+		st->input_accel_dmp_bias[2] = data;
+		result = inv_set_accel_bias_dmp(st);
 		if (result)
-			goto dmp_attr_store_fail;
+			st->input_accel_dmp_bias[2] = tmp;
 		break;
-	case ATTR_DMP_PEDOMETER_MIN_STEPS:
-		result = write_be16_key_to_mem(st, data, KEY_D_PEDSTD_SB);
+	case ATTR_DMP_GYRO_X_DMP_BIAS:
+		result = write_be32_key_to_mem(st, data,
+					KEY_CFG_EXT_GYRO_BIAS_X);
 		if (result)
-			goto dmp_attr_store_fail;
+			goto dmp_bias_store_fail;
+		st->input_gyro_dmp_bias[0] = data;
 		break;
-	case ATTR_DMP_PEDOMETER_MAX_STEP_BUFFER_TIME:
-		result = write_be16_key_to_mem(st, data, KEY_D_PEDSTD_SB_TIME);
+	case ATTR_DMP_GYRO_Y_DMP_BIAS:
+		result = write_be32_key_to_mem(st, data,
+					KEY_CFG_EXT_GYRO_BIAS_Y);
 		if (result)
-			goto dmp_attr_store_fail;
+			goto dmp_bias_store_fail;
+		st->input_gyro_dmp_bias[1] = data;
 		break;
-	case ATTR_DMP_PEDOMETER_THRESHOLD:
-		result = write_be32_key_to_mem(st, data, KEY_D_PEDSTD_PEAKTHRSH);
+	case ATTR_DMP_GYRO_Z_DMP_BIAS:
+		result = write_be32_key_to_mem(st, data,
+					KEY_CFG_EXT_GYRO_BIAS_Z);
 		if (result)
-			goto dmp_attr_store_fail;
+			goto dmp_bias_store_fail;
+		st->input_gyro_dmp_bias[2] = data;
 		break;
-	case ATTR_DMP_PEDOMETER_MIN_UP_TIME:
-		result = write_be16_key_to_mem(st, data, KEY_D_PEDSTD_TIML);
-		if (result)
-			goto dmp_attr_store_fail;
+	default:
 		break;
-	case ATTR_DMP_PEDOMETER_MAX_UP_TIME:
-		result = write_be16_key_to_mem(st, data, KEY_D_PEDSTD_TIMH);
+	}
+
+dmp_bias_store_fail:
+	if (!st->chip_config.enable)
+		result |= st->set_power_state(st, false);
+	if (result)
+		return result;
+
+	return count;
+}
+
+static ssize_t inv_dmp_bias_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	int result;
+
+	mutex_lock(&indio_dev->mlock);
+	result = _dmp_bias_store(dev, attr, buf, count);
+	mutex_unlock(&indio_dev->mlock);
+
+	return result;
+}
+
+static ssize_t _dmp_attr_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct inv_mpu_state *st = iio_priv(indio_dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	int result, data;
+
+	if (st->chip_config.enable)
+		return -EBUSY;
+	if (this_attr->address <= ATTR_DMP_DISPLAY_ORIENTATION_ON) {
+		if (!st->chip_config.firmware_loaded)
+			return -EINVAL;
+		result = st->set_power_state(st, true);
+		if (result)
+			return result;
+	}
+
+	result = kstrtoint(buf, 10, &data);
+	if (result)
+		goto dmp_attr_store_fail;
+	switch (this_attr->address) {
+	case ATTR_DMP_PED_INT_ON:
+		result = inv_enable_pedometer_interrupt(st, !!data);
 		if (result)
 			goto dmp_attr_store_fail;
+		st->ped.int_on = !!data;
 		break;
-	case ATTR_DMP_PEDOMETER_MIN_ENERGY:
-		result = write_be32_key_to_mem(st, data, KEY_D_PEDSTD_INT_THRSH);
+	case ATTR_DMP_PED_ON:
+	{
+		result = inv_enable_pedometer(st, !!data);
 		if (result)
 			goto dmp_attr_store_fail;
+		st->ped.on = !!data;
+		break;
+	}
+	case ATTR_DMP_PED_STEP_THRESH:
+	{
+		result = inv_write_2bytes(st, KEY_D_PEDSTD_SB, data);
+		if (result)
+			goto dmp_attr_store_fail;
+		st->ped.step_thresh = data;
+		break;
+	}
+	case ATTR_DMP_PED_INT_THRESH:
+	{
+		result = inv_write_2bytes(st, KEY_D_PEDSTD_SB2, data);
+		if (result)
+			goto dmp_attr_store_fail;
+		st->ped.int_thresh = data;
+		break;
+	}
+	case ATTR_DMP_SMD_ENABLE:
+		result = inv_write_2bytes(st, KEY_SMD_ENABLE, !!data);
+		if (result)
+			goto dmp_attr_store_fail;
+		st->chip_config.smd_enable = !!data;
+		break;
+	case ATTR_DMP_SMD_THLD:
+		if (data < 0 || data > SHRT_MAX)
+			goto dmp_attr_store_fail;
+		result = write_be32_key_to_mem(st, data << 16,
+						KEY_SMD_ACCEL_THLD);
+		if (result)
+			goto dmp_attr_store_fail;
+		st->smd.threshold = data;
+		break;
+	case ATTR_DMP_SMD_DELAY_THLD:
+		if (data < 0 || data > INT_MAX / MPU_DEFAULT_DMP_FREQ)
+			goto dmp_attr_store_fail;
+		result = write_be32_key_to_mem(st, data * MPU_DEFAULT_DMP_FREQ,
+						KEY_SMD_DELAY_THLD);
+		if (result)
+			goto dmp_attr_store_fail;
+		st->smd.delay = data;
+		break;
+	case ATTR_DMP_SMD_DELAY_THLD2:
+		if (data < 0 || data > INT_MAX / MPU_DEFAULT_DMP_FREQ)
+			goto dmp_attr_store_fail;
+		result = write_be32_key_to_mem(st, data * MPU_DEFAULT_DMP_FREQ,
+						KEY_SMD_DELAY2_THLD);
+		if (result)
+			goto dmp_attr_store_fail;
+		st->smd.delay2 = data;
+		break;
+	case ATTR_DMP_TAP_ON:
+		result = inv_enable_tap_dmp(st, !!data);
+		if (result)
+			goto dmp_attr_store_fail;
+		st->tap.on = !!data;
 		break;
 	case ATTR_DMP_TAP_THRESHOLD:
-		{
-		const char ax[] = {INV_TAP_AXIS_X, INV_TAP_AXIS_Y,
-							INV_TAP_AXIS_Z};
-		int i;
 		if (data < 0 || data > USHRT_MAX) {
 			result = -EINVAL;
 			goto dmp_attr_store_fail;
 		}
-		for (i = 0; i < ARRAY_SIZE(ax); i++) {
-			result = inv_set_tap_threshold_dmp(st, ax[i], data);
-			if (result)
-				goto dmp_attr_store_fail;
-		}
+		result = inv_set_tap_threshold_dmp(st, data);
+		if (result)
+			goto dmp_attr_store_fail;
 		st->tap.thresh = data;
 		break;
-	}
 	case ATTR_DMP_TAP_MIN_COUNT:
 		if (data < 0 || data > USHRT_MAX) {
 			result = -EINVAL;
@@ -896,12 +769,6 @@ static ssize_t inv_dmp_attr_store(struct device *dev,
 		if (result)
 			goto dmp_attr_store_fail;
 		st->tap.min_count = data;
-		break;
-	case ATTR_DMP_TAP_ON:
-		result = inv_enable_tap_dmp(st, !!data);
-		if (result)
-			goto dmp_attr_store_fail;
-		st->chip_config.tap_on = !!data;
 		break;
 	case ATTR_DMP_TAP_TIME:
 		if (data < 0 || data > USHRT_MAX) {
@@ -913,249 +780,402 @@ static ssize_t inv_dmp_attr_store(struct device *dev,
 			goto dmp_attr_store_fail;
 		st->tap.time = data;
 		break;
-	case ATTR_DMP_TAP_AXIS:
-		if (data < 0 || data > USHRT_MAX) {
-			result = -EINVAL;
-			goto dmp_attr_store_fail;
-		}
-		result = inv_set_tap_axes_dmp(st, data);
-		if (result)
-			goto dmp_attr_store_fail;
-		st->tap.axis = data;
-		break;
-	case ATTR_DMP_TAP_MULTI_TAP_TIME:
-		if (data < 0 || data > USHRT_MAX) {
-			result = -EINVAL;
-			goto dmp_attr_store_fail;
-		}
-		result = inv_set_multiple_tap_time_dmp(st, data);
-		if (result)
-			goto dmp_attr_store_fail;
-		st->tap.multi_tap_time = data;
-		break;
-	case ATTR_DMP_TAP_SHAKE_REJECT_THRESH:
-		if (data < 0 || data > USHRT_MAX) {
-			result = -EINVAL;
-			goto dmp_attr_store_fail;
-		}
-		result = inv_set_shake_reject_thresh_dmp(st, data);
-		if (result)
-			goto dmp_attr_store_fail;
-		st->tap.shake_reject_thresh = data;
-		break;
-	case ATTR_DMP_TAP_SHAKE_REJECT_TIME:
-		if (data < 0 || data > USHRT_MAX) {
-			result = -EINVAL;
-			goto dmp_attr_store_fail;
-		}
-		result = inv_set_shake_reject_time_dmp(st, data);
-		if (result)
-			goto dmp_attr_store_fail;
-		st->tap.shake_reject_time = data;
-		break;
-	case ATTR_DMP_TAP_SHAKE_REJECT_TIMEOUT:
-		if (data < 0 || data > USHRT_MAX) {
-			result = -EINVAL;
-			goto dmp_attr_store_fail;
-		}
-		result = inv_set_shake_reject_timeout_dmp(st, data);
-		if (result)
-			goto dmp_attr_store_fail;
-		st->tap.shake_reject_timeout = data;
-		break;
-	case ATTR_DMP_ON:{
-		u32 orig_dmp_on = st->chip_config.dmp_on;
-		st->chip_config.dmp_on = !!data;
-		if ((st->chip_config.dmp_on != orig_dmp_on) && st->chip_config.dmp_on)
-			st->dmp_enabled = 1;
-		break;
-	}
-	case ATTR_DMP_INT_ON:
-		st->chip_config.dmp_int_on = !!data;
-		break;
-	case ATTR_DMP_EVENT_INT_ON:
-		result = inv_set_interrupt_on_gesture_event(st, !!data);
-		if (result)
-			goto dmp_attr_store_fail;
-		st->chip_config.dmp_event_int_on = !!data;
-		break;
-	case ATTR_DMP_OUTPUT_RATE:
-		if (data <= 0 || data > USHRT_MAX) {
-			result = -EINVAL;
-			goto dmp_attr_store_fail;
-		}
-		result = inv_set_fifo_rate(st, data);
-		if (result)
-			goto dmp_attr_store_fail;
-		if (st->chip_config.has_compass) {
-			st->compass_dmp_divider = COMPASS_RATE_SCALE * data /
-							ONE_K_HZ;
-			if (st->compass_dmp_divider > 0)
-				st->compass_dmp_divider -= 1;
-			st->compass_counter = 0;
-		}
-		st->chip_config.dmp_output_rate = data;
-		break;
 	case ATTR_DMP_DISPLAY_ORIENTATION_ON:
 		result = inv_set_display_orient_interrupt_dmp(st, !!data);
 		if (result)
 			goto dmp_attr_store_fail;
 		st->chip_config.display_orient_on = !!data;
 		break;
+	/* from here, power of chip is not turned on */
+	case ATTR_DMP_ON:
+		st->chip_config.dmp_on = !!data;
+		break;
+	case ATTR_DMP_INT_ON:
+		st->chip_config.dmp_int_on = !!data;
+		break;
+	case ATTR_DMP_EVENT_INT_ON:
+		st->chip_config.dmp_event_int_on = !!data;
+		break;
+	case ATTR_DMP_STEP_INDICATOR_ON:
+		st->chip_config.step_indicator_on = !!data;
+		break;
+	case ATTR_DMP_BATCHMODE_TIMEOUT:
+		if (data < 0 || data > INT_MAX) {
+			result = -EINVAL;
+			goto dmp_attr_store_fail;
+		}
+		st->batch.timeout = data;
+		break;
+	case ATTR_DMP_BATCHMODE_WAKE_FIFO_FULL:
+		st->batch.wake_fifo_on = !!data;
+		st->batch.overflow_on = 0;
+		break;
+	case ATTR_DMP_SIX_Q_ON:
+		st->sensor[SENSOR_SIXQ].on = !!data;
+		break;
+	case ATTR_DMP_SIX_Q_RATE:
+		if (data > MPU_DEFAULT_DMP_FREQ || data < 0) {
+			result = -EINVAL;
+			goto dmp_attr_store_fail;
+		}
+		st->sensor[SENSOR_SIXQ].rate = data;
+		st->sensor[SENSOR_SIXQ].dur = MPU_DEFAULT_DMP_FREQ / data;
+		st->sensor[SENSOR_SIXQ].dur *= DMP_INTERVAL_INIT;
+		break;
+	case ATTR_DMP_LPQ_ON:
+		st->sensor[SENSOR_LPQ].on = !!data;
+		break;
+	case ATTR_DMP_LPQ_RATE:
+		if (data > MPU_DEFAULT_DMP_FREQ || data < 0) {
+			result = -EINVAL;
+			goto dmp_attr_store_fail;
+		}
+		st->sensor[SENSOR_LPQ].rate = data;
+		st->sensor[SENSOR_LPQ].dur = MPU_DEFAULT_DMP_FREQ / data;
+		st->sensor[SENSOR_LPQ].dur *= DMP_INTERVAL_INIT;
+		break;
+	case ATTR_DMP_PED_Q_ON:
+		st->sensor[SENSOR_PEDQ].on = !!data;
+		break;
+	case ATTR_DMP_PED_Q_RATE:
+		if (data > MPU_DEFAULT_DMP_FREQ || data < 0) {
+			result = -EINVAL;
+			goto dmp_attr_store_fail;
+		}
+		st->sensor[SENSOR_PEDQ].rate = data;
+		st->sensor[SENSOR_PEDQ].dur = MPU_DEFAULT_DMP_FREQ / data;
+		st->sensor[SENSOR_PEDQ].dur *= DMP_INTERVAL_INIT;
+		break;
+	case ATTR_DMP_STEP_DETECTOR_ON:
+		st->sensor[SENSOR_STEP].on = !!data;
+		break;
+#ifdef CONFIG_INV_TESTING
+	case ATTR_DEBUG_SMD_ENABLE_TESTP1:
+	{
+		u8 d[] = {0x42};
+		result = st->set_power_state(st, true);
+		if (result)
+			goto dmp_attr_store_fail;
+		result = mem_w_key(KEY_SMD_ENABLE_TESTPT1, ARRAY_SIZE(d), d);
+		if (result)
+			goto dmp_attr_store_fail;
+	}
+		break;
+	case ATTR_DEBUG_SMD_ENABLE_TESTP2:
+	{
+		u8 d[] = {0x42};
+		result = st->set_power_state(st, true);
+		if (result)
+			goto dmp_attr_store_fail;
+		result = mem_w_key(KEY_SMD_ENABLE_TESTPT2, ARRAY_SIZE(d), d);
+		if (result)
+			goto dmp_attr_store_fail;
+	}
+		break;
+#endif
 	default:
 		result = -EINVAL;
 		goto dmp_attr_store_fail;
 	}
-	result = count;
+
 dmp_attr_store_fail:
+	if (this_attr->address <= ATTR_DMP_DISPLAY_ORIENTATION_ON)
+		result |= st->set_power_state(st, false);
+	if (result)
+		return result;
+
+	return count;
+}
+
+/*
+ * inv_dmp_attr_store() -  calling this function will store current
+ *                        dmp parameter settings
+ */
+static ssize_t inv_dmp_attr_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	int result;
+
+	mutex_lock(&indio_dev->mlock);
+	result = _dmp_attr_store(dev, attr, buf, count);
 	mutex_unlock(&indio_dev->mlock);
 
 	return result;
 }
 
-/**
+static ssize_t inv_attr64_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct inv_mpu_state *st = iio_priv(indio_dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	int result;
+	u64 tmp;
+	u32 ped;
+
+	mutex_lock(&indio_dev->mlock);
+	if (!st->chip_config.enable || !st->chip_config.dmp_on) {
+		mutex_unlock(&indio_dev->mlock);
+		return -EINVAL;
+	}
+	result = 0;
+	switch (this_attr->address) {
+	case ATTR_DMP_PEDOMETER_STEPS:
+		result = inv_get_pedometer_steps(st, &ped);
+		result |= inv_read_pedometer_counter(st);
+		tmp = st->ped.step + ped;
+		break;
+	case ATTR_DMP_PEDOMETER_TIME:
+		result = inv_get_pedometer_time(st, &ped);
+		tmp = st->ped.time + ped;
+		break;
+	case ATTR_DMP_PEDOMETER_COUNTER:
+		tmp = st->ped.last_step_time;
+		break;
+	default:
+		result = -EINVAL;
+		break;
+	}
+	mutex_unlock(&indio_dev->mlock);
+	if (result)
+		return -EINVAL;
+	return sprintf(buf, "%lld\n", tmp);
+}
+
+static ssize_t inv_attr64_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct inv_mpu_state *st = iio_priv(indio_dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	int result;
+	u64 data;
+
+	mutex_lock(&indio_dev->mlock);
+	if (st->chip_config.enable || (!st->chip_config.firmware_loaded)) {
+		mutex_unlock(&indio_dev->mlock);
+		return -EINVAL;
+	}
+	result = st->set_power_state(st, true);
+	if (result) {
+		mutex_unlock(&indio_dev->mlock);
+		return result;
+	}
+	result = kstrtoull(buf, 10, &data);
+	if (result)
+		goto attr64_store_fail;
+	switch (this_attr->address) {
+	case ATTR_DMP_PEDOMETER_STEPS:
+		result = write_be32_key_to_mem(st, 0, KEY_D_PEDSTD_STEPCTR);
+		if (result)
+			goto attr64_store_fail;
+		st->ped.step = data;
+		break;
+	case ATTR_DMP_PEDOMETER_TIME:
+		result = write_be32_key_to_mem(st, 0, KEY_D_PEDSTD_TIMECTR);
+		if (result)
+			goto attr64_store_fail;
+		st->ped.time = data;
+		break;
+	default:
+		result = -EINVAL;
+		break;
+	}
+attr64_store_fail:
+	mutex_unlock(&indio_dev->mlock);
+	result = st->set_power_state(st, false);
+	if (result)
+		return result;
+
+	return count;
+}
+/*
  * inv_attr_show() -  calling this function will show current
  *                        dmp parameters.
  */
 static ssize_t inv_attr_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	struct inv_mpu_iio_s *st = iio_priv(dev_get_drvdata(dev));
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct inv_mpu_state *st = iio_priv(indio_dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
-	s8 d[4];
-	int result, data;
+	int result, axis;
 	s8 *m;
 
 	switch (this_attr->address) {
-	case ATTR_DMP_PEDOMETER_STEPS:
-		if (!check_dmp_on(st))
-			return -EPERM;
-		result = mpu_memory_read(st, st->i2c_addr,
-			inv_dmp_get_address(KEY_D_PEDSTD_STEPCTR), 4, d);
-		if (result)
-			return result;
-		data = be32_to_cpup((int *)d);
-		return sprintf(buf, "%d\n", data);
-	case ATTR_DMP_PEDOMETER_TIME:
-		if (!check_dmp_on(st))
-			return -EPERM;
-		result = mpu_memory_read(st, st->i2c_addr,
-			inv_dmp_get_address(KEY_D_PEDSTD_TIMECTR), 4, d);
-		if (result)
-			return result;
-		data = be32_to_cpup((int *)d);
-		return sprintf(buf, "%d\n", data * MS_PER_DMP_TICK);
-	case ATTR_DMP_PEDOMETER_CLIP_THRESHOLD:
-		if (st->chip_config.is_asleep)
-			return -EPERM;
-		result = mpu_memory_read(st, st->i2c_addr,
-			inv_dmp_get_address(KEY_D_PEDSTD_CLIP), 4, d);
-		if (result)
-			return result;
-		data = be32_to_cpup((int *)d);
-		return sprintf(buf, "%d\n", data);
-	case ATTR_DMP_PEDOMETER_MIN_STEPS:
-		if (st->chip_config.is_asleep)
-			return -EPERM;
-		result = mpu_memory_read(st, st->i2c_addr,
-			inv_dmp_get_address(KEY_D_PEDSTD_SB), 2, d);
-		if (result)
-			return result;
-		data = be16_to_cpup((u16 *)d);
-		return sprintf(buf, "%d\n", data);
-	case ATTR_DMP_PEDOMETER_MAX_STEP_BUFFER_TIME:
-		if (st->chip_config.is_asleep)
-			return -EPERM;
-		result = mpu_memory_read(st, st->i2c_addr,
-			inv_dmp_get_address(KEY_D_PEDSTD_SB_TIME), 2, d);
-		if (result)
-			return result;
-		data = be16_to_cpup((u16 *)d);
-		return sprintf(buf, "%d\n", data);
-	case ATTR_DMP_PEDOMETER_THRESHOLD:
-		if (st->chip_config.is_asleep)
-			return -EPERM;
-		result = mpu_memory_read(st, st->i2c_addr,
-			inv_dmp_get_address(KEY_D_PEDSTD_PEAKTHRSH), 4, d);
-		if (result)
-			return result;
-		data = be32_to_cpup((int *)d);
-		return sprintf(buf, "%d\n", data);
-	case ATTR_DMP_PEDOMETER_MIN_UP_TIME:
-		if (st->chip_config.is_asleep)
-			return -EPERM;
-		result = mpu_memory_read(st, st->i2c_addr,
-			inv_dmp_get_address(KEY_D_PEDSTD_TIML), 2, d);
-		if (result)
-			return result;
-		data = be16_to_cpup((u16 *)d);
-		return sprintf(buf, "%d\n", data);
-	case ATTR_DMP_PEDOMETER_MAX_UP_TIME:
-		if (st->chip_config.is_asleep)
-			return -EPERM;
-		result = mpu_memory_read(st, st->i2c_addr,
-			inv_dmp_get_address(KEY_D_PEDSTD_TIMH), 2, d);
-		if (result)
-			return result;
-		data = be16_to_cpup((u16 *)d);
-		return sprintf(buf, "%d\n", data);
-	case ATTR_DMP_PEDOMETER_MIN_ENERGY:
-		if (st->chip_config.is_asleep)
-			return -EPERM;
-		result = mpu_memory_read(st, st->i2c_addr,
-			inv_dmp_get_address(KEY_D_PEDSTD_INT_THRSH), 4, d);
-		if (result)
-			return result;
-		data = be32_to_cpup((int *)d);
-		return sprintf(buf, "%d\n", data);
+	case ATTR_GYRO_SCALE:
+	{
+		const s16 gyro_scale[] = {250, 500, 1000, 2000};
+
+		return sprintf(buf, "%d\n", gyro_scale[st->chip_config.fsr]);
+	}
+	case ATTR_ACCEL_SCALE:
+	{
+		const s16 accel_scale[] = {2, 4, 8, 16};
+		return sprintf(buf, "%d\n",
+					accel_scale[st->chip_config.accel_fs] *
+					st->chip_info.multi);
+	}
+	case ATTR_COMPASS_SCALE:
+		st->slave_compass->get_scale(st, &result);
+
+		return sprintf(buf, "%d\n", result);
+	case ATTR_ACCEL_X_CALIBBIAS:
+	case ATTR_ACCEL_Y_CALIBBIAS:
+	case ATTR_ACCEL_Z_CALIBBIAS:
+		axis = this_attr->address - ATTR_ACCEL_X_CALIBBIAS;
+		return sprintf(buf, "%d\n", st->accel_bias[axis] *
+						st->chip_info.multi);
+	case ATTR_GYRO_X_CALIBBIAS:
+	case ATTR_GYRO_Y_CALIBBIAS:
+	case ATTR_GYRO_Z_CALIBBIAS:
+		axis = this_attr->address - ATTR_GYRO_X_CALIBBIAS;
+		return sprintf(buf, "%d\n", st->gyro_bias[axis]);
+	case ATTR_SELF_TEST_GYRO_SCALE:
+		return sprintf(buf, "%d\n", SELF_TEST_GYRO_FULL_SCALE);
+	case ATTR_SELF_TEST_ACCEL_SCALE:
+		if (INV_MPU6500 == st->chip_type)
+			return sprintf(buf, "%d\n", SELF_TEST_ACCEL_6500_SCALE);
+		else
+			return sprintf(buf, "%d\n", SELF_TEST_ACCEL_FULL_SCALE);
+	case ATTR_GYRO_X_OFFSET:
+	case ATTR_GYRO_Y_OFFSET:
+	case ATTR_GYRO_Z_OFFSET:
+		axis = this_attr->address - ATTR_GYRO_X_OFFSET;
+		return sprintf(buf, "%d\n", st->input_gyro_offset[axis]);
+	case ATTR_ACCEL_X_OFFSET:
+	case ATTR_ACCEL_Y_OFFSET:
+	case ATTR_ACCEL_Z_OFFSET:
+		axis = this_attr->address - ATTR_ACCEL_X_OFFSET;
+		return sprintf(buf, "%d\n", st->input_accel_offset[axis]);
+	case ATTR_DMP_ACCEL_X_DMP_BIAS:
+		return sprintf(buf, "%d\n", st->input_accel_dmp_bias[0]);
+	case ATTR_DMP_ACCEL_Y_DMP_BIAS:
+		return sprintf(buf, "%d\n", st->input_accel_dmp_bias[1]);
+	case ATTR_DMP_ACCEL_Z_DMP_BIAS:
+		return sprintf(buf, "%d\n", st->input_accel_dmp_bias[2]);
+	case ATTR_DMP_GYRO_X_DMP_BIAS:
+		return sprintf(buf, "%d\n", st->input_gyro_dmp_bias[0]);
+	case ATTR_DMP_GYRO_Y_DMP_BIAS:
+		return sprintf(buf, "%d\n", st->input_gyro_dmp_bias[1]);
+	case ATTR_DMP_GYRO_Z_DMP_BIAS:
+		return sprintf(buf, "%d\n", st->input_gyro_dmp_bias[2]);
+	case ATTR_DMP_PED_INT_ON:
+		return sprintf(buf, "%d\n", st->ped.int_on);
+	case ATTR_DMP_PED_ON:
+		return sprintf(buf, "%d\n", st->ped.on);
+	case ATTR_DMP_PED_STEP_THRESH:
+		return sprintf(buf, "%d\n", st->ped.step_thresh);
+	case ATTR_DMP_PED_INT_THRESH:
+		return sprintf(buf, "%d\n", st->ped.int_thresh);
+	case ATTR_DMP_SMD_ENABLE:
+		return sprintf(buf, "%d\n", st->chip_config.smd_enable);
+	case ATTR_DMP_SMD_THLD:
+		return sprintf(buf, "%d\n", st->smd.threshold);
+	case ATTR_DMP_SMD_DELAY_THLD:
+		return sprintf(buf, "%d\n", st->smd.delay);
+	case ATTR_DMP_SMD_DELAY_THLD2:
+		return sprintf(buf, "%d\n", st->smd.delay2);
+	case ATTR_DMP_TAP_ON:
+		return sprintf(buf, "%d\n", st->tap.on);
 	case ATTR_DMP_TAP_THRESHOLD:
 		return sprintf(buf, "%d\n", st->tap.thresh);
 	case ATTR_DMP_TAP_MIN_COUNT:
 		return sprintf(buf, "%d\n", st->tap.min_count);
-	case ATTR_DMP_TAP_ON:
-		return sprintf(buf, "%d\n", st->chip_config.tap_on);
 	case ATTR_DMP_TAP_TIME:
 		return sprintf(buf, "%d\n", st->tap.time);
-	case ATTR_DMP_TAP_AXIS:
-		return sprintf(buf, "%d\n", st->tap.axis);
-	case ATTR_DMP_TAP_MULTI_TAP_TIME:
-		return sprintf(buf, "%d\n", st->tap.multi_tap_time);
-	case ATTR_DMP_TAP_SHAKE_REJECT_THRESH:
-		return sprintf(buf, "%d\n", st->tap.shake_reject_thresh);
-	case ATTR_DMP_TAP_SHAKE_REJECT_TIME:
-		return sprintf(buf, "%d\n", st->tap.shake_reject_time);
-	case ATTR_DMP_TAP_SHAKE_REJECT_TIMEOUT:
-		return sprintf(buf, "%d\n", st->tap.shake_reject_timeout);
+	case ATTR_DMP_DISPLAY_ORIENTATION_ON:
+		return sprintf(buf, "%d\n",
+			st->chip_config.display_orient_on);
 	case ATTR_DMP_ON:
 		return sprintf(buf, "%d\n", st->chip_config.dmp_on);
 	case ATTR_DMP_INT_ON:
 		return sprintf(buf, "%d\n", st->chip_config.dmp_int_on);
 	case ATTR_DMP_EVENT_INT_ON:
 		return sprintf(buf, "%d\n", st->chip_config.dmp_event_int_on);
-	case ATTR_DMP_OUTPUT_RATE:
-		return sprintf(buf, "%d\n", st->chip_config.dmp_output_rate);
-	case ATTR_DMP_QUATERNION_ON:
-		return sprintf(buf, "%d\n", st->chip_config.quaternion_on);
-	case ATTR_DMP_DISPLAY_ORIENTATION_ON:
+	case ATTR_DMP_STEP_INDICATOR_ON:
+		return sprintf(buf, "%d\n", st->chip_config.step_indicator_on);
+	case ATTR_DMP_BATCHMODE_TIMEOUT:
 		return sprintf(buf, "%d\n",
-			st->chip_config.display_orient_on);
-	case ATTR_LPA_FREQ:{
+				st->batch.timeout);
+	case ATTR_DMP_BATCHMODE_WAKE_FIFO_FULL:
+		return sprintf(buf, "%d\n",
+				st->batch.wake_fifo_on);
+	case ATTR_DMP_SIX_Q_ON:
+		return sprintf(buf, "%d\n", st->sensor[SENSOR_SIXQ].on);
+	case ATTR_DMP_SIX_Q_RATE:
+		return sprintf(buf, "%d\n", st->sensor[SENSOR_SIXQ].rate);
+	case ATTR_DMP_LPQ_ON:
+		return sprintf(buf, "%d\n", st->sensor[SENSOR_LPQ].on);
+	case ATTR_DMP_LPQ_RATE:
+		return sprintf(buf, "%d\n", st->sensor[SENSOR_LPQ].rate);
+	case ATTR_DMP_PED_Q_ON:
+		return sprintf(buf, "%d\n", st->sensor[SENSOR_PEDQ].on);
+	case ATTR_DMP_PED_Q_RATE:
+		return sprintf(buf, "%d\n", st->sensor[SENSOR_PEDQ].rate);
+	case ATTR_DMP_STEP_DETECTOR_ON:
+		return sprintf(buf, "%d\n", st->sensor[SENSOR_STEP].on);
+	case ATTR_MOTION_LPA_ON:
+		return sprintf(buf, "%d\n", st->mot_int.mot_on);
+	case ATTR_MOTION_LPA_FREQ:{
 		const char *f[] = {"1.25", "5", "20", "40"};
 		return sprintf(buf, "%s\n", f[st->chip_config.lpa_freq]);
 	}
+	case ATTR_MOTION_LPA_THRESHOLD:
+		return sprintf(buf, "%d\n", st->mot_int.mot_thr);
+
+	case ATTR_SELF_TEST_SAMPLES:
+		return sprintf(buf, "%d\n", st->self_test.samples);
+	case ATTR_SELF_TEST_THRESHOLD:
+		return sprintf(buf, "%d\n", st->self_test.threshold);
+	case ATTR_GYRO_ENABLE:
+		return sprintf(buf, "%d\n", st->chip_config.gyro_enable);
+	case ATTR_GYRO_FIFO_ENABLE:
+		return sprintf(buf, "%d\n", st->sensor[SENSOR_GYRO].on);
+	case ATTR_GYRO_RATE:
+		return sprintf(buf, "%d\n", st->sensor[SENSOR_GYRO].rate);
+	case ATTR_ACCEL_ENABLE:
+		return sprintf(buf, "%d\n", st->chip_config.accel_enable);
+	case ATTR_ACCEL_FIFO_ENABLE:
+		return sprintf(buf, "%d\n", st->sensor[SENSOR_ACCEL].on);
+	case ATTR_ACCEL_RATE:
+		return sprintf(buf, "%d\n", st->sensor[SENSOR_ACCEL].rate);
+	case ATTR_COMPASS_ENABLE:
+		return sprintf(buf, "%d\n", st->sensor[SENSOR_COMPASS].on);
+	case ATTR_COMPASS_RATE:
+		return sprintf(buf, "%d\n", st->sensor[SENSOR_COMPASS].rate);
+	case ATTR_PRESSURE_ENABLE:
+		return sprintf(buf, "%d\n", st->sensor[SENSOR_PRESSURE].on);
+	case ATTR_PRESSURE_RATE:
+		return sprintf(buf, "%d\n", st->sensor[SENSOR_PRESSURE].rate);
+	case ATTR_POWER_STATE:
+		return sprintf(buf, "%d\n", !fake_asleep);
+	case ATTR_FIRMWARE_LOADED:
+		return sprintf(buf, "%d\n", st->chip_config.firmware_loaded);
+	case ATTR_SAMPLING_FREQ:
+		return sprintf(buf, "%d\n", st->chip_config.fifo_rate);
 	case ATTR_SELF_TEST:
+		mutex_lock(&indio_dev->mlock);
+		if (st->chip_config.enable) {
+			mutex_unlock(&indio_dev->mlock);
+			return -EBUSY;
+		}
 		if (INV_MPU3050 == st->chip_type)
 			result = 1;
 		else
 			result = inv_hw_self_test(st);
+		mutex_unlock(&indio_dev->mlock);
 		return sprintf(buf, "%d\n", result);
 	case ATTR_GYRO_MATRIX:
 		m = st->plat_data.orientation;
 		return sprintf(buf, "%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
 			m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8]);
-	case ATTR_ACCL_MATRIX:
-		if (st->plat_data.sec_slave_type == SECONDARY_SLAVE_TYPE_ACCEL)
-			m = st->plat_data.secondary_orientation;
+	case ATTR_ACCEL_MATRIX:
+		if (st->plat_data.sec_slave_type ==
+						SECONDARY_SLAVE_TYPE_ACCEL)
+			m =
+			st->plat_data.secondary_orientation;
 		else
 			m = st->plat_data.orientation;
 		return sprintf(buf, "%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
@@ -1163,48 +1183,88 @@ static ssize_t inv_attr_show(struct device *dev,
 	case ATTR_COMPASS_MATRIX:
 		if (st->plat_data.sec_slave_type ==
 				SECONDARY_SLAVE_TYPE_COMPASS)
-			m = st->plat_data.secondary_orientation;
+			m =
+			st->plat_data.secondary_orientation;
 		else
 			return -ENODEV;
 		return sprintf(buf, "%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
 			m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8]);
-	case ATTR_GYRO_ENABLE:
-		return sprintf(buf, "%d\n", st->chip_config.gyro_enable);
-	case ATTR_ACCL_ENABLE:
-		return sprintf(buf, "%d\n", st->chip_config.accl_enable);
-	case ATTR_COMPASS_ENABLE:
-		return sprintf(buf, "%d\n", st->chip_config.compass_enable);
-	case ATTR_POWER_STATE:
-		return sprintf(buf, "%d\n", !st->chip_config.is_asleep);
-	case ATTR_FIRMWARE_LOADED:
-		return sprintf(buf, "%d\n", st->chip_config.firmware_loaded);
-	case ATTR_MOTION_ON:
-		return sprintf(buf, "%d\n", st->mot_int.mot_on);
-	case ATTR_MOTION_DURATION:
-		return sprintf(buf, "%d\n", st->mot_int.mot_dur);
-	case ATTR_MOTION_THRESHOLD:
-		return sprintf(buf, "%d\n", st->mot_int.mot_thr);
+	case ATTR_SECONDARY_NAME:
+	{
+		const char *n[] = {"NULL", "AK8975", "AK8972", "AK8963",
+					"BMA250", "MLX90399", "AK09911"};
+		switch (st->plat_data.sec_slave_id) {
+		case COMPASS_ID_AK8975:
+			return sprintf(buf, "%s\n", n[1]);
+		case COMPASS_ID_AK8972:
+			return sprintf(buf, "%s\n", n[2]);
+		case COMPASS_ID_AK8963:
+			return sprintf(buf, "%s\n", n[3]);
+		case ACCEL_ID_BMA250:
+			return sprintf(buf, "%s\n", n[4]);
+		case COMPASS_ID_MLX90399:
+			return sprintf(buf, "%s\n", n[5]);
+		case COMPASS_ID_AK09911:
+			return sprintf(buf, "%s\n", n[6]);
+		default:
+			return sprintf(buf, "%s\n", n[0]);
+		}
+	}
 #ifdef CONFIG_INV_TESTING
 	case ATTR_REG_WRITE:
 		return sprintf(buf, "1\n");
+	case ATTR_COMPASS_SENS:
+	{
+		/* these 2 conditions should never be met, since the
+		   'compass_sens' sysfs entry should be hidden if the compass
+		   is not an AKM */
+		if (st->plat_data.sec_slave_type !=
+					SECONDARY_SLAVE_TYPE_COMPASS)
+			return -ENODEV;
+		if (st->plat_data.sec_slave_id != COMPASS_ID_AK8975 &&
+		    st->plat_data.sec_slave_id != COMPASS_ID_AK8972 &&
+		    st->plat_data.sec_slave_id != COMPASS_ID_AK8963)
+			return -ENODEV;
+		m = st->chip_info.compass_sens;
+		return sprintf(buf, "%d,%d,%d\n", m[0], m[1], m[2]);
+	}
+	case ATTR_DEBUG_SMD_EXE_STATE:
+	{
+		u8 d[2];
+
+		result = st->set_power_state(st, true);
+		mpu_memory_read(st, st->i2c_addr,
+				inv_dmp_get_address(KEY_SMD_EXE_STATE), 2, d);
+		return sprintf(buf, "%d\n", (short)be16_to_cpup((__be16 *)(d)));
+	}
+	case ATTR_DEBUG_SMD_DELAY_CNTR:
+	{
+		u8 d[4];
+
+		result = st->set_power_state(st, true);
+		mpu_memory_read(st, st->i2c_addr,
+				inv_dmp_get_address(KEY_SMD_DELAY_CNTR), 4, d);
+		return sprintf(buf, "%d\n", (int)be32_to_cpup((__be32 *)(d)));
+	}
 #endif
 	default:
 		return -EPERM;
 	}
 }
 
-/**
+/*
  * inv_dmp_display_orient_show() -  calling this function will
  *			show orientation This event must use poll.
  */
 static ssize_t inv_dmp_display_orient_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	struct inv_mpu_iio_s *st = iio_priv(dev_get_drvdata(dev));
+	struct inv_mpu_state *st = iio_priv(dev_get_drvdata(dev));
+
 	return sprintf(buf, "%d\n", st->display_orient_data);
 }
 
-/**
+/*
  * inv_accel_motion_show() -  calling this function showes motion interrupt.
  *                         This event must use poll.
  */
@@ -1214,208 +1274,220 @@ static ssize_t inv_accel_motion_show(struct device *dev,
 	return sprintf(buf, "1\n");
 }
 
-/**
+/*
+ * inv_smd_show() -  calling this function showes smd interrupt.
+ *                         This event must use poll.
+ */
+static ssize_t inv_smd_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "1\n");
+}
+
+/*
+ * inv_ped_show() -  calling this function showes pedometer interrupt.
+ *                         This event must use poll.
+ */
+static ssize_t inv_ped_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	return sprintf(buf, "1\n");
+}
+
+/*
  * inv_dmp_tap_show() -  calling this function will show tap
  *                         This event must use poll.
  */
 static ssize_t inv_dmp_tap_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	struct inv_mpu_iio_s *st = iio_priv(dev_get_drvdata(dev));
+	struct inv_mpu_state *st = iio_priv(dev_get_drvdata(dev));
 	return sprintf(buf, "%d\n", st->tap_data);
 }
 
-/**
+/*
  *  inv_temperature_show() - Read temperature data directly from registers.
  */
 static ssize_t inv_temperature_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	struct inv_mpu_iio_s *st = iio_priv(dev_get_drvdata(dev));
+
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct inv_mpu_state *st = iio_priv(indio_dev);
 	struct inv_reg_map_s *reg;
-	int result;
+	int result, cur_scale, cur_off;
 	short temp;
 	long scale_t;
 	u8 data[2];
-	reg = &st->reg;
+	const long scale[] = {3834792L, 3158064L, 3340827L};
+	const long offset[] = {5383314L, 2394184L, 1376256L};
 
-	if (st->chip_config.is_asleep)
-		return -EPERM;
+	reg = &st->reg;
+	mutex_lock(&indio_dev->mlock);
+	if (!st->chip_config.enable)
+		result = st->set_power_state(st, true);
+	else
+		result = 0;
+	if (result) {
+		mutex_unlock(&indio_dev->mlock);
+		return result;
+	}
 	result = inv_i2c_read(st, reg->temperature, 2, data);
+	if (!st->chip_config.enable)
+		result |= st->set_power_state(st, false);
+	mutex_unlock(&indio_dev->mlock);
 	if (result) {
 		pr_err("Could not read temperature register.\n");
 		return result;
 	}
 	temp = (signed short)(be16_to_cpup((short *)&data[0]));
-
-	if (INV_MPU3050 == st->chip_type)
-		scale_t = MPU3050_TEMP_OFFSET +
-			inv_q30_mult((int)temp << MPU_TEMP_SHIFT,
-				     MPU3050_TEMP_SCALE);
-	else
-		scale_t = MPU6050_TEMP_OFFSET +
-			inv_q30_mult((int)temp << MPU_TEMP_SHIFT,
-				     MPU6050_TEMP_SCALE);
+	switch (st->chip_type) {
+	case INV_MPU3050:
+		cur_scale = scale[0];
+		cur_off   = offset[0];
+		break;
+	case INV_MPU6050:
+		cur_scale = scale[1];
+		cur_off   = offset[1];
+		break;
+	case INV_MPU6500:
+		cur_scale = scale[2];
+		cur_off   = offset[2];
+		break;
+	default:
+		return -EINVAL;
+	};
+	scale_t = cur_off +
+		inv_q30_mult((int)temp << MPU_TEMP_SHIFT, cur_scale);
 
 	INV_I2C_INC_TEMPREAD(1);
 
 	return sprintf(buf, "%ld %lld\n", scale_t, get_time_ns());
 }
 
-/**
+static ssize_t inv_flush_batch_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	int result;
+	bool has_data;
+
+	mutex_lock(&indio_dev->mlock);
+	result = inv_flush_batch_data(indio_dev, &has_data);
+	mutex_unlock(&indio_dev->mlock);
+	if (result)
+		return sprintf(buf, "%d\n", result);
+	else
+		return sprintf(buf, "%d\n", has_data);
+}
+
+/*
  * inv_firmware_loaded() -  calling this function will change
  *                        firmware load
  */
-static int inv_firmware_loaded(struct inv_mpu_iio_s *st, int data)
+static int inv_firmware_loaded(struct inv_mpu_state *st, int data)
 {
 	if (data)
 		return -EINVAL;
 	st->chip_config.firmware_loaded = 0;
-	st->chip_config.dmp_on = 0;
-	st->chip_config.quaternion_on = 0;
 
 	return 0;
 }
 
-/**
- * inv_quaternion_on() -  calling this function will store
- *                                 current quaternion on
- */
-static int inv_quaternion_on(struct inv_mpu_iio_s *st,
-				 struct iio_buffer *ring, bool en)
-{
-	st->chip_config.quaternion_on = en;
-	if (!en) {
-		clear_bit(INV_MPU_SCAN_QUAT_R, ring->scan_mask);
-		clear_bit(INV_MPU_SCAN_QUAT_X, ring->scan_mask);
-		clear_bit(INV_MPU_SCAN_QUAT_Y, ring->scan_mask);
-		clear_bit(INV_MPU_SCAN_QUAT_Z, ring->scan_mask);
-	}
-
-	return 0;
-}
-
-static int inv_switch_gyro_engine(struct inv_mpu_iio_s *st, bool en)
+static int inv_switch_gyro_engine(struct inv_mpu_state *st, bool en)
 {
 	return inv_switch_engine(st, en, BIT_PWR_GYRO_STBY);
 }
 
-static int inv_switch_accl_engine(struct inv_mpu_iio_s *st, bool en)
+static int inv_switch_accel_engine(struct inv_mpu_state *st, bool en)
 {
-	return inv_switch_engine(st, en, BIT_PWR_ACCL_STBY);
+	return inv_switch_engine(st, en, BIT_PWR_ACCEL_STBY);
 }
 
-/**
- *  inv_gyro_enable() - Enable/disable gyro.
- */
-static int inv_gyro_enable(struct inv_mpu_iio_s *st,
-				 struct iio_buffer *ring, bool en)
-{
-	int result;
-	if (en == st->chip_config.gyro_enable)
-		return 0;
-	result = st->switch_gyro_engine(st, en);
-	if (result)
-		return result;
-
-	if (!en) {
-		st->chip_config.gyro_fifo_enable = 0;
-		clear_bit(INV_MPU_SCAN_GYRO_X, ring->scan_mask);
-		clear_bit(INV_MPU_SCAN_GYRO_Y, ring->scan_mask);
-		clear_bit(INV_MPU_SCAN_GYRO_Z, ring->scan_mask);
-	}
-	st->chip_config.gyro_enable = en;
-
-	return 0;
-}
-
-/**
- *  inv_accl_enable() - Enable/disable accl.
- */
-static ssize_t inv_accl_enable(struct inv_mpu_iio_s *st,
-				 struct iio_buffer *ring, bool en)
-{
-	int result;
-	if (en == st->chip_config.accl_enable)
-		return 0;
-	result = st->switch_accl_engine(st, en);
-	if (result)
-		return result;
-	st->chip_config.accl_enable = en;
-	if (!en) {
-		st->chip_config.accl_fifo_enable = 0;
-		clear_bit(INV_MPU_SCAN_ACCL_X, ring->scan_mask);
-		clear_bit(INV_MPU_SCAN_ACCL_Y, ring->scan_mask);
-		clear_bit(INV_MPU_SCAN_ACCL_Z, ring->scan_mask);
-	}
-
-	return 0;
-}
-
-/**
- * inv_compass_enable() -  calling this function will store compass
- *                         enable
- */
-static ssize_t inv_compass_enable(struct inv_mpu_iio_s *st,
-				 struct iio_buffer *ring, bool en)
-{
-	if (en == st->chip_config.compass_enable)
-		return 0;
-	st->chip_config.compass_enable = en;
-	if (!en) {
-		st->chip_config.compass_fifo_enable = 0;
-		clear_bit(INV_MPU_SCAN_MAGN_X, ring->scan_mask);
-		clear_bit(INV_MPU_SCAN_MAGN_Y, ring->scan_mask);
-		clear_bit(INV_MPU_SCAN_MAGN_Z, ring->scan_mask);
-	}
-
-	return 0;
-}
-
-/**
- * inv_attr_store() -  calling this function will store current
- *                        non-dmp parameter settings
- */
-static ssize_t inv_attr_store(struct device *dev,
+static ssize_t _attr_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
-	struct inv_mpu_iio_s *st = iio_priv(indio_dev);
-	struct iio_buffer *ring = indio_dev->buffer;
+	struct inv_mpu_state *st = iio_priv(indio_dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
 	int data;
-	u8  d;
+	u8 d, axis;
 	int result;
 
-	mutex_lock(&indio_dev->mlock);
-	if (check_enable(st)) {
-		result = -EINVAL;
-		goto attr_store_fail;
+	result = 0;
+	if (st->chip_config.enable)
+		return -EBUSY;
+	if (this_attr->address <= ATTR_MOTION_LPA_THRESHOLD) {
+		result = st->set_power_state(st, true);
+		if (result)
+			return result;
 	}
 
-	result = kstrtoint(buf, 10, &data);
-	if (result)
-		goto attr_store_fail;
+	/* check the input and validate it's format */
 	switch (this_attr->address) {
-	case ATTR_GYRO_ENABLE:
-		result = inv_gyro_enable(st, ring, !!data);
+#ifdef CONFIG_INV_TESTING
+	/* these inputs are strings */
+	case ATTR_COMPASS_MATRIX:
+	case ATTR_COMPASS_SENS:
 		break;
-	case ATTR_ACCL_ENABLE:
-		result = inv_accl_enable(st, ring, !!data);
+#endif
+	/* these inputs are integers */
+	default:
+		result = kstrtoint(buf, 10, &data);
+		if (result)
+			goto attr_store_fail;
 		break;
-	case ATTR_COMPASS_ENABLE:
-		result = inv_compass_enable(st, ring, !!data);
+	}
+
+	switch (this_attr->address) {
+	case ATTR_GYRO_X_OFFSET:
+	case ATTR_GYRO_Y_OFFSET:
+	case ATTR_GYRO_Z_OFFSET:
+		if ((data > MPU_MAX_G_OFFSET_VALUE) ||
+				(data < MPU_MIN_G_OFFSET_VALUE))
+			return -EINVAL;
+		axis = this_attr->address - ATTR_GYRO_X_OFFSET;
+		result = inv_set_offset_reg(st,
+				reg_gyro_offset[axis],
+				st->rom_gyro_offset[axis] + data);
+
+		if (result)
+			goto attr_store_fail;
+		st->input_gyro_offset[axis] = data;
 		break;
-	case ATTR_DMP_QUATERNION_ON:
-		result = inv_quaternion_on(st, ring, !!data);
+	case ATTR_ACCEL_X_OFFSET:
+	case ATTR_ACCEL_Y_OFFSET:
+	case ATTR_ACCEL_Z_OFFSET:
+	{
+		const u8 *ch;
+
+		if ((data > MPU_MAX_A_OFFSET_VALUE) ||
+			(data < MPU_MIN_A_OFFSET_VALUE))
+			return -EINVAL;
+
+		axis = this_attr->address - ATTR_ACCEL_X_OFFSET;
+		if (INV_MPU6050 == st->chip_type)
+			ch = reg_6050_accel_offset;
+		else
+			ch = reg_6500_accel_offset;
+
+		result = inv_set_offset_reg(st, ch[axis],
+			st->rom_accel_offset[axis] + (data << 1));
+		if (result)
+			goto attr_store_fail;
+		st->input_accel_offset[axis] = data;
 		break;
-	case ATTR_LPA_FREQ:
-		result = inv_lpa_freq(st, data);
+	}
+	case ATTR_GYRO_SCALE:
+		result = inv_write_fsr(st, data);
 		break;
-	case ATTR_FIRMWARE_LOADED:
-		result = inv_firmware_loaded(st, data);
+	case ATTR_ACCEL_SCALE:
+		result = inv_write_accel_fs(st, data);
 		break;
-	case ATTR_MOTION_ON:
+	case ATTR_COMPASS_SCALE:
+		result = st->slave_compass->set_scale(st, data);
+		break;
+	case ATTR_MOTION_LPA_ON:
 		if (INV_MPU6500 == st->chip_type) {
 			if (data)
 				/* enable and put in MPU6500 mode */
@@ -1431,43 +1503,280 @@ static ssize_t inv_attr_store(struct device *dev,
 		st->mot_int.mot_on = !!data;
 		st->chip_config.lpa_mode = !!data;
 		break;
-	case ATTR_MOTION_DURATION:
-		if (INV_MPU6500 != st->chip_type) {
-			result = inv_i2c_single_write(st, REG_ACCEL_MOT_DUR,
-					      MPU6050_MOTION_DUR_DEFAULT);
-			if (result)
-				goto attr_store_fail;
-		}
-		st->mot_int.mot_dur = data;
+	case ATTR_MOTION_LPA_FREQ:
+		result = inv_lpa_freq(st, data);
 		break;
-	case ATTR_MOTION_THRESHOLD:
+	case ATTR_MOTION_LPA_THRESHOLD:
 		if ((data > MPU6XXX_MAX_MOTION_THRESH) || (data < 0)) {
 			result = -EINVAL;
 			goto attr_store_fail;
 		}
-		d = (u8)(data >> MPU6XXX_MOTION_THRESH_SHIFT);
-		data = (d << MPU6XXX_MOTION_THRESH_SHIFT);
+		if (INV_MPU6500 == st->chip_type) {
+			d = (u8)(data >> MPU6500_MOTION_THRESH_SHIFT);
+			data = (d << MPU6500_MOTION_THRESH_SHIFT);
+		} else {
+			d = (u8)(data >> MPU6050_MOTION_THRESH_SHIFT);
+			data = (d << MPU6050_MOTION_THRESH_SHIFT);
+		}
+
 		result = inv_i2c_single_write(st, REG_ACCEL_MOT_THR, d);
 		if (result)
 			goto attr_store_fail;
 		st->mot_int.mot_thr = data;
 		break;
+	/* from now on, power is not turned on */
+	case ATTR_SELF_TEST_SAMPLES:
+		if (data > ST_MAX_SAMPLES || data < 0) {
+			result = -EINVAL;
+			goto attr_store_fail;
+		}
+		st->self_test.samples = data;
+		break;
+	case ATTR_SELF_TEST_THRESHOLD:
+		if (data > ST_MAX_THRESHOLD || data < 0) {
+			result = -EINVAL;
+			goto attr_store_fail;
+		}
+		st->self_test.threshold = data;
+	case ATTR_GYRO_ENABLE:
+		st->chip_config.gyro_enable = !!data;
+		break;
+	case ATTR_GYRO_FIFO_ENABLE:
+		st->sensor[SENSOR_GYRO].on = !!data;
+		break;
+	case ATTR_GYRO_RATE:
+		st->sensor[SENSOR_GYRO].rate = data;
+		st->sensor[SENSOR_GYRO].dur  = MPU_DEFAULT_DMP_FREQ / data;
+		st->sensor[SENSOR_GYRO].dur  *= DMP_INTERVAL_INIT;
+		break;
+	case ATTR_ACCEL_ENABLE:
+		st->chip_config.accel_enable = !!data;
+		break;
+	case ATTR_ACCEL_FIFO_ENABLE:
+		st->sensor[SENSOR_ACCEL].on = !!data;
+		break;
+	case ATTR_ACCEL_RATE:
+		st->sensor[SENSOR_ACCEL].rate = data;
+		st->sensor[SENSOR_ACCEL].dur  = MPU_DEFAULT_DMP_FREQ / data;
+		st->sensor[SENSOR_ACCEL].dur  *= DMP_INTERVAL_INIT;
+		break;
+	case ATTR_COMPASS_ENABLE:
+		st->sensor[SENSOR_COMPASS].on = !!data;
+		break;
+	case ATTR_COMPASS_RATE:
+		if (data <= 0) {
+			result = -EINVAL;
+			goto attr_store_fail;
+		}
+		if ((MSEC_PER_SEC / st->slave_compass->rate_scale) < data)
+			data = MSEC_PER_SEC / st->slave_compass->rate_scale;
+
+		st->sensor[SENSOR_COMPASS].rate = data;
+		st->sensor[SENSOR_COMPASS].dur  = MPU_DEFAULT_DMP_FREQ / data;
+		st->sensor[SENSOR_COMPASS].dur  *= DMP_INTERVAL_INIT;
+		break;
+	case ATTR_PRESSURE_ENABLE:
+		st->sensor[SENSOR_PRESSURE].on = !!data;
+		break;
+	case ATTR_PRESSURE_RATE:
+		if (data <= 0) {
+			result = -EINVAL;
+			goto attr_store_fail;
+		}
+		if ((MSEC_PER_SEC / st->slave_pressure->rate_scale) < data)
+			data = MSEC_PER_SEC / st->slave_pressure->rate_scale;
+
+		st->sensor[SENSOR_PRESSURE].rate = data;
+		st->sensor[SENSOR_PRESSURE].dur  = MPU_DEFAULT_DMP_FREQ / data;
+		st->sensor[SENSOR_PRESSURE].dur  *= DMP_INTERVAL_INIT;
+		break;
+	case ATTR_POWER_STATE:
+		fake_asleep = !data;
+		break;
+	case ATTR_FIRMWARE_LOADED:
+		result = inv_firmware_loaded(st, data);
+		break;
+	case ATTR_SAMPLING_FREQ:
+		result = inv_fifo_rate_store(st, data);
+		break;
+#ifdef CONFIG_INV_TESTING
+	case ATTR_COMPASS_MATRIX:
+	{
+		char *str;
+		__s8 m[9];
+		d = 0;
+		if (st->plat_data.sec_slave_type == SECONDARY_SLAVE_TYPE_NONE)
+			return -ENODEV;
+		while ((str = strsep((char **)&buf, ","))) {
+			if (d >= 9) {
+				result = -EINVAL;
+				goto attr_store_fail;
+			}
+			result = kstrtoint(str, 10, &data);
+			if (result)
+				goto attr_store_fail;
+			if (data < -1 || data > 1) {
+				result = -EINVAL;
+				goto attr_store_fail;
+			}
+			m[d] = data;
+			d++;
+		}
+		if (d < 9) {
+			result = -EINVAL;
+			goto attr_store_fail;
+		}
+		memcpy(st->plat_data.secondary_orientation, m, sizeof(m));
+		pr_debug(KERN_INFO
+			 "compass_matrix: %d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+			 m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8]);
+		break;
+	}
+	case ATTR_COMPASS_SENS:
+	{
+		char *str;
+		__s8 s[3];
+		d = 0;
+		/* these 2 conditions should never be met, since the
+		   'compass_sens' sysfs entry should be hidden if the compass
+		   is not an AKM */
+		if (st->plat_data.sec_slave_type == SECONDARY_SLAVE_TYPE_NONE)
+			return -ENODEV;
+		if (st->plat_data.sec_slave_id != COMPASS_ID_AK8975 &&
+		    st->plat_data.sec_slave_id != COMPASS_ID_AK8972 &&
+		    st->plat_data.sec_slave_id != COMPASS_ID_AK8963)
+			return -ENODEV;
+		/* read the input data, expecting 3 comma separated values */
+		while ((str = strsep((char **)&buf, ","))) {
+			if (d >= 3) {
+				result = -EINVAL;
+				goto attr_store_fail;
+			}
+			result = kstrtoint(str, 10, &data);
+			if (result)
+				goto attr_store_fail;
+			if (data < 0 || data > 255) {
+				result = -EINVAL;
+				goto attr_store_fail;
+			}
+			s[d] = data;
+			d++;
+		}
+		if (d < 3) {
+			result = -EINVAL;
+			goto attr_store_fail;
+		}
+		/* store the new compass sensitivity adjustment */
+		memcpy(st->chip_info.compass_sens, s, sizeof(s));
+		pr_debug(KERN_INFO
+			 "compass_sens: %d,%d,%d\n", s[0], s[1], s[2]);
+		break;
+	}
+#endif
 	default:
 		result = -EINVAL;
 		goto attr_store_fail;
 	};
-	if (result)
-		goto attr_store_fail;
-	result = count;
 
 attr_store_fail:
+	if (this_attr->address <= ATTR_MOTION_LPA_THRESHOLD)
+		result |= st->set_power_state(st, false);
+	if (result)
+		return result;
+
+	return count;
+}
+
+/*
+ * inv_attr_store() -  calling this function will store current
+ *                        non-dmp parameter settings
+ */
+static ssize_t inv_attr_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	int result;
+
+	mutex_lock(&indio_dev->mlock);
+	result = _attr_store(dev, attr, buf, count);
 	mutex_unlock(&indio_dev->mlock);
 
 	return result;
 }
 
+static ssize_t inv_master_enable_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct inv_mpu_state *st = iio_priv(indio_dev);
+	int data;
+	int result;
+
+	result = kstrtoint(buf, 10, &data);
+	if (result)
+		return result;
+
+	mutex_lock(&indio_dev->mlock);
+	if (st->chip_config.enable == (!!data)) {
+		result = count;
+		goto end_enable;
+	}
+	if (!!data) {
+		result = st->set_power_state(st, true);
+		if (result)
+			goto end_enable;
+	}
+	result = set_inv_enable(indio_dev, !!data);
+	if (result)
+		goto end_enable;
+	if (!data) {
+		result = st->set_power_state(st, false);
+		if (result)
+			goto end_enable;
+	}
+	result = count;
+
+end_enable:
+	mutex_unlock(&indio_dev->mlock);
+
+	return result;
+}
+
+static ssize_t inv_master_enable_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct inv_mpu_state *st = iio_priv(dev_get_drvdata(dev));
+
+	return sprintf(buf, "%d\n", st->chip_config.enable);
+}
+
 #ifdef CONFIG_INV_TESTING
-/**
+static ssize_t inv_test_suspend_resume_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int data;
+	int result;
+
+	result = kstrtoint(buf, 10, &data);
+	if (result)
+		return result;
+	if (data)
+		inv_mpu_suspend(dev);
+	else
+		inv_mpu_resume(dev);
+	suspend_state = !!data;
+
+	return count;
+}
+
+static ssize_t inv_test_suspend_resume_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+
+	return sprintf(buf, "%d\n", suspend_state);
+}
+
+/*
  * inv_reg_write_store() - register write command for testing.
  *                         Format: WSRRDD, where RR is the register in hex,
  *                                         and DD is the data in hex.
@@ -1476,7 +1785,7 @@ static ssize_t inv_reg_write_store(struct device *dev,
 	struct device_attribute *attr, const char *buf, size_t count)
 {
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
-	struct inv_mpu_iio_s *st = iio_priv(indio_dev);
+	struct inv_mpu_state *st = iio_priv(indio_dev);
 	u32 result;
 	u8 wreg, wval;
 	int temp;
@@ -1506,224 +1815,544 @@ static ssize_t inv_reg_write_store(struct device *dev,
 
 	return count;
 }
+
+static ssize_t inv_test_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct inv_mpu_state *st = iio_priv(indio_dev);
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+	int data;
+	u8 *m;
+	int result;
+
+	if (st->chip_config.enable)
+		return -EBUSY;
+	result = kstrtoint(buf, 10, &data);
+	if (result)
+		return -EINVAL;
+
+	result = st->set_power_state(st, true);
+	if (result)
+		return result;
+
+	switch (this_attr->address) {
+	case ATTR_DEBUG_ACCEL_COUNTER:
+	{
+		u8 D[6] = {0xf2, 0xb0, 0x80, 0xc0, 0xc8, 0xc2};
+		u8 E[6] = {0xf3, 0xb1, 0x88, 0xc0, 0xc0, 0xc0};
+
+		if (data)
+			m = E;
+		else
+			m = D;
+		result = mem_w_key(KEY_TEST_01, ARRAY_SIZE(D), m);
+		data_out_control.accel = !!data;
+		break;
+	}
+	case ATTR_DEBUG_GYRO_COUNTER:
+	{
+		u8 D[6] = {0xf2, 0xb0, 0x80, 0xc4, 0xcc, 0xc6};
+		u8 E[6] = {0xf3, 0xb1, 0x88, 0xc0, 0xc0, 0xc0};
+
+		if (data)
+			m = E;
+		else
+			m = D;
+		result = mem_w_key(KEY_TEST_02, ARRAY_SIZE(D), m);
+		data_out_control.gyro = !!data;
+		break;
+	}
+	case ATTR_DEBUG_COMPASS_COUNTER:
+	{
+		u8 D[6] = {0xf2, 0xb0, 0x81, 0xc0, 0xc8, 0xc2};
+		u8 E[6] = {0xf3, 0xb1, 0x88, 0xc0, 0xc0, 0xc0};
+
+		if (data)
+			m = E;
+		else
+			m = D;
+		result = mem_w_key(KEY_TEST_03, ARRAY_SIZE(D), m);
+		data_out_control.compass = !!data;
+		break;
+	}
+	case ATTR_DEBUG_PRESSURE_COUNTER:
+	{
+		u8 D[6] = {0xf2, 0xb0, 0x81, 0xc4, 0xcc, 0xc6};
+		u8 E[6] = {0xf3, 0xb1, 0x88, 0xc0, 0xc0, 0xc0};
+
+		if (data)
+			m = E;
+		else
+			m = D;
+		result = mem_w_key(KEY_TEST_04, ARRAY_SIZE(D), m);
+		data_out_control.pressure = !!data;
+		break;
+	}
+	case ATTR_DEBUG_LPQ_COUNTER:
+	{
+		u8 D[6] = {0xf1, 0xb1, 0x83, 0xc2, 0xc4, 0xc6};
+		u8 E[6] = {0xf1, 0xb1, 0x88, 0xc0, 0xc0, 0xc0};
+
+		if (data)
+			m = E;
+		else
+			m = D;
+		result = mem_w_key(KEY_TEST_05, ARRAY_SIZE(D), m);
+		data_out_control.LPQ = !!data;
+		break;
+	}
+	case ATTR_DEBUG_SIXQ_COUNTER:
+	{
+		u8 D[6] = {0xf1, 0xb1, 0x89, 0xc2, 0xc4, 0xc6};
+		u8 E[6] = {0xf1, 0xb1, 0x88, 0xc0, 0xc0, 0xc0};
+
+		if (data)
+			m = E;
+		else
+			m = D;
+		result = mem_w_key(KEY_TEST_06, ARRAY_SIZE(D), m);
+		data_out_control.SIXQ = !!data;
+		break;
+	}
+	case ATTR_DEBUG_PEDQ_COUNTER:
+	{
+		u8 D[6] = {0xf2, 0xf2, 0x88, 0xc2, 0xc4, 0xc6};
+		u8 E[6] = {0xf3, 0xb1, 0x88, 0xc0, 0xc0, 0xc0};
+
+		if (data)
+			m = E;
+		else
+			m = D;
+		result = mem_w_key(KEY_TEST_07, ARRAY_SIZE(D), m);
+		data_out_control.PEDQ = !!data;
+		break;
+	}
+	default:
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+static ssize_t inv_test_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+
+	switch (this_attr->address) {
+	case ATTR_DEBUG_ACCEL_COUNTER:
+		return sprintf(buf, "%d\n", data_out_control.accel);
+	case ATTR_DEBUG_GYRO_COUNTER:
+		return sprintf(buf, "%d\n", data_out_control.gyro);
+	case ATTR_DEBUG_COMPASS_COUNTER:
+		return sprintf(buf, "%d\n", data_out_control.compass);
+	case ATTR_DEBUG_PRESSURE_COUNTER:
+		return sprintf(buf, "%d\n", data_out_control.pressure);
+	case ATTR_DEBUG_LPQ_COUNTER:
+		return sprintf(buf, "%d\n", data_out_control.LPQ);
+	case ATTR_DEBUG_SIXQ_COUNTER:
+		return sprintf(buf, "%d\n", data_out_control.SIXQ);
+	case ATTR_DEBUG_PEDQ_COUNTER:
+		return sprintf(buf, "%d\n", data_out_control.PEDQ);
+	default:
+		return -EINVAL;
+	}
+}
+
 #endif /* CONFIG_INV_TESTING */
-
-#define INV_MPU_CHAN(_type, _channel2, _index)                \
-	{                                                         \
-		.type = _type,                                        \
-		.modified = 1,                                        \
-		.channel2 = _channel2,                                \
-		.info_mask =  (IIO_CHAN_INFO_CALIBBIAS_SEPARATE_BIT | \
-				IIO_CHAN_INFO_SCALE_SHARED_BIT),              \
-		.scan_index = _index,                                 \
-		.scan_type  = IIO_ST('s', 16, 16, 0)                  \
-	}
-
-#define INV_ACCL_CHAN(_type, _channel2, _index)                \
-	{                                                         \
-		.type = _type,                                        \
-		.modified = 1,                                        \
-		.channel2 = _channel2,                                \
-		.info_mask =  (IIO_CHAN_INFO_CALIBBIAS_SEPARATE_BIT | \
-				IIO_CHAN_INFO_SCALE_SHARED_BIT |     \
-				IIO_CHAN_INFO_OFFSET_SEPARATE_BIT),  \
-		.scan_index = _index,                                 \
-		.scan_type  = IIO_ST('s', 16, 16, 0)                  \
-	}
-
-#define INV_MPU_QUATERNION_CHAN(_channel2, _index)            \
-	{                                                         \
-		.type = IIO_QUATERNION,                               \
-		.modified = 1,                                        \
-		.channel2 = _channel2,                                \
-		.scan_index = _index,                                 \
-		.scan_type  = IIO_ST('s', 32, 32, 0)                  \
-	}
-
-#define INV_MPU_MAGN_CHAN(_channel2, _index)                  \
-	{                                                         \
-		.type = IIO_MAGN,                                     \
-		.modified = 1,                                        \
-		.channel2 = _channel2,                                \
-		.info_mask =  IIO_CHAN_INFO_SCALE_SHARED_BIT,         \
-		.scan_index = _index,                                 \
-		.scan_type  = IIO_ST('s', 16, 16, 0)                  \
-	}
 
 static const struct iio_chan_spec inv_mpu_channels[] = {
 	IIO_CHAN_SOFT_TIMESTAMP(INV_MPU_SCAN_TIMESTAMP),
-
-	INV_MPU_CHAN(IIO_ANGL_VEL, IIO_MOD_X, INV_MPU_SCAN_GYRO_X),
-	INV_MPU_CHAN(IIO_ANGL_VEL, IIO_MOD_Y, INV_MPU_SCAN_GYRO_Y),
-	INV_MPU_CHAN(IIO_ANGL_VEL, IIO_MOD_Z, INV_MPU_SCAN_GYRO_Z),
-
-	INV_ACCL_CHAN(IIO_ACCEL, IIO_MOD_X, INV_MPU_SCAN_ACCL_X),
-	INV_ACCL_CHAN(IIO_ACCEL, IIO_MOD_Y, INV_MPU_SCAN_ACCL_Y),
-	INV_ACCL_CHAN(IIO_ACCEL, IIO_MOD_Z, INV_MPU_SCAN_ACCL_Z),
-
-	INV_MPU_QUATERNION_CHAN(IIO_MOD_R, INV_MPU_SCAN_QUAT_R),
-	INV_MPU_QUATERNION_CHAN(IIO_MOD_X, INV_MPU_SCAN_QUAT_X),
-	INV_MPU_QUATERNION_CHAN(IIO_MOD_Y, INV_MPU_SCAN_QUAT_Y),
-	INV_MPU_QUATERNION_CHAN(IIO_MOD_Z, INV_MPU_SCAN_QUAT_Z),
-
-	INV_MPU_MAGN_CHAN(IIO_MOD_X, INV_MPU_SCAN_MAGN_X),
-	INV_MPU_MAGN_CHAN(IIO_MOD_Y, INV_MPU_SCAN_MAGN_Y),
-	INV_MPU_MAGN_CHAN(IIO_MOD_Z, INV_MPU_SCAN_MAGN_Z),
 };
 
 /*constant IIO attribute */
 static IIO_CONST_ATTR_SAMP_FREQ_AVAIL("10 20 50 100 200 500");
-static IIO_DEV_ATTR_SAMP_FREQ(S_IRUGO | S_IWUSR, inv_fifo_rate_show,
-	inv_fifo_rate_store);
-static DEVICE_ATTR(temperature, S_IRUGO, inv_temperature_show, NULL);
-static IIO_DEVICE_ATTR(power_state, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_power_state_store, ATTR_POWER_STATE);
-static IIO_DEVICE_ATTR(firmware_loaded, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_attr_store, ATTR_FIRMWARE_LOADED);
-static IIO_DEVICE_ATTR(motion_lpa_freq, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_attr_store, ATTR_LPA_FREQ);
-static IIO_DEVICE_ATTR(motion_lpa_on, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_attr_store, ATTR_MOTION_ON);
-static IIO_DEVICE_ATTR(motion_lpa_duration, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_attr_store, ATTR_MOTION_DURATION);
-static IIO_DEVICE_ATTR(motion_lpa_threshold, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_attr_store, ATTR_MOTION_THRESHOLD);
+
+/* special sysfs */
 static DEVICE_ATTR(reg_dump, S_IRUGO, inv_reg_dump_show, NULL);
-static IIO_DEVICE_ATTR(self_test, S_IRUGO, inv_attr_show, NULL,
-	ATTR_SELF_TEST);
-static IIO_DEVICE_ATTR(gyro_matrix, S_IRUGO, inv_attr_show, NULL,
-	ATTR_GYRO_MATRIX);
-static IIO_DEVICE_ATTR(accl_matrix, S_IRUGO, inv_attr_show, NULL,
-	ATTR_ACCL_MATRIX);
-static IIO_DEVICE_ATTR(compass_matrix, S_IRUGO, inv_attr_show, NULL,
-	ATTR_COMPASS_MATRIX);
+static DEVICE_ATTR(temperature, S_IRUGO, inv_temperature_show, NULL);
+
+/* event based sysfs, needs poll to read */
+static DEVICE_ATTR(event_tap, S_IRUGO, inv_dmp_tap_show, NULL);
+static DEVICE_ATTR(event_display_orientation, S_IRUGO,
+	inv_dmp_display_orient_show, NULL);
+static DEVICE_ATTR(event_accel_motion, S_IRUGO, inv_accel_motion_show, NULL);
+static DEVICE_ATTR(event_smd, S_IRUGO, inv_smd_show, NULL);
+static DEVICE_ATTR(event_pedometer, S_IRUGO, inv_ped_show, NULL);
+
+/* master enable method */
+static DEVICE_ATTR(master_enable, S_IRUGO | S_IWUSR, inv_master_enable_show,
+					inv_master_enable_store);
+
+/* special run time sysfs entry, read only */
+static DEVICE_ATTR(flush_batch, S_IRUGO, inv_flush_batch_show, NULL);
+
+/* DMP sysfs with power on/off */
+static IIO_DEVICE_ATTR(in_accel_x_dmp_bias, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_bias_store, ATTR_DMP_ACCEL_X_DMP_BIAS);
+static IIO_DEVICE_ATTR(in_accel_y_dmp_bias, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_bias_store, ATTR_DMP_ACCEL_Y_DMP_BIAS);
+static IIO_DEVICE_ATTR(in_accel_z_dmp_bias, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_bias_store, ATTR_DMP_ACCEL_Z_DMP_BIAS);
+
+static IIO_DEVICE_ATTR(in_anglvel_x_dmp_bias, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_bias_store, ATTR_DMP_GYRO_X_DMP_BIAS);
+static IIO_DEVICE_ATTR(in_anglvel_y_dmp_bias, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_bias_store, ATTR_DMP_GYRO_Y_DMP_BIAS);
+static IIO_DEVICE_ATTR(in_anglvel_z_dmp_bias, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_bias_store, ATTR_DMP_GYRO_Z_DMP_BIAS);
+
+static IIO_DEVICE_ATTR(pedometer_int_on, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_attr_store, ATTR_DMP_PED_INT_ON);
+static IIO_DEVICE_ATTR(pedometer_on, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_attr_store, ATTR_DMP_PED_ON);
+static IIO_DEVICE_ATTR(pedometer_step_thresh, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_attr_store, ATTR_DMP_PED_STEP_THRESH);
+static IIO_DEVICE_ATTR(pedometer_int_thresh, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_attr_store, ATTR_DMP_PED_INT_THRESH);
+
+static IIO_DEVICE_ATTR(smd_enable, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_attr_store, ATTR_DMP_SMD_ENABLE);
+static IIO_DEVICE_ATTR(smd_threshold, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_attr_store, ATTR_DMP_SMD_THLD);
+static IIO_DEVICE_ATTR(smd_delay_threshold, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_attr_store, ATTR_DMP_SMD_DELAY_THLD);
+static IIO_DEVICE_ATTR(smd_delay_threshold2, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_attr_store, ATTR_DMP_SMD_DELAY_THLD2);
+
+static IIO_DEVICE_ATTR(pedometer_steps, S_IRUGO | S_IWUSR, inv_attr64_show,
+	inv_attr64_store, ATTR_DMP_PEDOMETER_STEPS);
+static IIO_DEVICE_ATTR(pedometer_time, S_IRUGO | S_IWUSR, inv_attr64_show,
+	inv_attr64_store, ATTR_DMP_PEDOMETER_TIME);
+static IIO_DEVICE_ATTR(pedometer_counter, S_IRUGO | S_IWUSR, inv_attr64_show,
+	NULL, ATTR_DMP_PEDOMETER_COUNTER);
+
+static IIO_DEVICE_ATTR(tap_on, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_attr_store, ATTR_DMP_TAP_ON);
+static IIO_DEVICE_ATTR(tap_threshold, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_attr_store, ATTR_DMP_TAP_THRESHOLD);
+static IIO_DEVICE_ATTR(tap_min_count, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_attr_store, ATTR_DMP_TAP_MIN_COUNT);
+static IIO_DEVICE_ATTR(tap_time, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_attr_store, ATTR_DMP_TAP_TIME);
+static IIO_DEVICE_ATTR(display_orientation_on, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_attr_store, ATTR_DMP_DISPLAY_ORIENTATION_ON);
+
+/* DMP sysfs without power on/off */
 static IIO_DEVICE_ATTR(dmp_on, S_IRUGO | S_IWUSR, inv_attr_show,
 	inv_dmp_attr_store, ATTR_DMP_ON);
 static IIO_DEVICE_ATTR(dmp_int_on, S_IRUGO | S_IWUSR, inv_attr_show,
 	inv_dmp_attr_store, ATTR_DMP_INT_ON);
 static IIO_DEVICE_ATTR(dmp_event_int_on, S_IRUGO | S_IWUSR, inv_attr_show,
 	inv_dmp_attr_store, ATTR_DMP_EVENT_INT_ON);
-static IIO_DEVICE_ATTR(dmp_output_rate, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_dmp_attr_store, ATTR_DMP_OUTPUT_RATE);
-static IIO_DEVICE_ATTR(quaternion_on, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_attr_store, ATTR_DMP_QUATERNION_ON);
-static IIO_DEVICE_ATTR(display_orientation_on, S_IRUGO | S_IWUSR,
-	inv_attr_show, inv_dmp_attr_store, ATTR_DMP_DISPLAY_ORIENTATION_ON);
-static IIO_DEVICE_ATTR(tap_on, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_dmp_attr_store, ATTR_DMP_TAP_ON);
-static IIO_DEVICE_ATTR(tap_time, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_dmp_attr_store, ATTR_DMP_TAP_TIME);
-static IIO_DEVICE_ATTR(tap_min_count, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_dmp_attr_store, ATTR_DMP_TAP_MIN_COUNT);
-static IIO_DEVICE_ATTR(tap_threshold, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_dmp_attr_store, ATTR_DMP_TAP_THRESHOLD);
-static IIO_DEVICE_ATTR(tap_axis, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_dmp_attr_store, ATTR_DMP_TAP_AXIS);
-static IIO_DEVICE_ATTR(tap_multi_tap_time, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_dmp_attr_store, ATTR_DMP_TAP_MULTI_TAP_TIME);
-static IIO_DEVICE_ATTR(tap_shake_reject_thresh, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_dmp_attr_store, ATTR_DMP_TAP_SHAKE_REJECT_THRESH);
-static IIO_DEVICE_ATTR(tap_shake_reject_time, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_dmp_attr_store, ATTR_DMP_TAP_SHAKE_REJECT_TIME);
-static IIO_DEVICE_ATTR(tap_shake_reject_timeout, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_dmp_attr_store, ATTR_DMP_TAP_SHAKE_REJECT_TIMEOUT);
-static IIO_DEVICE_ATTR(pedometer_time, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_dmp_attr_store, ATTR_DMP_PEDOMETER_TIME);
-static IIO_DEVICE_ATTR(pedometer_steps, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_dmp_attr_store, ATTR_DMP_PEDOMETER_STEPS);
-static IIO_DEVICE_ATTR(pedometer_clip_threshold, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_dmp_attr_store, ATTR_DMP_PEDOMETER_CLIP_THRESHOLD);
-static IIO_DEVICE_ATTR(pedometer_min_steps, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_dmp_attr_store, ATTR_DMP_PEDOMETER_MIN_STEPS);
-static IIO_DEVICE_ATTR(pedometer_max_step_buffer_time, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_dmp_attr_store, ATTR_DMP_PEDOMETER_MAX_STEP_BUFFER_TIME);
-static IIO_DEVICE_ATTR(pedometer_threshold, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_dmp_attr_store, ATTR_DMP_PEDOMETER_THRESHOLD);
-static IIO_DEVICE_ATTR(pedometer_min_up_time, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_dmp_attr_store, ATTR_DMP_PEDOMETER_MIN_UP_TIME);
-static IIO_DEVICE_ATTR(pedometer_max_up_time, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_dmp_attr_store, ATTR_DMP_PEDOMETER_MAX_UP_TIME);
-static IIO_DEVICE_ATTR(pedometer_min_energy, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_dmp_attr_store, ATTR_DMP_PEDOMETER_MIN_ENERGY);
-static DEVICE_ATTR(event_tap, S_IRUGO, inv_dmp_tap_show, NULL);
-static DEVICE_ATTR(event_display_orientation, S_IRUGO,
-	inv_dmp_display_orient_show, NULL);
-static DEVICE_ATTR(event_accel_motion, S_IRUGO, inv_accel_motion_show, NULL);
+static IIO_DEVICE_ATTR(step_indicator_on, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_dmp_attr_store, ATTR_DMP_STEP_INDICATOR_ON);
+static IIO_DEVICE_ATTR(batchmode_timeout, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_attr_store, ATTR_DMP_BATCHMODE_TIMEOUT);
+static IIO_DEVICE_ATTR(batchmode_wake_fifo_full_on, S_IRUGO | S_IWUSR,
+	inv_attr_show, inv_dmp_attr_store, ATTR_DMP_BATCHMODE_WAKE_FIFO_FULL);
+
+static IIO_DEVICE_ATTR(six_axes_q_on, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_dmp_attr_store, ATTR_DMP_SIX_Q_ON);
+static IIO_DEVICE_ATTR(six_axes_q_rate, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_dmp_attr_store, ATTR_DMP_SIX_Q_RATE);
+
+static IIO_DEVICE_ATTR(three_axes_q_on, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_dmp_attr_store, ATTR_DMP_LPQ_ON);
+static IIO_DEVICE_ATTR(three_axes_q_rate, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_dmp_attr_store, ATTR_DMP_LPQ_RATE);
+
+static IIO_DEVICE_ATTR(ped_q_on, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_dmp_attr_store, ATTR_DMP_PED_Q_ON);
+static IIO_DEVICE_ATTR(ped_q_rate, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_dmp_attr_store, ATTR_DMP_PED_Q_RATE);
+
+static IIO_DEVICE_ATTR(step_detector_on, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_dmp_attr_store, ATTR_DMP_STEP_DETECTOR_ON);
+
+/* non DMP sysfs with power on/off */
+static IIO_DEVICE_ATTR(motion_lpa_on, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_MOTION_LPA_ON);
+static IIO_DEVICE_ATTR(motion_lpa_freq, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_MOTION_LPA_FREQ);
+static IIO_DEVICE_ATTR(motion_lpa_threshold, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_MOTION_LPA_THRESHOLD);
+
+static IIO_DEVICE_ATTR(in_accel_scale, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_ACCEL_SCALE);
+static IIO_DEVICE_ATTR(in_anglvel_scale, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_GYRO_SCALE);
+static IIO_DEVICE_ATTR(in_magn_scale, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_COMPASS_SCALE);
+
+static IIO_DEVICE_ATTR(in_anglvel_x_offset, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_GYRO_X_OFFSET);
+static IIO_DEVICE_ATTR(in_anglvel_y_offset, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_GYRO_Y_OFFSET);
+static IIO_DEVICE_ATTR(in_anglvel_z_offset, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_GYRO_Z_OFFSET);
+
+static IIO_DEVICE_ATTR(in_accel_x_offset, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_ACCEL_X_OFFSET);
+static IIO_DEVICE_ATTR(in_accel_y_offset, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_ACCEL_Y_OFFSET);
+static IIO_DEVICE_ATTR(in_accel_z_offset, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_ACCEL_Z_OFFSET);
+
+/* non DMP sysfs without power on/off */
+static IIO_DEVICE_ATTR(self_test_samples, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_SELF_TEST_SAMPLES);
+static IIO_DEVICE_ATTR(self_test_threshold, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_SELF_TEST_THRESHOLD);
+
 static IIO_DEVICE_ATTR(gyro_enable, S_IRUGO | S_IWUSR, inv_attr_show,
 	inv_attr_store, ATTR_GYRO_ENABLE);
-static IIO_DEVICE_ATTR(accl_enable, S_IRUGO | S_IWUSR, inv_attr_show,
-	inv_attr_store, ATTR_ACCL_ENABLE);
+static IIO_DEVICE_ATTR(gyro_fifo_enable, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_GYRO_FIFO_ENABLE);
+static IIO_DEVICE_ATTR(gyro_rate, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_GYRO_RATE);
+
+static IIO_DEVICE_ATTR(accel_enable, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_ACCEL_ENABLE);
+static IIO_DEVICE_ATTR(accel_fifo_enable, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_ACCEL_FIFO_ENABLE);
+static IIO_DEVICE_ATTR(accel_rate, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_ACCEL_RATE);
+
 static IIO_DEVICE_ATTR(compass_enable, S_IRUGO | S_IWUSR, inv_attr_show,
 	inv_attr_store, ATTR_COMPASS_ENABLE);
+static IIO_DEVICE_ATTR(compass_rate, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_COMPASS_RATE);
+
+static IIO_DEVICE_ATTR(pressure_enable, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_PRESSURE_ENABLE);
+static IIO_DEVICE_ATTR(pressure_rate, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_PRESSURE_RATE);
+
+static IIO_DEVICE_ATTR(power_state, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_POWER_STATE);
+static IIO_DEVICE_ATTR(firmware_loaded, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_FIRMWARE_LOADED);
+static IIO_DEVICE_ATTR(sampling_frequency, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_SAMPLING_FREQ);
+
+/* show method only sysfs but with power on/off */
+static IIO_DEVICE_ATTR(self_test, S_IRUGO, inv_attr_show, NULL,
+	ATTR_SELF_TEST);
+
+/* show method only sysfs */
+static IIO_DEVICE_ATTR(in_accel_x_calibbias, S_IRUGO, inv_attr_show,
+	NULL, ATTR_ACCEL_X_CALIBBIAS);
+static IIO_DEVICE_ATTR(in_accel_y_calibbias, S_IRUGO, inv_attr_show,
+	NULL, ATTR_ACCEL_Y_CALIBBIAS);
+static IIO_DEVICE_ATTR(in_accel_z_calibbias, S_IRUGO, inv_attr_show,
+	NULL, ATTR_ACCEL_Z_CALIBBIAS);
+
+static IIO_DEVICE_ATTR(in_anglvel_x_calibbias, S_IRUGO,
+		inv_attr_show, NULL, ATTR_GYRO_X_CALIBBIAS);
+static IIO_DEVICE_ATTR(in_anglvel_y_calibbias, S_IRUGO,
+		inv_attr_show, NULL, ATTR_GYRO_Y_CALIBBIAS);
+static IIO_DEVICE_ATTR(in_anglvel_z_calibbias, S_IRUGO,
+		inv_attr_show, NULL, ATTR_GYRO_Z_CALIBBIAS);
+
+static IIO_DEVICE_ATTR(in_anglvel_self_test_scale, S_IRUGO,
+		inv_attr_show, NULL, ATTR_SELF_TEST_GYRO_SCALE);
+static IIO_DEVICE_ATTR(in_accel_self_test_scale, S_IRUGO,
+		inv_attr_show, NULL, ATTR_SELF_TEST_ACCEL_SCALE);
+
+static IIO_DEVICE_ATTR(gyro_matrix, S_IRUGO, inv_attr_show, NULL,
+	ATTR_GYRO_MATRIX);
+static IIO_DEVICE_ATTR(accel_matrix, S_IRUGO, inv_attr_show, NULL,
+	ATTR_ACCEL_MATRIX);
+#ifdef CONFIG_INV_TESTING /* read/write in test mode */
+static IIO_DEVICE_ATTR(compass_matrix, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_COMPASS_MATRIX);
+static IIO_DEVICE_ATTR(compass_sens, S_IRUGO | S_IWUSR, inv_attr_show,
+	inv_attr_store, ATTR_COMPASS_SENS);
+#else
+static IIO_DEVICE_ATTR(compass_matrix, S_IRUGO, inv_attr_show, NULL,
+	ATTR_COMPASS_MATRIX);
+#endif
+static IIO_DEVICE_ATTR(secondary_name, S_IRUGO, inv_attr_show, NULL,
+	ATTR_SECONDARY_NAME);
+
 #ifdef CONFIG_INV_TESTING
 static IIO_DEVICE_ATTR(reg_write, S_IRUGO | S_IWUSR, inv_attr_show,
 	inv_reg_write_store, ATTR_REG_WRITE);
+/* smd debug related sysfs */
+static IIO_DEVICE_ATTR(debug_smd_enable_testp1, S_IWUSR, NULL,
+	inv_dmp_attr_store, ATTR_DEBUG_SMD_ENABLE_TESTP1);
+static IIO_DEVICE_ATTR(debug_smd_enable_testp2, S_IWUSR, NULL,
+	inv_dmp_attr_store, ATTR_DEBUG_SMD_ENABLE_TESTP2);
+static IIO_DEVICE_ATTR(debug_smd_exe_state, S_IRUGO, inv_attr_show,
+	NULL, ATTR_DEBUG_SMD_EXE_STATE);
+static IIO_DEVICE_ATTR(debug_smd_delay_cntr, S_IRUGO, inv_attr_show,
+	NULL, ATTR_DEBUG_SMD_DELAY_CNTR);
+static DEVICE_ATTR(test_suspend_resume, S_IRUGO | S_IWUSR,
+		inv_test_suspend_resume_show, inv_test_suspend_resume_store);
+
+static IIO_DEVICE_ATTR(test_gyro_counter, S_IRUGO | S_IWUSR, inv_test_show,
+	inv_test_store, ATTR_DEBUG_GYRO_COUNTER);
+static IIO_DEVICE_ATTR(test_accel_counter, S_IRUGO | S_IWUSR, inv_test_show,
+	inv_test_store, ATTR_DEBUG_ACCEL_COUNTER);
+static IIO_DEVICE_ATTR(test_compass_counter, S_IRUGO | S_IWUSR, inv_test_show,
+	inv_test_store, ATTR_DEBUG_COMPASS_COUNTER);
+static IIO_DEVICE_ATTR(test_pressure_counter, S_IRUGO | S_IWUSR, inv_test_show,
+	inv_test_store, ATTR_DEBUG_PRESSURE_COUNTER);
+static IIO_DEVICE_ATTR(test_LPQ_counter, S_IRUGO | S_IWUSR, inv_test_show,
+	inv_test_store, ATTR_DEBUG_LPQ_COUNTER);
+static IIO_DEVICE_ATTR(test_SIXQ_counter, S_IRUGO | S_IWUSR, inv_test_show,
+	inv_test_store, ATTR_DEBUG_SIXQ_COUNTER);
+static IIO_DEVICE_ATTR(test_PEDQ_counter, S_IRUGO | S_IWUSR, inv_test_show,
+	inv_test_store, ATTR_DEBUG_PEDQ_COUNTER);
 #endif
 
 static const struct attribute *inv_gyro_attributes[] = {
-	&iio_dev_attr_gyro_enable.dev_attr.attr,
-	&dev_attr_temperature.attr,
-	&iio_dev_attr_power_state.dev_attr.attr,
+	&iio_const_attr_sampling_frequency_available.dev_attr.attr,
 	&dev_attr_reg_dump.attr,
+	&dev_attr_temperature.attr,
+	&dev_attr_master_enable.attr,
+	&iio_dev_attr_in_anglvel_scale.dev_attr.attr,
+	&iio_dev_attr_in_anglvel_x_calibbias.dev_attr.attr,
+	&iio_dev_attr_in_anglvel_y_calibbias.dev_attr.attr,
+	&iio_dev_attr_in_anglvel_z_calibbias.dev_attr.attr,
+	&iio_dev_attr_in_anglvel_x_offset.dev_attr.attr,
+	&iio_dev_attr_in_anglvel_y_offset.dev_attr.attr,
+	&iio_dev_attr_in_anglvel_z_offset.dev_attr.attr,
+	&iio_dev_attr_in_anglvel_self_test_scale.dev_attr.attr,
+	&iio_dev_attr_self_test_samples.dev_attr.attr,
+	&iio_dev_attr_self_test_threshold.dev_attr.attr,
+	&iio_dev_attr_gyro_enable.dev_attr.attr,
+	&iio_dev_attr_gyro_fifo_enable.dev_attr.attr,
+	&iio_dev_attr_gyro_rate.dev_attr.attr,
+	&iio_dev_attr_power_state.dev_attr.attr,
+	&iio_dev_attr_sampling_frequency.dev_attr.attr,
 	&iio_dev_attr_self_test.dev_attr.attr,
 	&iio_dev_attr_gyro_matrix.dev_attr.attr,
+	&iio_dev_attr_secondary_name.dev_attr.attr,
 #ifdef CONFIG_INV_TESTING
 	&iio_dev_attr_reg_write.dev_attr.attr,
+	&iio_dev_attr_debug_smd_enable_testp1.dev_attr.attr,
+	&iio_dev_attr_debug_smd_enable_testp2.dev_attr.attr,
+	&iio_dev_attr_debug_smd_exe_state.dev_attr.attr,
+	&iio_dev_attr_debug_smd_delay_cntr.dev_attr.attr,
+	&dev_attr_test_suspend_resume.attr,
+	&iio_dev_attr_test_gyro_counter.dev_attr.attr,
+	&iio_dev_attr_test_accel_counter.dev_attr.attr,
+	&iio_dev_attr_test_compass_counter.dev_attr.attr,
+	&iio_dev_attr_test_pressure_counter.dev_attr.attr,
+	&iio_dev_attr_test_LPQ_counter.dev_attr.attr,
+	&iio_dev_attr_test_SIXQ_counter.dev_attr.attr,
+	&iio_dev_attr_test_PEDQ_counter.dev_attr.attr,
 #endif
-	&iio_dev_attr_sampling_frequency.dev_attr.attr,
-	&iio_const_attr_sampling_frequency_available.dev_attr.attr,
 };
 
-static const struct attribute *inv_mpu6050_attributes[] = {
-	&iio_dev_attr_accl_enable.dev_attr.attr,
-	&iio_dev_attr_accl_matrix.dev_attr.attr,
-	&iio_dev_attr_firmware_loaded.dev_attr.attr,
-	&iio_dev_attr_motion_lpa_freq.dev_attr.attr,
-	&iio_dev_attr_motion_lpa_on.dev_attr.attr,
-	&iio_dev_attr_motion_lpa_duration.dev_attr.attr,
-	&iio_dev_attr_motion_lpa_threshold.dev_attr.attr,
+static const struct attribute *inv_mpu6xxx_attributes[] = {
+	&dev_attr_event_accel_motion.attr,
+	&dev_attr_event_smd.attr,
+	&dev_attr_event_pedometer.attr,
+	&dev_attr_flush_batch.attr,
+	&iio_dev_attr_in_accel_scale.dev_attr.attr,
+	&iio_dev_attr_in_accel_x_calibbias.dev_attr.attr,
+	&iio_dev_attr_in_accel_y_calibbias.dev_attr.attr,
+	&iio_dev_attr_in_accel_z_calibbias.dev_attr.attr,
+	&iio_dev_attr_in_accel_self_test_scale.dev_attr.attr,
+	&iio_dev_attr_in_accel_x_offset.dev_attr.attr,
+	&iio_dev_attr_in_accel_y_offset.dev_attr.attr,
+	&iio_dev_attr_in_accel_z_offset.dev_attr.attr,
+	&iio_dev_attr_in_accel_x_dmp_bias.dev_attr.attr,
+	&iio_dev_attr_in_accel_y_dmp_bias.dev_attr.attr,
+	&iio_dev_attr_in_accel_z_dmp_bias.dev_attr.attr,
+	&iio_dev_attr_in_anglvel_x_dmp_bias.dev_attr.attr,
+	&iio_dev_attr_in_anglvel_y_dmp_bias.dev_attr.attr,
+	&iio_dev_attr_in_anglvel_z_dmp_bias.dev_attr.attr,
+	&iio_dev_attr_pedometer_int_on.dev_attr.attr,
+	&iio_dev_attr_pedometer_on.dev_attr.attr,
+	&iio_dev_attr_pedometer_steps.dev_attr.attr,
+	&iio_dev_attr_pedometer_time.dev_attr.attr,
+	&iio_dev_attr_pedometer_counter.dev_attr.attr,
+	&iio_dev_attr_pedometer_step_thresh.dev_attr.attr,
+	&iio_dev_attr_pedometer_int_thresh.dev_attr.attr,
+	&iio_dev_attr_smd_enable.dev_attr.attr,
+	&iio_dev_attr_smd_threshold.dev_attr.attr,
+	&iio_dev_attr_smd_delay_threshold.dev_attr.attr,
+	&iio_dev_attr_smd_delay_threshold2.dev_attr.attr,
 	&iio_dev_attr_dmp_on.dev_attr.attr,
 	&iio_dev_attr_dmp_int_on.dev_attr.attr,
 	&iio_dev_attr_dmp_event_int_on.dev_attr.attr,
-	&iio_dev_attr_dmp_output_rate.dev_attr.attr,
-	&iio_dev_attr_quaternion_on.dev_attr.attr,
-	&iio_dev_attr_display_orientation_on.dev_attr.attr,
-	&iio_dev_attr_tap_on.dev_attr.attr,
-	&iio_dev_attr_tap_time.dev_attr.attr,
-	&iio_dev_attr_tap_min_count.dev_attr.attr,
-	&iio_dev_attr_tap_threshold.dev_attr.attr,
-	&iio_dev_attr_tap_axis.dev_attr.attr,
-	&iio_dev_attr_tap_multi_tap_time.dev_attr.attr,
-	&iio_dev_attr_tap_shake_reject_thresh.dev_attr.attr,
-	&iio_dev_attr_tap_shake_reject_time.dev_attr.attr,
-	&iio_dev_attr_tap_shake_reject_timeout.dev_attr.attr,
-	&iio_dev_attr_pedometer_time.dev_attr.attr,
-	&iio_dev_attr_pedometer_steps.dev_attr.attr,
-	&iio_dev_attr_pedometer_clip_threshold.dev_attr.attr,
-	&iio_dev_attr_pedometer_min_steps.dev_attr.attr,
-	&iio_dev_attr_pedometer_max_step_buffer_time.dev_attr.attr,
-	&iio_dev_attr_pedometer_threshold.dev_attr.attr,
-	&iio_dev_attr_pedometer_min_up_time.dev_attr.attr,
-	&iio_dev_attr_pedometer_max_up_time.dev_attr.attr,
-	&iio_dev_attr_pedometer_min_energy.dev_attr.attr,
-	&dev_attr_event_display_orientation.attr,
+	&iio_dev_attr_step_indicator_on.dev_attr.attr,
+	&iio_dev_attr_batchmode_timeout.dev_attr.attr,
+	&iio_dev_attr_batchmode_wake_fifo_full_on.dev_attr.attr,
+	&iio_dev_attr_six_axes_q_on.dev_attr.attr,
+	&iio_dev_attr_six_axes_q_rate.dev_attr.attr,
+	&iio_dev_attr_three_axes_q_on.dev_attr.attr,
+	&iio_dev_attr_three_axes_q_rate.dev_attr.attr,
+	&iio_dev_attr_ped_q_on.dev_attr.attr,
+	&iio_dev_attr_ped_q_rate.dev_attr.attr,
+	&iio_dev_attr_step_detector_on.dev_attr.attr,
+	&iio_dev_attr_accel_enable.dev_attr.attr,
+	&iio_dev_attr_accel_fifo_enable.dev_attr.attr,
+	&iio_dev_attr_accel_rate.dev_attr.attr,
+	&iio_dev_attr_firmware_loaded.dev_attr.attr,
+	&iio_dev_attr_accel_matrix.dev_attr.attr,
+};
+
+static const struct attribute *inv_mpu6500_attributes[] = {
+	&iio_dev_attr_motion_lpa_on.dev_attr.attr,
+	&iio_dev_attr_motion_lpa_freq.dev_attr.attr,
+	&iio_dev_attr_motion_lpa_threshold.dev_attr.attr,
+};
+
+static const struct attribute *inv_tap_attributes[] = {
 	&dev_attr_event_tap.attr,
-	&dev_attr_event_accel_motion.attr,
+	&iio_dev_attr_tap_on.dev_attr.attr,
+	&iio_dev_attr_tap_threshold.dev_attr.attr,
+	&iio_dev_attr_tap_min_count.dev_attr.attr,
+	&iio_dev_attr_tap_time.dev_attr.attr,
+};
+
+static const struct attribute *inv_display_orient_attributes[] = {
+	&dev_attr_event_display_orientation.attr,
+	&iio_dev_attr_display_orientation_on.dev_attr.attr,
 };
 
 static const struct attribute *inv_compass_attributes[] = {
-	&iio_dev_attr_compass_matrix.dev_attr.attr,
+	&iio_dev_attr_in_magn_scale.dev_attr.attr,
 	&iio_dev_attr_compass_enable.dev_attr.attr,
+	&iio_dev_attr_compass_rate.dev_attr.attr,
+	&iio_dev_attr_compass_matrix.dev_attr.attr,
+};
+
+static const struct attribute *inv_akxxxx_attributes[] = {
+#ifdef CONFIG_INV_TESTING
+	&iio_dev_attr_compass_sens.dev_attr.attr,
+#endif
+};
+
+static const struct attribute *inv_pressure_attributes[] = {
+	&iio_dev_attr_pressure_enable.dev_attr.attr,
+	&iio_dev_attr_pressure_rate.dev_attr.attr,
 };
 
 static const struct attribute *inv_mpu3050_attributes[] = {
-	&iio_dev_attr_accl_matrix.dev_attr.attr,
-	&iio_dev_attr_accl_enable.dev_attr.attr,
+	&iio_dev_attr_in_accel_scale.dev_attr.attr,
+	&iio_dev_attr_accel_enable.dev_attr.attr,
+	&iio_dev_attr_accel_fifo_enable.dev_attr.attr,
+	&iio_dev_attr_accel_matrix.dev_attr.attr,
 };
 
-static struct attribute *inv_attributes[ARRAY_SIZE(inv_gyro_attributes) +
-				ARRAY_SIZE(inv_mpu6050_attributes) +
-				ARRAY_SIZE(inv_compass_attributes) + 1];
+static struct attribute *inv_attributes[
+	ARRAY_SIZE(inv_gyro_attributes) +
+	ARRAY_SIZE(inv_mpu6xxx_attributes) +
+	ARRAY_SIZE(inv_mpu6500_attributes) +
+	ARRAY_SIZE(inv_compass_attributes) +
+	ARRAY_SIZE(inv_akxxxx_attributes) +
+	ARRAY_SIZE(inv_pressure_attributes) +
+	ARRAY_SIZE(inv_tap_attributes) +
+	ARRAY_SIZE(inv_display_orient_attributes) +
+	1
+];
 
 static const struct attribute_group inv_attribute_group = {
 	.name = "mpu",
@@ -1732,143 +2361,27 @@ static const struct attribute_group inv_attribute_group = {
 
 static const struct iio_info mpu_info = {
 	.driver_module = THIS_MODULE,
-	.read_raw = &mpu_read_raw,
-	.write_raw = &mpu_write_raw,
 	.attrs = &inv_attribute_group,
 };
 
-/**
- *  inv_setup_compass() - Configure compass.
- */
-static int inv_setup_compass(struct inv_mpu_iio_s *st)
-{
-	int result;
-	u8 data[4];
-
-	result = inv_i2c_read(st, REG_YGOFFS_TC, 1, data);
-	if (result)
-		return result;
-	data[0] &= ~BIT_I2C_MST_VDDIO;
-	if (st->plat_data.level_shifter)
-		data[0] |= BIT_I2C_MST_VDDIO;
-	/*set up VDDIO register */
-	result = inv_i2c_single_write(st, REG_YGOFFS_TC, data[0]);
-	if (result)
-		return result;
-	/* set to bypass mode */
-	result = inv_i2c_single_write(st, REG_INT_PIN_CFG,
-				st->plat_data.int_config | BIT_BYPASS_EN);
-	if (result)
-		return result;
-	/*read secondary i2c ID register */
-	result = inv_secondary_read(REG_AKM_ID, 1, data);
-	if (result)
-		return result;
-	if (data[0] != DATA_AKM_ID)
-		return -ENXIO;
-	/*set AKM to Fuse ROM access mode */
-	result = inv_secondary_write(REG_AKM_MODE, DATA_AKM_MODE_FR);
-	if (result)
-		return result;
-	result = inv_secondary_read(REG_AKM_SENSITIVITY, THREE_AXIS,
-					st->chip_info.compass_sens);
-	if (result)
-		return result;
-	/*revert to power down mode */
-	result = inv_secondary_write(REG_AKM_MODE, DATA_AKM_MODE_PD);
-	if (result)
-		return result;
-	pr_debug("%s senx=%d, seny=%d, senz=%d\n",
-		 st->hw->name,
-		 st->chip_info.compass_sens[0],
-		 st->chip_info.compass_sens[1],
-		 st->chip_info.compass_sens[2]);
-	/*restore to non-bypass mode */
-	result = inv_i2c_single_write(st, REG_INT_PIN_CFG,
-			st->plat_data.int_config);
-	if (result)
-		return result;
-
-	/*setup master mode and master clock and ES bit*/
-	result = inv_i2c_single_write(st, REG_I2C_MST_CTRL, BIT_WAIT_FOR_ES);
-	if (result)
-		return result;
-	/* slave 0 is used to read data from compass */
-	/*read mode */
-	result = inv_i2c_single_write(st, REG_I2C_SLV0_ADDR, BIT_I2C_READ|
-		st->plat_data.secondary_i2c_addr);
-	if (result)
-		return result;
-	/* AKM status register address is 2 */
-	result = inv_i2c_single_write(st, REG_I2C_SLV0_REG, REG_AKM_STATUS);
-	if (result)
-		return result;
-	/* slave 0 is enabled at the beginning, read 8 bytes from here */
-	result = inv_i2c_single_write(st, REG_I2C_SLV0_CTRL, BIT_SLV_EN |
-				NUM_BYTES_COMPASS_SLAVE);
-	if (result)
-		return result;
-	/*slave 1 is used for AKM mode change only*/
-	result = inv_i2c_single_write(st, REG_I2C_SLV1_ADDR,
-		st->plat_data.secondary_i2c_addr);
-	if (result)
-		return result;
-	/* AKM mode register address is 0x0A */
-	result = inv_i2c_single_write(st, REG_I2C_SLV1_REG, REG_AKM_MODE);
-	if (result)
-		return result;
-	/* slave 1 is enabled, byte length is 1 */
-	result = inv_i2c_single_write(st, REG_I2C_SLV1_CTRL, BIT_SLV_EN | 1);
-	if (result)
-		return result;
-	/* output data for slave 1 is fixed, single measure mode*/
-	st->compass_scale = 1;
-	if (COMPASS_ID_AK8975 == st->plat_data.sec_slave_id) {
-		st->compass_st_upper = AKM8975_ST_Upper;
-		st->compass_st_lower = AKM8975_ST_Lower;
-		data[0] = DATA_AKM_MODE_SM;
-	} else if (COMPASS_ID_AK8972 == st->plat_data.sec_slave_id) {
-		st->compass_st_upper = AKM8972_ST_Upper;
-		st->compass_st_lower = AKM8972_ST_Lower;
-		data[0] = DATA_AKM_MODE_SM;
-	} else if (COMPASS_ID_AK8963 == st->plat_data.sec_slave_id) {
-		st->compass_st_upper = AKM8963_ST_Upper;
-		st->compass_st_lower = AKM8963_ST_Lower;
-		data[0] = DATA_AKM_MODE_SM |
-			  (st->compass_scale << AKM8963_SCALE_SHIFT);
-	}
-	result = inv_i2c_single_write(st, REG_I2C_SLV1_DO, data[0]);
-	if (result)
-		return result;
-	/* slave 0 and 1 timer action is enabled every sample*/
-	result = inv_i2c_single_write(st, REG_I2C_MST_DELAY_CTRL,
-				BIT_SLV0_DLY_EN | BIT_SLV1_DLY_EN);
-	return result;
-}
-
-static void inv_setup_func_ptr(struct inv_mpu_iio_s *st)
+static void inv_setup_func_ptr(struct inv_mpu_state *st)
 {
 	if (st->chip_type == INV_MPU3050) {
 		st->set_power_state    = set_power_mpu3050;
 		st->switch_gyro_engine = inv_switch_3050_gyro_engine;
-		st->switch_accl_engine = inv_switch_3050_accl_engine;
+		st->switch_accel_engine = inv_switch_3050_accel_engine;
 		st->init_config        = inv_init_config_mpu3050;
 		st->setup_reg          = inv_setup_reg_mpu3050;
 	} else {
 		st->set_power_state    = set_power_itg;
 		st->switch_gyro_engine = inv_switch_gyro_engine;
-		st->switch_accl_engine = inv_switch_accl_engine;
+		st->switch_accel_engine = inv_switch_accel_engine;
 		st->init_config        = inv_init_config;
 		st->setup_reg          = inv_setup_reg;
-		/*MPU6XXX special functions */
-		st->compass_en         = inv_compass_enable;
-		st->quaternion_en      = inv_quaternion_on;
-		st->gyro_en            = inv_gyro_enable;
-		st->accl_en            = inv_accl_enable;
 	}
 }
 
-static int inv_detect_6xxx(struct inv_mpu_iio_s *st)
+static int inv_detect_6xxx(struct inv_mpu_state *st)
 {
 	int result;
 	u8 d;
@@ -1876,7 +2389,7 @@ static int inv_detect_6xxx(struct inv_mpu_iio_s *st)
 	result = inv_i2c_read(st, REG_WHOAMI, 1, &d);
 	if (result)
 		return result;
-	if (d == MPU6500_ID) {
+	if ((d == MPU6500_ID) || (d == MPU6515_ID)) {
 		st->chip_type = INV_MPU6500;
 		strcpy(st->name, "mpu6500");
 	} else {
@@ -1886,90 +2399,141 @@ static int inv_detect_6xxx(struct inv_mpu_iio_s *st)
 	return 0;
 }
 
-/**
+static int inv_setup_vddio(struct inv_mpu_state *st)
+{
+	int result;
+	u8 data[1];
+
+	if (INV_MPU6050 == st->chip_type) {
+		result = inv_i2c_read(st, REG_YGOFFS_TC, 1, data);
+		if (result)
+			return result;
+		data[0] &= ~BIT_I2C_MST_VDDIO;
+		if (st->plat_data.level_shifter)
+			data[0] |= BIT_I2C_MST_VDDIO;
+		/*set up VDDIO register */
+		result = inv_i2c_single_write(st, REG_YGOFFS_TC, data[0]);
+		if (result)
+			return result;
+	}
+
+	return 0;
+}
+
+/*
  *  inv_check_chip_type() - check and setup chip type.
  */
-static int inv_check_chip_type(struct inv_mpu_iio_s *st,
+static int inv_check_chip_type(struct inv_mpu_state *st,
 		const struct i2c_device_id *id)
 {
 	struct inv_reg_map_s *reg;
 	int result;
 	int t_ind;
+	struct inv_chip_config_s *conf;
+	struct mpu_platform_data *plat;
 
-	if (!strcmp(id->name, "itg3500"))
+	conf = &st->chip_config;
+	plat = &st->plat_data;
+	if (!strcmp(id->name, "itg3500")) {
 		st->chip_type = INV_ITG3500;
-	else if (!strcmp(id->name, "mpu3050"))
+	} else if (!strcmp(id->name, "mpu3050")) {
 		st->chip_type = INV_MPU3050;
-	else if (!strcmp(id->name, "mpu6050"))
+	} else if (!strcmp(id->name, "mpu6050")) {
 		st->chip_type = INV_MPU6050;
-	else if (!strcmp(id->name, "mpu9150"))
+	} else if (!strcmp(id->name, "mpu9150")) {
 		st->chip_type = INV_MPU6050;
-	else if (!strcmp(id->name, "mpu6500"))
+#ifdef EXT_COMPASS
+		plat->sec_slave_type = SECONDARY_SLAVE_TYPE_COMPASS;
+		plat->sec_slave_id = COMPASS_ID_AK8975;
+#endif
+	} else if (!strcmp(id->name, "mpu6500")) {
 		st->chip_type = INV_MPU6500;
-	else if (!strcmp(id->name, "mpu9250"))
+	} else if (!strcmp(id->name, "mpu9250")) {
 		st->chip_type = INV_MPU6500;
-	else if (!strcmp(id->name, "mpu6xxx"))
+#ifdef EXT_COMPASS
+		plat->sec_slave_type = SECONDARY_SLAVE_TYPE_COMPASS;
+		plat->sec_slave_id = COMPASS_ID_AK8963;
+#endif
+	} else if (!strcmp(id->name, "mpu6xxx")) {
 		st->chip_type = INV_MPU6050;
-	else
+	} else if (!strcmp(id->name, "mpu9350")) {
+		st->chip_type = INV_MPU6500;
+#ifdef EXT_COMPASS
+		plat->sec_slave_type = SECONDARY_SLAVE_TYPE_COMPASS;
+		plat->sec_slave_id = COMPASS_ID_MLX90399;
+#endif
+		/* block use of MPU9350 in this build
+		   since it's not production ready */
+		pr_err("MPU9350 support is not officially available yet.\n");
 		return -EPERM;
-
+	} else if (!strcmp(id->name, "mpu6515")) {
+		st->chip_type = INV_MPU6500;
+	} else {
+		return -EPERM;
+	}
 	inv_setup_func_ptr(st);
 	st->hw  = &hw_info[st->chip_type];
-	st->mpu_slave = NULL;
 	reg = &st->reg;
 	st->setup_reg(reg);
-	st->chip_config.gyro_enable = 1;
 	/* reset to make sure previous state are not there */
 	result = inv_i2c_single_write(st, reg->pwr_mgmt_1, BIT_H_RESET);
 	if (result)
 		return result;
 	msleep(POWER_UP_TIME);
-
-	/* turn off and turn on power to ensure gyro engine is on */
+	/* toggle power state */
 	result = st->set_power_state(st, false);
 	if (result)
 		return result;
+
 	result = st->set_power_state(st, true);
 	if (result)
 		return result;
 
 	if (!strcmp(id->name, "mpu6xxx")) {
+		/* for MPU6500, reading register need more time */
+		msleep(POWER_UP_TIME);
 		result = inv_detect_6xxx(st);
+		if (result)
+			return result;
+	}
+
+	if ((plat->sec_slave_type != SECONDARY_SLAVE_TYPE_NONE) ||
+		(plat->aux_slave_type != SECONDARY_SLAVE_TYPE_NONE)) {
+		result = inv_setup_vddio(st);
 		if (result)
 			return result;
 	}
 
 	switch (st->chip_type) {
 	case INV_ITG3500:
-		st->num_channels = INV_CHANNEL_NUM_GYRO;
 		break;
 	case INV_MPU6050:
 	case INV_MPU6500:
-		if (SECONDARY_SLAVE_TYPE_COMPASS ==
-		    st->plat_data.sec_slave_type) {
-			st->chip_config.has_compass = 1;
-			st->num_channels =INV_CHANNEL_NUM_GYRO_ACCL_QUANTERNION_MAGN;
-		} else {
-			st->chip_config.has_compass = 0;
-			st->num_channels =
-				INV_CHANNEL_NUM_GYRO_ACCL_QUANTERNION;
-		}
+		if (SECONDARY_SLAVE_TYPE_COMPASS == plat->sec_slave_type)
+			conf->has_compass = 1;
+		else
+			conf->has_compass = 0;
+		if (SECONDARY_SLAVE_TYPE_PRESSURE == plat->aux_slave_type)
+			conf->has_pressure = 1;
+		else
+			conf->has_pressure = 0;
+
 		break;
 	case INV_MPU3050:
-		if (SECONDARY_SLAVE_TYPE_ACCEL ==
-		    st->plat_data.sec_slave_type) {
-			if (ACCEL_ID_BMA250 == st->plat_data.sec_slave_id)
+		if (SECONDARY_SLAVE_TYPE_ACCEL == plat->sec_slave_type) {
+			if (ACCEL_ID_BMA250 == plat->sec_slave_id)
 				inv_register_mpu3050_slave(st);
-			st->num_channels = INV_CHANNEL_NUM_GYRO_ACCL;
-		} else {
-			st->num_channels = INV_CHANNEL_NUM_GYRO;
 		}
 		break;
 	default:
 		result = st->set_power_state(st, false);
 		return -ENODEV;
 	}
-
+	if (conf->has_compass && conf->has_pressure &&
+			(COMPASS_ID_MLX90399 == plat->sec_slave_id)) {
+		pr_err("MLX90399 can't share slaves with others\n");
+		return -EINVAL;
+	}
 	switch (st->chip_type) {
 	case INV_MPU6050:
 		result = inv_get_silicon_rev_mpu6050(st);
@@ -1986,10 +2550,35 @@ static int inv_check_chip_type(struct inv_mpu_iio_s *st,
 		st->set_power_state(st, false);
 		return result;
 	}
-	if (st->chip_config.has_compass) {
-		result = inv_setup_compass(st);
+
+	/* turn off the gyro engine after OTP reading */
+	result = st->switch_gyro_engine(st, false);
+	if (result)
+		return result;
+	result = st->switch_accel_engine(st, false);
+	if (result)
+		return result;
+
+#ifdef EXT_COMPASS
+	result = inv_i2c_single_write(st, REG_INT_PIN_CFG,
+				st->plat_data.int_config | BIT_BYPASS_EN);
+	if (result)
+		return result;
+#endif
+	if (conf->has_compass) {
+		result = inv_mpu_setup_compass_slave(st);
 		if (result) {
 			pr_err("compass setup failed\n");
+#ifdef EXT_COMPASS
+			st->set_power_state(st, false);
+			return result;
+#endif
+		}
+	}
+	if (conf->has_pressure) {
+		result = inv_mpu_setup_pressure_slave(st);
+		if (result) {
+			pr_err("pressure setup failed\n");
 			st->set_power_state(st, false);
 			return result;
 		}
@@ -2000,7 +2589,7 @@ static int inv_check_chip_type(struct inv_mpu_iio_s *st,
 		sizeof(inv_gyro_attributes));
 	t_ind += ARRAY_SIZE(inv_gyro_attributes);
 
-	if (INV_MPU3050 == st->chip_type && st->mpu_slave != NULL) {
+	if (INV_MPU3050 == st->chip_type && st->slave_accel != NULL) {
 		memcpy(&inv_attributes[t_ind], inv_mpu3050_attributes,
 		       sizeof(inv_mpu3050_attributes));
 		t_ind += ARRAY_SIZE(inv_mpu3050_attributes);
@@ -2008,23 +2597,48 @@ static int inv_check_chip_type(struct inv_mpu_iio_s *st,
 		return 0;
 	}
 
+	/* all MPU6xxx based parts */
 	if ((INV_MPU6050 == st->chip_type) || (INV_MPU6500 == st->chip_type)) {
-		memcpy(&inv_attributes[t_ind], inv_mpu6050_attributes,
-		       sizeof(inv_mpu6050_attributes));
-		t_ind += ARRAY_SIZE(inv_mpu6050_attributes);
+		memcpy(&inv_attributes[t_ind], inv_mpu6xxx_attributes,
+		       sizeof(inv_mpu6xxx_attributes));
+		t_ind += ARRAY_SIZE(inv_mpu6xxx_attributes);
 	}
 
-	if (st->chip_config.has_compass) {
+	/* MPU6500 only */
+	if (INV_MPU6500 == st->chip_type) {
+		memcpy(&inv_attributes[t_ind], inv_mpu6500_attributes,
+		       sizeof(inv_mpu6500_attributes));
+		t_ind += ARRAY_SIZE(inv_mpu6500_attributes);
+	}
+
+	if (conf->has_compass) {
 		memcpy(&inv_attributes[t_ind], inv_compass_attributes,
 		       sizeof(inv_compass_attributes));
 		t_ind += ARRAY_SIZE(inv_compass_attributes);
+
+		/* AKM only */
+		if (st->plat_data.sec_slave_id == COMPASS_ID_AK8975 ||
+		    st->plat_data.sec_slave_id == COMPASS_ID_AK8972 ||
+		    st->plat_data.sec_slave_id == COMPASS_ID_AK09911 ||
+		    st->plat_data.sec_slave_id == COMPASS_ID_AK8963) {
+			memcpy(&inv_attributes[t_ind], inv_akxxxx_attributes,
+			       sizeof(inv_akxxxx_attributes));
+			t_ind += ARRAY_SIZE(inv_akxxxx_attributes);
+		}
 	}
+
+	if (conf->has_pressure) {
+		memcpy(&inv_attributes[t_ind], inv_pressure_attributes,
+		       sizeof(inv_pressure_attributes));
+		t_ind += ARRAY_SIZE(inv_pressure_attributes);
+	}
+
 	inv_attributes[t_ind] = NULL;
 
 	return 0;
 }
 
-/**
+/*
  *  inv_create_dmp_sysfs() - create binary sysfs dmp entry.
  */
 static const struct bin_attribute dmp_firmware = {
@@ -2032,37 +2646,56 @@ static const struct bin_attribute dmp_firmware = {
 		.name = "dmp_firmware",
 		.mode = S_IRUGO | S_IWUSR
 	},
-	.size = 4096,
+	.size = DMP_IMAGE_SIZE + 32,
 	.read = inv_dmp_firmware_read,
 	.write = inv_dmp_firmware_write,
+};
+
+static const struct bin_attribute six_q_value = {
+	.attr = {
+		.name = "six_axes_q_value",
+		.mode = S_IWUSR
+	},
+	.size = QUATERNION_BYTES,
+	.read = NULL,
+	.write = inv_six_q_write,
 };
 
 static int inv_create_dmp_sysfs(struct iio_dev *ind)
 {
 	int result;
+
 	result = sysfs_create_bin_file(&ind->dev.kobj, &dmp_firmware);
+	if (result)
+		return result;
+	result = sysfs_create_bin_file(&ind->dev.kobj, &six_q_value);
 
 	return result;
 }
 
-/**
+/*
  *  inv_mpu_probe() - probe function.
  */
 static int inv_mpu_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
-	struct inv_mpu_iio_s *st;
+	struct inv_mpu_state *st;
 	struct iio_dev *indio_dev;
 	int result;
+	printk("%s\n", __FUNCTION__);
+#ifdef CONFIG_DTS_INV_MPU_IIO
+	enable_irq_wake(client->irq);
+#endif
+
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		result = -ENOSYS;
-		pr_err("I2c function error\n");
+		printk("I2c function error\n");
 		goto out_no_free;
 	}
 	indio_dev = iio_device_alloc(sizeof(*st));
 	if (indio_dev == NULL) {
-		pr_err("memory allocation failed\n");
+		printk("memory allocation failed\n");
 		result =  -ENOMEM;
 		goto out_no_free;
 	}
@@ -2070,9 +2703,27 @@ static int inv_mpu_probe(struct i2c_client *client,
 	st->client = client;
 	st->sl_handle = client->adapter;
 	st->i2c_addr = client->addr;
+#ifdef CONFIG_DTS_INV_MPU_IIO
+	result = invensense_mpu_parse_dt(&client->dev, &st->plat_data);
+	if (result)
+		goto out_free;
+#if 0
+	/*Power on device.*/
+	if (st->plat_data.power_on) {
+		result = st->plat_data.power_on(&st->plat_data);
+		if (result < 0) {
+			//printk(&client->dev,
+			printk(	"power_on failed: %d\n", result);
+			return result;
+		}
+	}
+#endif
+msleep(100);
+#else
+	/* power is turned on inside check chip type */
 	st->plat_data =
-		*(struct mpu_platform_data *)dev_get_platdata(&client->dev);
-
+	*(struct mpu_platform_data *)dev_get_platdata(&client->dev);
+#endif
 	if (st->plat_data.board_init) {
 		result = st->plat_data.board_init(&client->dev);
 		if (result < 0) {
@@ -2080,29 +2731,24 @@ static int inv_mpu_probe(struct i2c_client *client,
 			goto out_free;
 		}
 	}
-
 	if (st->plat_data.power_on) {
-		st->plat_data.power_on();
+		result = st->plat_data.power_on();
+		if (result < 0) {
+			pr_err("board_init failed ! errno = %d\n",result);
+			goto out_free;
+		}
 	}
-
-	/* power is turned on inside check chip type*/
+	result = inv_check_chip_type(st, id);
 	result = inv_check_chip_type(st, id);
 	if (result)
 		goto out_free;
 
 	result = st->init_config(indio_dev);
 	if (result) {
-		dev_err(&client->adapter->dev,
-			"Could not initialize device.\n");
+		//printk(&client->adapter->dev,
+		printk("Could not initialize device.\n");
 		goto out_free;
 	}
-	result = st->set_power_state(st, false);
-	if (result) {
-		dev_err(&client->adapter->dev,
-			"%s could not be turned off.\n", st->hw->name);
-		goto out_free;
-	}
-
 	/* Make state variables available to all _show and _store functions. */
 	i2c_set_clientdata(client, indio_dev);
 	indio_dev->dev.parent = &client->dev;
@@ -2111,7 +2757,7 @@ static int inv_mpu_probe(struct i2c_client *client,
 	else
 		indio_dev->name = id->name;
 	indio_dev->channels = inv_mpu_channels;
-	indio_dev->num_channels = st->num_channels;
+	indio_dev->num_channels = ARRAY_SIZE(inv_mpu_channels);
 
 	indio_dev->info = &mpu_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
@@ -2119,43 +2765,51 @@ static int inv_mpu_probe(struct i2c_client *client,
 
 	result = inv_mpu_configure_ring(indio_dev);
 	if (result) {
-		pr_err("configure ring buffer fail\n");
+		printk("configure ring buffer fail\n");
 		goto out_free;
 	}
 	result = iio_buffer_register(indio_dev, indio_dev->channels,
 					indio_dev->num_channels);
 	if (result) {
-		pr_err("ring buffer register fail\n");
+		printk("ring buffer register fail\n");
 		goto out_unreg_ring;
 	}
 	st->irq = client->irq;
 	result = inv_mpu_probe_trigger(indio_dev);
 	if (result) {
-		pr_err("trigger probe fail\n");
+		printk("trigger probe fail\n");
 		goto out_remove_ring;
 	}
 
 	/* Tell the i2c counter, we have an IRQ */
-	INV_I2C_SETIRQ(MPU, client->irq);
+	INV_I2C_SETIRQ(IRQ_MPU, client->irq);
 
 	result = iio_device_register(indio_dev);
 	if (result) {
-		pr_err("IIO device register fail\n");
+		printk("IIO device register fail\n");
 		goto out_remove_trigger;
 	}
 
 	if (INV_MPU6050 == st->chip_type ||
-	    INV_MPU6500 == st->chip_type) {
+		INV_MPU6500 == st->chip_type) {
 		result = inv_create_dmp_sysfs(indio_dev);
 		if (result) {
-			pr_err("create dmp sysfs failed\n");
+			printk("create dmp sysfs failed\n");
 			goto out_unreg_iio;
 		}
 	}
-
 	INIT_KFIFO(st->timestamps);
 	spin_lock_init(&st->time_stamp_lock);
-	dev_info(&client->adapter->dev, "%s is ready to go!\n",
+	mutex_init(&st->suspend_resume_lock);
+	result = st->set_power_state(st, false);
+	if (result) {
+		//dev_err(&client->adapter->dev,
+		//	"%s could not be turned off.\n", st->hw->name);
+		printk("%s could not be truned off.\n", st->hw->name);
+		goto out_unreg_iio;
+	}
+	inv_init_sensor_struct(st);
+	dev_info(&client->dev, "%s is ready to go!\n",
 					indio_dev->name);
 
 	return 0;
@@ -2170,23 +2824,21 @@ out_unreg_ring:
 	inv_mpu_unconfigure_ring(indio_dev);
 out_free:
 	iio_device_free(indio_dev);
-	if (st->plat_data.power_off) {
-		st->plat_data.power_off();
-	}
 out_no_free:
-	dev_err(&client->adapter->dev, "%s failed %d\n", __func__, result);
-
+	//dev_err(&client->adapter->dev, "%s failed %d\n", __func__, result);
+	printk("%s failed %d\n", __func__, result);
 	return -EIO;
 }
 
 static void inv_mpu_shutdown(struct i2c_client *client)
 {
 	struct iio_dev *indio_dev = i2c_get_clientdata(client);
-	struct inv_mpu_iio_s *st = iio_priv(indio_dev);
+	struct inv_mpu_state *st = iio_priv(indio_dev);
 	struct inv_reg_map_s *reg;
 	int result;
 
 	reg = &st->reg;
+	mutex_lock(&indio_dev->mlock);
 	dev_dbg(&client->adapter->dev, "Shutting down %s...\n", st->hw->name);
 
 	/* reset to make sure previous state are not there */
@@ -2200,15 +2852,17 @@ static void inv_mpu_shutdown(struct i2c_client *client)
 	if (result)
 		dev_err(&client->adapter->dev, "Failed to turn off %s\n",
 			st->hw->name);
+	mutex_unlock(&indio_dev->mlock);
 }
 
-/**
+/*
  *  inv_mpu_remove() - remove function.
  */
 static int inv_mpu_remove(struct i2c_client *client)
 {
 	struct iio_dev *indio_dev = i2c_get_clientdata(client);
-	struct inv_mpu_iio_s *st = iio_priv(indio_dev);
+	struct inv_mpu_state *st = iio_priv(indio_dev);
+
 	kfifo_free(&st->timestamps);
 	iio_device_unregister(indio_dev);
 	if (indio_dev->modes & INDIO_BUFFER_TRIGGERED)
@@ -2222,21 +2876,100 @@ static int inv_mpu_remove(struct i2c_client *client)
 	return 0;
 }
 
+static int inv_setup_suspend_batchmode(struct iio_dev *indio_dev, bool suspend)
+{
+	struct inv_mpu_state *st = iio_priv(indio_dev);
+	int result;
+
+	if (st->chip_config.dmp_on &&
+		st->chip_config.enable &&
+		st->batch.on &&
+		(!st->chip_config.dmp_event_int_on)) {
+		if (!st->batch.wake_fifo_on) {
+			st->batch.overflow_on = suspend;
+			result = inv_i2c_single_write(st,
+					st->reg.user_ctrl, 0);
+			if (result)
+				return result;
+			result = inv_batchmode_setup(st);
+			if (result)
+				return result;
+			result = inv_reset_fifo(indio_dev);
+			if (result)
+				return result;
+		}
+		/* turn off data interrupt in suspend mode;turn on resume */
+		result = inv_set_interrupt_on_gesture_event(st, suspend);
+		if (result)
+			return result;
+	}
+
+	return 0;
+}
+
 #ifdef CONFIG_PM
 static int inv_mpu_resume(struct device *dev)
 {
-	struct inv_mpu_iio_s *st =
-			iio_priv(i2c_get_clientdata(to_i2c_client(dev)));
+	struct iio_dev *indio_dev = i2c_get_clientdata(to_i2c_client(dev));
+	struct inv_mpu_state *st = iio_priv(indio_dev);
+	int result;
+
 	pr_debug("%s inv_mpu_resume\n", st->hw->name);
-	return st->set_power_state(st, true);
+	mutex_lock(&indio_dev->mlock);
+
+	result = 0;
+	if (st->chip_config.dmp_on && st->chip_config.enable) {
+		result = st->set_power_state(st, true);
+		result |= inv_read_time_and_ticks(st, true);
+		if (st->ped.int_on)
+			result |= inv_enable_pedometer_interrupt(st, true);
+		if (st->chip_config.display_orient_on)
+			result |= inv_set_display_orient_interrupt_dmp(st,
+								true);
+		result |= inv_setup_suspend_batchmode(indio_dev, false);
+	} else if (st->chip_config.enable) {
+		result = st->set_power_state(st, true);
+	}
+
+	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->suspend_resume_lock);
+
+	return result;
 }
 
 static int inv_mpu_suspend(struct device *dev)
 {
-	struct inv_mpu_iio_s *st =
-			iio_priv(i2c_get_clientdata(to_i2c_client(dev)));
+	struct iio_dev *indio_dev = i2c_get_clientdata(to_i2c_client(dev));
+	struct inv_mpu_state *st = iio_priv(indio_dev);
+	int result;
+
 	pr_debug("%s inv_mpu_suspend\n", st->hw->name);
-	return st->set_power_state(st, false);
+	mutex_lock(&indio_dev->mlock);
+
+	result = 0;
+	if (st->chip_config.dmp_on && st->chip_config.enable) {
+		/* turn off pedometer interrupt during suspend */
+		if (st->ped.int_on)
+			result |= inv_enable_pedometer_interrupt(st, false);
+		/* turn off orientation interrupt during suspend */
+		if (st->chip_config.display_orient_on)
+			result |= inv_set_display_orient_interrupt_dmp(st,
+								false);
+		/* setup batch mode related during suspend */
+		result = inv_setup_suspend_batchmode(indio_dev, true);
+		/* only in DMP non-batch data mode, turn off the power */
+		if ((!st->batch.on) && (!st->chip_config.smd_enable) &&
+					(!st->ped.on))
+			result |= st->set_power_state(st, false);
+	} else if (st->chip_config.enable) {
+		/* in non DMP case, just turn off the power */
+		result |= st->set_power_state(st, false);
+	}
+
+	mutex_unlock(&indio_dev->mlock);
+	mutex_lock(&st->suspend_resume_lock);
+
+	return result;
 }
 static const struct dev_pm_ops inv_mpu_pmops = {
 	SET_SYSTEM_SLEEP_PM_OPS(inv_mpu_suspend, inv_mpu_resume)
@@ -2258,6 +2991,8 @@ static const struct i2c_device_id inv_mpu_id[] = {
 	{"mpu6500", INV_MPU6500},
 	{"mpu9250", INV_MPU9250},
 	{"mpu6xxx", INV_MPU6XXX},
+	{"mpu9350", INV_MPU9350},
+	{"mpu6515", INV_MPU6515},
 	{}
 };
 
@@ -2284,12 +3019,14 @@ static int __init inv_mpu_init(void)
 		pr_err("failed\n");
 		return result;
 	}
+	printk("%s\n", __FUNCTION__);
 	return 0;
 }
 
 static void __exit inv_mpu_exit(void)
 {
 	i2c_del_driver(&inv_mpu_driver);
+	printk("%s\n", __FUNCTION__);
 }
 
 module_init(inv_mpu_init);
@@ -2300,6 +3037,3 @@ MODULE_DESCRIPTION("Invensense device driver");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("inv-mpu-iio");
 
-/**
- *  @}
- */
