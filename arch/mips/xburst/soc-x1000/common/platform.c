@@ -129,10 +129,15 @@ struct jz_gpio_func_def platform_devio_array[] = {
 	SFC_PORTA,
 #endif
 
-#ifdef CONFIG_JZ_SPI0_PA
-	SSI0_PORTA,
+#ifdef CONFIG_JZ_SPI0_PA_22BIT
+	SSI0_PORTA_22BIT,
 #endif
-
+#ifdef CONFIG_JZ_SPI0_PA_26BIT
+	SSI0_PORTA_26BIT,
+#endif
+#ifdef CONFIG_JZ_SPI0_PD
+	SSI0_PORTD,
+#endif
 };
 
 int platform_devio_array_size = ARRAY_SIZE(platform_devio_array);

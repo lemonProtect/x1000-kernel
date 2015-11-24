@@ -579,7 +579,7 @@ static void __exit jz_efuse_exit(void)
 module_init(jz_efuse_init);
 module_exit(jz_efuse_exit);
 
-MODULE_DESCRIPTION("M200 efuse driver");
+MODULE_DESCRIPTION("X1000 efuse driver");
 MODULE_AUTHOR("liu bo <bo.liu@ingenic.com>");
 MODULE_LICENSE("GPL v2");
 MODULE_VERSION("20151123");

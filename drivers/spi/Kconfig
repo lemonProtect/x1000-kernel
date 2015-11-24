@@ -121,6 +121,12 @@ choice
 	default JZ_SPI0_PB
 config JZ_SPI0_PA
 	bool "GPIO A"
+config JZ_SPI0_PA_22BIT
+	depends on SOC_X1000
+	bool "PORT A 22BIT"
+config JZ_SPI0_PA_26BIT
+	depends on SOC_X1000
+	bool "PORT A 26BIT"
 config JZ_SPI0_PB
 	bool "GPIO B"
 config JZ_SPI0_PD
