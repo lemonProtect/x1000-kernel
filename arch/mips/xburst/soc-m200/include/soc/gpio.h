@@ -20,6 +20,7 @@ enum gpio_function {
 	GPIO_INT_FE	= 0x0a,  //1010, Fall Edge trigger interrupt
 	GPIO_INT_RE	= 0x0b,  //1011, Rise Edge trigger interrupt
 	GPIO_INPUT_PULL	= 0x16,  //0001 0110, GPIO as input and enable pull
+	GPIO_PULL	= 0x10,  //0001 0000, enable GPIO pull
 };
 #define GPIO_AS_FUNC(func)  (! ((func) & 0xc))
 

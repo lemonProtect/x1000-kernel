@@ -81,7 +81,7 @@ menu "jz board type select"
 choice
 	prompt "soc m200 codec type select"
 	depends on SOC_M200
-	config SND_ASOC_INGENIC_DORADO_ICDC
+config SND_ASOC_INGENIC_DORADO_ICDC
 	tristate "Audio support for dorado with internal codec"
 	select SND_ASOC_DMA_V12
 	select SND_ASOC_JZ_AIC_I2S_V12
@@ -90,19 +90,28 @@ choice
 	help
 	  Say Y if you want to add audio support for M200 Dorado
 	  reference board with internal codec
+config SND_ASOC_INGENIC_NEWTON2_PLUS_ICDC
+	tristate "Audio support for newton2 plus with internal codec"
+	select SND_ASOC_DMA_V12
+	select SND_ASOC_JZ_AIC_I2S_V12
+	select SND_ASOC_JZ_ICDC_D1
+	select SND_ASOC_JZ_PCM_V12
+	help
+	  Say Y if you want to add audio support for M200S Newton2 Plus
+	  reference board with internal codec
 endchoice
 
 choice
 	prompt "soc 4775 codec type select"
 	depends on SOC_4775
-	config SND_ASOC_INGENIC_MENSA_ICDC
+config SND_ASOC_INGENIC_MENSA_ICDC
 	bool "Audio support for mensa with internal codec"
 	select SND_ASOC_DMA_V12
 	select SND_ASOC_JZ_AIC_I2S_V12
 	select SND_ASOC_JZ_ICDC_D2
 	select SND_ASOC_JZ_PCM_V12
 
-	config SND_ASOC_INGENIC_MENSA_SPDIF_V12
+config SND_ASOC_INGENIC_MENSA_SPDIF_V12
 	bool "Audio support for mensa with spdif"
 	select SND_ASOC_DMA_V12
 	select SND_ASOC_JZ_AIC_SPDIF_V12
@@ -113,7 +122,7 @@ endchoice
 choice
 	prompt "soc x1000 codec type select"
 	depends on SOC_X1000
-	config SND_ASOC_INGENIC_PHOENIX_ICDC
+config SND_ASOC_INGENIC_PHOENIX_ICDC
 	tristate "Audio support for phoenix with internal codec"
 	select SND_ASOC_DMA_V12
 	select SND_ASOC_JZ_AIC_I2S_V13
@@ -121,7 +130,7 @@ choice
 	select SND_ASOC_JZ_PCM_V13
 	select SND_ASOC_JZ_DMIC_V13
 
-	config SND_ASOC_INGENIC_PHOENIX_SPDIF
+config SND_ASOC_INGENIC_PHOENIX_SPDIF
 	bool "Audio support for phoenix with spdif"
 	select SND_ASOC_DMA_V13
 	select SND_ASOC_JZ_AIC_SPDIF_V13

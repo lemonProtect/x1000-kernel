@@ -40,10 +40,12 @@ obj-$(CONFIG_SND_ASOC_JZ_DMIC_V13) += snd-asoc-dmic-v13.o
 obj-$(CONFIG_SND_ASOC_JZ_DMIC_DUMP_CDC) += snd-asoc-dmic-dump.o
 
 snd-soc-dorado-icdc-objs   := asoc-board/dorado_icdc.o
+snd-soc-newton2-plus-icdc-objs   := asoc-board/newton2_plus_icdc.o
 snd-soc-mensa-icdc-objs	   := asoc-board/mensa_icdc.o
 snd-soc-mensa-spdif-objs   := asoc-board/mensa_spdif.o
 snd-soc-phoenix-spdif-objs := asoc-board/phoenix_spdif.o
 snd-soc-phoenix-icdc-objs  := asoc-board/phoenix_icdc.o
+obj-$(CONFIG_SND_ASOC_INGENIC_NEWTON2_PLUS_ICDC) += snd-soc-newton2-plus-icdc.o
 obj-$(CONFIG_SND_ASOC_INGENIC_DORADO_ICDC) += snd-soc-dorado-icdc.o
 obj-$(CONFIG_SND_ASOC_INGENIC_MENSA_ICDC) += snd-soc-mensa-icdc.o
 obj-$(CONFIG_SND_ASOC_INGENIC_MENSA_SPDIF) += snd-soc-mensa-spdif.o

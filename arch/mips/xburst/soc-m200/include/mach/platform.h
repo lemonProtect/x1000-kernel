@@ -41,10 +41,24 @@
 	{ .name = "uart4-pf", .port = GPIO_PORT_F, .func = GPIO_FUNC_1, .pins = 0x6, }
 /*******************************************************************************************************************/
 
+#ifdef	CONFIG_MSC0_PORTA_ENABLE_PULL
+#define MSC0_PORTA_4BIT							\
+	{ .name = "msc0-pa-4bit",	.port = GPIO_PORT_A, .func = GPIO_FUNC_1 | GPIO_PULL, .pins = 0x00f80000, }, \
+	{ .name = "msc0-pa-4bit",	.port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 0x00040000, }
+#else
 #define MSC0_PORTA_4BIT							\
 	{ .name = "msc0-pa-4bit",	.port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 0x00fc0000, }
+#endif
+
+#ifdef	CONFIG_MSC0_PORTA_ENABLE_PULL
+#define MSC0_PORTA_8BIT							\
+	{ .name = "msc0-pa-8bit",	.port = GPIO_PORT_A, .func = GPIO_FUNC_1 | GPIO_PULL, .pins = 0x00f800f0, },\
+	{ .name = "msc0-pa-8bit",	.port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 0x00040000, }
+#else
 #define MSC0_PORTA_8BIT							\
 	{ .name = "msc0-pa-8bit",	.port = GPIO_PORT_A, .func = GPIO_FUNC_1, .pins = 0x00fc00f0, }
+#endif
+
 #define MSC0_PORTE							\
 	{ .name = "msc0-pe",		.port = GPIO_PORT_E, .func = GPIO_FUNC_1, .pins = 0x30f00000, }
 #define MSC1_PORTD							\

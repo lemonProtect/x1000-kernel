@@ -33,6 +33,14 @@ config JZMMC_V12_MMC0_PA_8BIT
 	bool "GPIO A, data with 8 bit"
 endchoice
 
+config MSC0_PORTA_ENABLE_PULL
+	bool "JZMMC_V12 MSC0 function pin pull up enable"
+	depends on JZMMC_V12_MMC0
+	default n
+	help
+	  The config is only used for enable MSC0 function pin pull,
+	  such as M200S, if unsure, say N here.
+
 config MMC0_MAX_FREQ
 	int "msc0 max frequency"
 	depends on JZMMC_V12_MMC0
