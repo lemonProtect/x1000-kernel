@@ -204,22 +204,25 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_JZ_PWM
        DEF_DEVICE(&jz_pwm_device, 0, 0),
 #endif
-#if IS_ENABLED(CONFIG_SND_ASOC_JZ_AIC)
+#ifdef CONFIG_SND_ASOC_JZ_AIC_V12
        DEF_DEVICE(&jz_aic_device, NULL, 0),
        DEF_DEVICE(&jz_aic_dma_device, NULL, 0),
 #endif
-#if IS_ENABLED(CONFIG_SND_ASOC_JZ_ICDC_D1)
+#ifdef CONFIG_SND_ASOC_JZ_ICDC_D1
        DEF_DEVICE(&jz_icdc_device, NULL, 0),
 #endif
-#if IS_ENABLED(CONFIG_SND_ASOC_JZ_PCM)
+#ifdef CONFIG_SND_ASOC_JZ_PCM_V12
        DEF_DEVICE(&jz_pcm_device, NULL, 0),
        DEF_DEVICE(&jz_pcm_dma_device, NULL, 0),
 #endif
-#if IS_ENABLED(CONFIG_SND_ASOC_JZ_DUMP_CDC)
-       DEF_DEVICE(&jz_dump_cdc_device, NULL, 0),
+#if defined(CONFIG_SND_ASOC_JZ_PCM_DUMP_CDC)
+       DEF_DEVICE(&jz_pcm_dump_cdc_device, NULL, 0),
 #endif
-#if IS_ENABLED(CONFIG_SND_ASOC_INGENIC_NEWTON_ICDC)
+#ifdef CONFIG_SND_ASOC_INGENIC_NEWTON_ICDC
        DEF_DEVICE(&snd_newton_device, NULL, 0),
+#endif
+#ifdef CONFIG_SND_ASOC_INGENIC_NEWTON2_PLUS_ICDC
+       DEF_DEVICE(&snd_newton2_plus_device, NULL, 0),
 #endif
 };
 
@@ -239,6 +242,10 @@ static int __init board_base_init(void)
 
 #ifdef CONFIG_LCD_X163
 	mipi_dsi_register_lcd_device(&auo_x163_device);
+#endif
+
+#ifdef CONFIG_LCD_BOE_TFT320320
+	mipi_dsi_register_lcd_device(&boe_tft320320_device);
 #endif
 
 	pdevices_array_size = ARRAY_SIZE(platform_devices_array);

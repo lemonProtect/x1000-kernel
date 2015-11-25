@@ -98,6 +98,9 @@ extern struct mipi_dsim_lcd_device	byd_9177aa_device;
 #ifdef CONFIG_LCD_X163
 extern struct mipi_dsim_lcd_device  auo_x163_device;
 #endif
+#ifdef CONFIG_LCD_BOE_TFT320320
+extern struct mipi_dsim_lcd_device  boe_tft320320_device;
+#endif
 #ifdef CONFIG_LCD_TRULY_TDO_HD0499K
 extern struct mipi_dsim_lcd_device	truly_tdo_hd0499k_device;
 #endif
@@ -118,6 +121,9 @@ extern struct jz_adc_platform_data adc_platform_data;
 #endif
 #if IS_ENABLED(CONFIG_SND_ASOC_INGENIC_NEWTON_ICDC)
 extern struct platform_device snd_newton_device;
+#endif
+#ifdef CONFIG_SND_ASOC_INGENIC_NEWTON2_PLUS_ICDC
+extern struct platform_device snd_newton2_plus_device;
 #endif
 
 #endif	/* __BOARD_BASE_H__ */

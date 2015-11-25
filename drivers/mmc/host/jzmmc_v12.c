@@ -1857,7 +1857,13 @@ static void jzmmc_shutdown(struct platform_device *pdev)
 	dev_vdbg(host->dev, "shutdown\n");
 	if(host->mmc->card && !mmc_card_sdio(host->mmc->card)){
 		if(host->pdata->type == NONREMOVABLE || host->pdata->removal == NONREMOVABLE ){
-			gpio_direction_output(card_gpio->rst.num, 0);
+			int ret = 0;
+			if (-1 != card_gpio->rst.num) {
+				ret = gpio_direction_output(card_gpio->rst.num, 0);
+				if (ret)
+					printk("%s Err:rst gpio output 0,ret:%d\n",
+							__func__, ret);
+			}
 		}
 		else
 			mmc_remove_host(host->mmc);

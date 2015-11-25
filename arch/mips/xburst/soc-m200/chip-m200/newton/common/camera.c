@@ -8,21 +8,66 @@ int temp = 1;
 #if defined(CONFIG_VIDEO_OV9724)
 static int ov9724_power(int onoff)
 {
+	int ret;
 	if(temp) {
-		gpio_request(CAMERA_PWDN_N, "CAMERA_PWDN_N");
-		gpio_request(CAMERA_RST, "CAMERA_RST");
-		gpio_request(CAMERA_PWEN, "CAMERA_PWEN");
+		if (-1 != CAMERA_PWDN_N) {
+			ret = gpio_request(CAMERA_PWDN_N, "CAMERA_PWDN_N");
+			if (!ret) {
+				printk("%s,Error, request gpio CAMERA_PWDN_N. ret:%d\n",
+						__func__, ret);
+			}
+		}
+
+		if (-1 != CAMERA_RST) {
+			ret = gpio_request(CAMERA_RST, "CAMERA_RST");
+			if (!ret) {
+				printk("%s,Error, request gpio CAMERA_RST. ret:%d\n",
+						__func__, ret);
+			}
+		}
+
+		if (-1 != CAMERA_PWEN) {
+			ret = gpio_request(CAMERA_PWEN, "CAMERA_PWEN");
+			if (!ret) {
+				printk("%s,Error, request gpio CAMERA_PWEN. ret:%d\n",
+						__func__, ret);
+			}
+		}
+
 		temp = 0;
 	}
 	if (onoff) { /* conflict with USB_ID pin */
-		gpio_direction_output(CAMERA_PWEN, 1);
+		if (-1 != CAMERA_PWEN) {
+			ret = gpio_direction_output(CAMERA_PWEN, 1);
+			if (!ret) {
+				printk("%s,Error, gpio CAMERA_PWEN output 1. ret:%d\n",
+						__func__, ret);
+			}
+		}
 		mdelay(10); /* this is necesary */
-		gpio_direction_output(CAMERA_PWDN_N, 1);
-		;
+		if (-1 != CAMERA_PWDN_N) {
+			ret = gpio_direction_output(CAMERA_PWDN_N, 1);
+			if (!ret) {
+				printk("%s,Error, gpio CAMERA_PWDN_N output 1. ret:%d\n",
+						__func__, ret);
+			}
+		}
 	} else {
-		gpio_direction_output(CAMERA_PWDN_N, 0);
+		if (-1 != CAMERA_PWDN_N) {
+			ret = gpio_direction_output(CAMERA_PWDN_N, 0);
+			if (!ret) {
+				printk("%s,Error, gpio CAMERA_PWDN_N output 0. ret:%d\n",
+						__func__, ret);
+			}
+		}
 		mdelay(3);
-		gpio_direction_output(CAMERA_PWEN, 0);
+		if (-1 != CAMERA_PWEN) {
+			ret = gpio_direction_output(CAMERA_PWEN, 0);
+			if (!ret) {
+				printk("%s,Error, gpio CAMERA_PWEN output 0. ret:%d\n",
+						__func__, ret);
+			}
+		}
 	}
 
 	return 0;
@@ -30,13 +75,26 @@ static int ov9724_power(int onoff)
 
 static int ov9724_reset(void)
 {
+	int ret;
 	/*reset*/
 	if(CAMERA_RST != -1) {
-		gpio_direction_output(CAMERA_RST, 1);   /*PWM0 */
+		ret = gpio_direction_output(CAMERA_RST, 1);   /*PWM0 */
+		if (!ret) {
+			printk("%s,Error, gpio CAMERA_RST output 1. ret:%d\n",
+					__func__, ret);
+		}
 		mdelay(10);
-		gpio_direction_output(CAMERA_RST, 0);   /*PWM0 */
+		ret = gpio_direction_output(CAMERA_RST, 0);   /*PWM0 */
+		if (!ret) {
+			printk("%s,Error, gpio CAMERA_RST output 0. ret:%d\n",
+					__func__, ret);
+		}
 		mdelay(10);
-		gpio_direction_output(CAMERA_RST, 1);   /*PWM0 */
+		ret = gpio_direction_output(CAMERA_RST, 1);   /*PWM0 */
+		if (!ret) {
+			printk("%s,Error, gpio CAMERA_RST output 0. ret:%d\n",
+					__func__, ret);
+		}
 	}
 	return 0;
 }
@@ -50,7 +108,7 @@ static struct i2c_board_info ov9724_board_info = {
 static int ov5645_power(int onoff)
 {
 	if(temp) {
-//		gpio_request(CAMERA_PWDN_N, "CAMERA_PWDN_N");
+		//		gpio_request(CAMERA_PWDN_N, "CAMERA_PWDN_N");
 		gpio_request(CAMERA_RST, "CAMERA_RST");
 		temp = 0;
 	}
@@ -88,17 +146,17 @@ static struct i2c_board_info ov5645_board_info = {
 static int ov8858_power(int onoff)
 {
 	if(temp) {
-	//gpio_request(CAMERA_PWDN_N, "CAMERA_PWDN_N");
-	gpio_request(CAMERA_RST, "CAMERA_RST");
+		//gpio_request(CAMERA_PWDN_N, "CAMERA_PWDN_N");
+		gpio_request(CAMERA_RST, "CAMERA_RST");
 		temp = 0;
 	}
 	if (onoff) {
-	//	gpio_direction_output(CAMERA_PWDN_N, 0);
+		//	gpio_direction_output(CAMERA_PWDN_N, 0);
 		mdelay(10);
-	//	gpio_direction_output(CAMERA_PWDN_N, 1);
+		//	gpio_direction_output(CAMERA_PWDN_N, 1);
 		;
 	} else {
-	//	gpio_direction_output(CAMERA_PWDN_N, 0);
+		//	gpio_direction_output(CAMERA_PWDN_N, 0);
 		gpio_direction_output(CAMERA_RST, 0);   /*PWM0 */
 		;
 	}
@@ -136,7 +194,7 @@ static int ov9712_power(int onoff)
 	}
 	if (onoff) { /* conflict with USB_ID pin */
 		gpio_direction_output(OV9712_PWDN_EN, 1);
-//		gpio_direction_output(OV9712_RST, 1);
+		//		gpio_direction_output(OV9712_RST, 1);
 		mdelay(1); /* this is necesary */
 		gpio_direction_output(OV9712_POWER, 1);
 		mdelay(100); /* this is necesary */
@@ -191,8 +249,8 @@ static struct ovisp_camera_client ovisp_camera_clients[] = {
 		.board_info = &ov9724_board_info,
 #if 0
 		.flags = CAMERA_CLIENT_IF_MIPI
-		| CAMERA_CLIENT_CLK_EXT
-		| CAMERA_CLIENT_ISP_BYPASS,
+			| CAMERA_CLIENT_CLK_EXT
+			| CAMERA_CLIENT_ISP_BYPASS,
 #else
 		.flags = CAMERA_CLIENT_IF_MIPI,
 #endif
@@ -211,8 +269,8 @@ static struct ovisp_camera_client ovisp_camera_clients[] = {
 		.board_info = &ov8858_board_info,
 #if 0
 		.flags = CAMERA_CLIENT_IF_MIPI
-		| CAMERA_CLIENT_CLK_EXT
-		| CAMERA_CLIENT_ISP_BYPASS,
+			| CAMERA_CLIENT_CLK_EXT
+			| CAMERA_CLIENT_ISP_BYPASS,
 #else
 		.flags = CAMERA_CLIENT_IF_MIPI,
 #endif
@@ -229,11 +287,11 @@ static struct ovisp_camera_client ovisp_camera_clients[] = {
 		.board_info = &ov9712_board_info,
 #if 0
 		.flags = CAMERA_CLIENT_IF_DVP
-		| CAMERA_CLIENT_CLK_EXT
-		| CAMERA_CLIENT_ISP_BYPASS,
+			| CAMERA_CLIENT_CLK_EXT
+			| CAMERA_CLIENT_ISP_BYPASS,
 #else
 		.flags = CAMERA_CLIENT_IF_DVP | CAMERA_CLIENT_CLK_EXT,
-//		.flags = CAMERA_CLIENT_IF_DVP,
+		//		.flags = CAMERA_CLIENT_IF_DVP,
 #endif
 		.mclk_name = "cgu_cim",
 		.mclk_rate = 24000000,
@@ -249,11 +307,11 @@ struct ovisp_camera_platform_data ovisp_camera_info = {
 #ifdef CONFIG_OVISP_I2C
 	.i2c_adapter_id = 4, /* larger than host i2c nums */
 	.flags = CAMERA_USE_ISP_I2C | CAMERA_USE_HIGH_BYTE
-	| CAMERA_I2C_PIO_MODE | CAMERA_I2C_STANDARD_SPEED,
+		| CAMERA_I2C_PIO_MODE | CAMERA_I2C_STANDARD_SPEED,
 #else
 	.i2c_adapter_id = 3, /* use cpu's i2c adapter */
 	.flags = CAMERA_USE_HIGH_BYTE
-	| CAMERA_I2C_PIO_MODE | CAMERA_I2C_STANDARD_SPEED,
+		| CAMERA_I2C_PIO_MODE | CAMERA_I2C_STANDARD_SPEED,
 #endif
 	.client = ovisp_camera_clients,
 	.client_num = ARRAY_SIZE(ovisp_camera_clients),

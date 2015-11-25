@@ -39,6 +39,12 @@ struct platform_device snd_newton_device = {
 };
 #endif
 
+#ifdef CONFIG_SND_ASOC_INGENIC_NEWTON2_PLUS_ICDC
+struct platform_device snd_newton2_plus_device = {
+	.name = "ingenic-newton2-plus",
+};
+#endif
+
 #ifdef CONFIG_JZ_BATTERY
 static struct jz_battery_info  dorado_battery_info = {
 	.max_vol        = 4050,
