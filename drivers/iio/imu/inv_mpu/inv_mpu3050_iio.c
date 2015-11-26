@@ -9,18 +9,7 @@
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 * GNU General Public License for more details.
-*
 */
-
-/**
- *  @addtogroup  DRIVERS
- *  @brief       Hardware drivers.
- *
- *  @{
- *      @file    inv_mpu3050_iio.c
- *      @brief   A sysfs device driver for Invensense devices
- *      @details This file is part of invensense mpu driver code
- */
 
 #include <linux/module.h>
 #include <linux/init.h>
@@ -43,12 +32,12 @@
 
 #define MPU3050_ONE_MPU_TIME 20
 #define MPU3050_BOGUS_ADDR  0x7F
-int __attribute__((weak)) inv_register_mpu3050_slave(struct inv_mpu_iio_s *st)
+int __attribute__((weak)) inv_register_mpu3050_slave(struct inv_mpu_state *st)
 {
 	return 0;
 }
 
-int set_3050_bypass(struct inv_mpu_iio_s *st, bool enable)
+int set_3050_bypass(struct inv_mpu_state *st, bool enable)
 {
 	struct inv_reg_map_s *reg;
 	int result;
@@ -117,14 +106,13 @@ void inv_setup_reg_mpu3050(struct inv_reg_map_s *reg)
 	reg->fifo_r_w        = REG_3050_FIFO_R_W;
 	reg->user_ctrl       = REG_3050_USER_CTRL;
 	reg->pwr_mgmt_1      = REG_3050_PWR_MGMT_1;
-	reg->raw_gyro        = REG_3050_RAW_GYRO;
-	reg->raw_accl        = REG_3050_AUX_XOUT_H;
+	reg->raw_accel        = REG_3050_AUX_XOUT_H;
 	reg->temperature     = REG_3050_TEMPERATURE;
 	reg->int_enable      = REG_3050_INT_ENABLE;
 	reg->int_status      = REG_3050_INT_STATUS;
 }
 
-int inv_switch_3050_gyro_engine(struct inv_mpu_iio_s *st, bool en)
+int inv_switch_3050_gyro_engine(struct inv_mpu_state *st, bool en)
 {
 	struct inv_reg_map_s *reg;
 	u8 data, p;
@@ -151,15 +139,15 @@ int inv_switch_3050_gyro_engine(struct inv_mpu_iio_s *st, bool en)
 	return result;
 }
 
-int inv_switch_3050_accl_engine(struct inv_mpu_iio_s *st, bool en)
+int inv_switch_3050_accel_engine(struct inv_mpu_state *st, bool en)
 {
 	int result;
-	if (NULL == st->mpu_slave)
+	if (NULL == st->slave_accel)
 		return -EPERM;
 	if (en)
-		result = st->mpu_slave->resume(st);
+		result = st->slave_accel->resume(st);
 	else
-		result = st->mpu_slave->suspend(st);
+		result = st->slave_accel->suspend(st);
 
 	return result;
 }
@@ -178,7 +166,7 @@ int inv_init_config_mpu3050(struct iio_dev *indio_dev)
 	struct inv_reg_map_s *reg;
 	int result;
 	u8 data;
-	struct inv_mpu_iio_s *st = iio_priv(indio_dev);
+	struct inv_mpu_state *st = iio_priv(indio_dev);
 
 	if (st->chip_config.is_asleep)
 		return -EPERM;
@@ -194,9 +182,6 @@ int inv_init_config_mpu3050(struct iio_dev *indio_dev)
 		return result;
 
 	reg = &st->reg;
-	result = set_inv_enable(indio_dev, false);
-	if (result)
-		return result;
 	/*2000dps full scale range*/
 	result = inv_i2c_single_write(st, reg->lpf,
 				(INV_FSR_2000DPS << GYRO_CONFIG_FSR_SHIFT)
@@ -205,6 +190,7 @@ int inv_init_config_mpu3050(struct iio_dev *indio_dev)
 		return result;
 	st->chip_config.fsr = INV_FSR_2000DPS;
 	st->chip_config.lpf = INV_FILTER_42HZ;
+	st->chip_info.multi = 1;
 	result = inv_i2c_single_write(st, reg->sample_rate_div,
 					ONE_K_HZ/INIT_FIFO_RATE - 1);
 	if (result)
@@ -212,21 +198,17 @@ int inv_init_config_mpu3050(struct iio_dev *indio_dev)
 	st->chip_config.fifo_rate = INIT_FIFO_RATE;
 	st->irq_dur_ns            = INIT_DUR_TIME;
 	st->chip_config.prog_start_addr = DMP_START_ADDR;
-	st->chip_config.gyro_enable = 1;
-	st->chip_config.gyro_fifo_enable = 1;
 	if ((SECONDARY_SLAVE_TYPE_ACCEL == st->plat_data.sec_slave_type) &&
-		st->mpu_slave) {
-		result = st->mpu_slave->setup(st);
+		st->slave_accel) {
+		result = st->slave_accel->setup(st);
 		if (result)
 			return result;
-		result = st->mpu_slave->set_fscale(st, INV_FS_02G);
+		result = st->slave_accel->set_fs_iio(st, INV_FS_02G);
 		if (result)
 			return result;
-		result = st->mpu_slave->set_lpf(st, INIT_FIFO_RATE);
+		result = st->slave_accel->set_lpf(st, INIT_FIFO_RATE);
 		if (result)
 			return result;
-		st->chip_config.accl_enable = 1;
-		st->chip_config.accl_fifo_enable = 1;
 	}
 
 	return 0;
@@ -237,7 +219,7 @@ int inv_init_config_mpu3050(struct iio_dev *indio_dev)
  *  @st:	Device driver instance.
  *  @power_on:  on/off
  */
-int set_power_mpu3050(struct inv_mpu_iio_s *st, bool power_on)
+int set_power_mpu3050(struct inv_mpu_state *st, bool power_on)
 {
 	struct inv_reg_map_s *reg;
 	u8 data, p;
@@ -246,8 +228,8 @@ int set_power_mpu3050(struct inv_mpu_iio_s *st, bool power_on)
 	if (power_on) {
 		data = 0;
 	} else {
-		if (st->mpu_slave) {
-			result = st->mpu_slave->suspend(st);
+		if (st->slave_accel) {
+			result = st->slave_accel->suspend(st);
 			if (result)
 				return result;
 		}
@@ -276,8 +258,8 @@ int set_power_mpu3050(struct inv_mpu_iio_s *st, bool power_on)
 	}
 	if (power_on) {
 		msleep(POWER_UP_TIME);
-		if (st->mpu_slave) {
-			result = st->mpu_slave->resume(st);
+		if (st->slave_accel) {
+			result = st->slave_accel->resume(st);
 			if (result)
 				return result;
 		}
@@ -286,7 +268,4 @@ int set_power_mpu3050(struct inv_mpu_iio_s *st, bool power_on)
 
 	return 0;
 }
-/**
- *  @}
- */
 

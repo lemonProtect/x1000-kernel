@@ -1,7 +1,7 @@
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/err.h>
-#include <linux/inv_mpu.h>
+#include <linux/mpu.h>
 #include <linux/delay.h>
 #include "board_base.h"
 

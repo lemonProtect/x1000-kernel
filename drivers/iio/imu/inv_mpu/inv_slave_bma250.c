@@ -9,19 +9,7 @@
 * but WITHOUT ANY WARRANTY; without even the implied warranty of
 * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 * GNU General Public License for more details.
-*
 */
-
-/**
- *  @addtogroup  DRIVERS
- *  @brief       Hardware drivers.
- *
- *  @{
- *      @file    inv_slave_bma250.c
- *      @brief   A sysfs device driver for Invensense devices
- *      @details This file is part of invensense mpu driver code
- *
- */
 
 #include <linux/module.h>
 #include <linux/init.h>
@@ -89,7 +77,7 @@ static struct bma_property bma_static_property = {
 	.mode = BMA250_MODE_SUSPEND
 };
 
-static int bma250_set_bandwidth(struct inv_mpu_iio_s *st, u8 bw)
+static int bma250_set_bandwidth(struct inv_mpu_state *st, u8 bw)
 {
 	int res;
 	u8 data;
@@ -131,7 +119,7 @@ static int bma250_set_bandwidth(struct inv_mpu_iio_s *st, u8 bw)
 	return res;
 }
 
-static int bma250_set_range(struct inv_mpu_iio_s *st, u8 range)
+static int bma250_set_range(struct inv_mpu_state *st, u8 range)
 {
 	int res;
 	u8 orig, data;
@@ -164,7 +152,7 @@ static int bma250_set_range(struct inv_mpu_iio_s *st, u8 range)
 	return 0;
 }
 
-static int setup_slave_bma250(struct inv_mpu_iio_s *st)
+static int setup_slave_bma250(struct inv_mpu_state *st)
 {
 	int result;
 	u8 data[2];
@@ -188,7 +176,7 @@ static int setup_slave_bma250(struct inv_mpu_iio_s *st)
 	return result;
 }
 
-static int bma250_set_mode(struct inv_mpu_iio_s *st, u8 mode)
+static int bma250_set_mode(struct inv_mpu_state *st, u8 mode)
 {
 	int res;
 	u8 data;
@@ -217,7 +205,7 @@ static int bma250_set_mode(struct inv_mpu_iio_s *st, u8 mode)
 	return 0;
 }
 
-static int suspend_slave_bma250(struct inv_mpu_iio_s *st)
+static int suspend_slave_bma250(struct inv_mpu_state *st)
 {
 	int result;
 	if (bma_static_property.mode == BMA250_MODE_SUSPEND)
@@ -232,7 +220,7 @@ static int suspend_slave_bma250(struct inv_mpu_iio_s *st)
 	return 0;
 }
 
-static int resume_slave_bma250(struct inv_mpu_iio_s *st)
+static int resume_slave_bma250(struct inv_mpu_state *st)
 {
 	int result;
 	if (bma_static_property.mode == BMA250_MODE_NORMAL)
@@ -273,7 +261,7 @@ static int get_mode_slave_bma250(void)
  *  set_lpf_bma250() - set lpf value
  */
 
-static int set_lpf_bma250(struct inv_mpu_iio_s *st, int rate)
+static int set_lpf_bma250(struct inv_mpu_state *st, int rate)
 {
 	const short hz[] = {1000, 500, 250, 125, 62, 31, 15, 7};
 	const int   d[] = {7, 6, 5, 4, 3, 2, 1, 0};
@@ -293,10 +281,10 @@ static int set_lpf_bma250(struct inv_mpu_iio_s *st, int rate)
 	return result ? (-EINVAL) : 0;
 }
 /**
- *  set_fscale_bma250() - set range value
+ *  set_fs_bma250() - set range value
  */
 
-static int set_fscale_bma250(struct inv_mpu_iio_s *st, int fs)
+static int set_fs_bma250(struct inv_mpu_state *st, int fs)
 {
 	int result;
 	result = set_3050_bypass(st, true);
@@ -315,16 +303,13 @@ static struct inv_mpu_slave slave_bma250 = {
 	.combine_data = combine_data_slave_bma250,
 	.get_mode = get_mode_slave_bma250,
 	.set_lpf = set_lpf_bma250,
-	.set_fscale  = set_fscale_bma250
+	.set_fs_iio  = set_fs_bma250
 };
 
-int inv_register_mpu3050_slave(struct inv_mpu_iio_s *st)
+int inv_register_mpu3050_slave(struct inv_mpu_state *st)
 {
-	st->mpu_slave = &slave_bma250;
+	st->slave_accel = &slave_bma250;
 
 	return 0;
 }
-/**
- *  @}
- */
 
