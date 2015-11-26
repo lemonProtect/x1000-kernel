@@ -101,7 +101,7 @@ config XBURST_DMAC
        select DMA_ENGINE
        help
          Support the XBURST DMA controller. This support the
-         jz4770 || jz4780 || jz4775 || jz m200 chip.
+         jz4770 || jz4780 || jz4775 || jz m200 || jz x1000 chip.
 
 config DW_DMAC_BIG_ENDIAN_IO
 	bool "Use big endian I/O register access"

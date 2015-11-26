@@ -8,6 +8,9 @@ choice
 config  PRODUCT_X1000_PHOENIX
     bool "product x1000 phoenix"
 
+config	PRODUCT_X1000_HALLEY2
+	bool "product x1000 halley2"
+
 endchoice
 
 if PRODUCT_X1000_PHOENIX
@@ -15,5 +18,12 @@ config PRODUCT_NAME
 string
 default "phoenix"
 source "arch/mips/xburst/soc-x1000/chip-x1000/phoenix/Kconfig"
+endif
+
+if PRODUCT_X1000_HALLEY2
+config PRODUCT_NAME
+string
+default "halley2"
+source "arch/mips/xburst/soc-x1000/chip-x1000/halley2/Kconfig"
 endif
 

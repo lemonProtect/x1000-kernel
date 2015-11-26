@@ -506,7 +506,7 @@ static int dwc2_jz_probe(struct platform_device *pdev) {
 	jz->id_irq = -1;
 #if DWC2_HOST_MODE_ENABLE
 	jz->vbus = regulator_get(NULL, VBUS_REG_NAME);
-	if (IS_ERR(jz->vbus)) {
+	if (IS_ERR_OR_NULL(jz->vbus)) {
 		ret = devm_gpio_request_one(&pdev->dev, jz->drvvbus_pin->num,
 				GPIOF_DIR_OUT, "drvvbus_pin");
 		if (ret < 0) jz->drvvbus_pin->num = -1;

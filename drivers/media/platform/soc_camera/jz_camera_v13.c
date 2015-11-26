@@ -33,12 +33,11 @@
 /*kzalloc*/
 #include <mach/jz_camera.h>
 
+#include <linux/regulator/consumer.h>
+
 #define CIM_DUMP_REG
 #define PRINT_CIM_REG
 struct regulator *regul;
-extern int regulator_disable(struct regulator *regulator);
-extern int regulator_enable(struct regulator *regulator);
-extern struct regulator *regulator_get(struct device *dev, const char *id);
 #ifdef CIM_DUMP_REG
 static void cim_dump_reg(struct jz_camera_dev *pcdev)
 {
