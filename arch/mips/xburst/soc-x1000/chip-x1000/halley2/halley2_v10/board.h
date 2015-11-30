@@ -56,6 +56,10 @@
 #define GPIO_SPI_MISO GPIO_PA(28)
 #endif
 
+#if defined(CONFIG_JZ_SPI) || defined(CONFIG_JZ_SFC)
+#define SPI_CHIP_ENABLE GPIO_PA(27)
+#endif
+
 /* ****************************GPIO USB START******************************** */
 #define GPIO_USB_ID            	-1
 #define GPIO_USB_ID_LEVEL       LOW_ENABLE

@@ -59,8 +59,9 @@ struct mtd_partition jz_mtd_partition1[] = {
 		.size =     USERFS_SIZE,
 	},
 };
-#endif
-#ifdef CONFIG_MTD_JZ_SPI_NAND
+#endif	/* defined(CONFIG_MTD_JZ_SPI_NORFLASH)|| defined(CONFIG_MTD_JZ_SFC_NORFLASH) */
+
+#if defined(CONFIG_MTD_JZ_SPI_NAND) || defined(CONFIG_JZ_SFCNAND)
 #define SIZE_UBOOT  0x100000    /* 1M */
 #define SIZE_KERNEL 0x800000    /* 8M */
 #define SIZE_ROOTFS (0x100000 * 40)        /* -1: all of left */
@@ -152,10 +153,11 @@ struct jz_spi_nand_platform_data jz_spi_nand_data = {
 	.mtd_partition  = jz_mtd_spinand_partition,
 	.num_partitions = ARRAY_SIZE(jz_mtd_spinand_partition),
 };
+#endif/* defined(CONFIG_MTD_JZ_SPI_NAND) || defined(CONFIG_JZ_SFCNAND) */
 
 
-#endif/*CONFIG_MTD_JZ_SPI_NAND*/
-#if defined(CONFIG_JZ_SPI_NOR) || defined(CONFIG_MTD_JZ_SPI_NORFLASH) || defined(CONFIG_MTD_JZ_SFC_NORFLASH) || defined(CONFIG_MTD_JZ_SPI_NAND) || defined(CONFIG_SPI_GPIO)
+#if defined(CONFIG_JZ_SPI0) || defined(CONFIG_JZ_SFC) || defined(CONFIG_SPI_GPIO)
+#if defined(CONFIG_JZ_SPI_NOR) || defined(CONFIG_JZ_SFC_NOR)
 struct spi_nor_block_info flash_block_info[] = {
 	{
 		.blocksize      = 64 * 1024,
@@ -332,14 +334,14 @@ struct spi_nor_platform_data spi_nor_pdata[] = {
 #endif
 	}
 };
-
+#endif	/* defined(CONFIG_JZ_SPI_NOR) || defined(CONFIG_JZ_SFC_NOR) */
 
 struct spi_board_info jz_spi0_board_info[]  = {
-#if defined(CONFIG_MTD_JZ_SPI_NORFLASH) || defined(CONFIG_MTD_JZ_SFC_NORFLASH)
+#ifdef CONFIG_MTD_JZ_SPI_NOR
 	[0] ={
 		.modalias       =  "jz_spi_norflash",
 		.platform_data          = &spi_nor_pdata[0],
-		.controller_data        = (void *)GPIO_PA(27), /* cs for spi gpio */
+		.controller_data        = (void *)SPI_CHIP_ENABLE, /* cs for spi gpio */
 		.max_speed_hz           = 12000000,
 		.bus_num                = 0,
 		.chip_select            = 0,
@@ -349,7 +351,7 @@ struct spi_board_info jz_spi0_board_info[]  = {
 	[0] = {
 		.modalias	=	"jz_spi_nand",
 		.platform_data	= &jz_spi_nand_data,
-		.controller_data        = (void *)GPIO_PA(27), /* cs for spi gpio */
+		.controller_data        = (void *)SPI_CHIP_ENABLE, /* cs for spi gpio */
 		//.controller_data	=	(void *)( -1),
 		.max_speed_hz		=	12000000,
 		.bus_num			=	0,
@@ -358,7 +360,7 @@ struct spi_board_info jz_spi0_board_info[]  = {
 #endif
 };
 int jz_spi0_devs_size = ARRAY_SIZE(jz_spi0_board_info);
-#endif
+#endif	/* defined(CONFIG_JZ_SPI0) || defined(CONFIG_JZ_SFC) || defined(CONFIG_SPI_GPIO) */
 
 #ifdef CONFIG_JZ_SPI0
 struct jz_spi_info spi0_info_cfg = {
@@ -367,7 +369,7 @@ struct jz_spi_info spi0_info_cfg = {
 	.max_clk = 54000000,
 	.num_chipselect = 1,
 	.allow_cs_same  = 1,
-	.chipselect     = {GPIO_PA(27),GPIO_PA(27)},
+	.chipselect     = {SPI_CHIP_ENABLE,SPI_CHIP_ENABLE},
 };
 #endif
 
@@ -379,7 +381,8 @@ struct jz_sfc_info sfc_info_cfg = {
 	.board_info = spi_nor_pdata,
 	.board_info_size = ARRAY_SIZE(spi_nor_pdata),
 };
-#endif
+#endif	/* CONFIG_JZ_SFC */
+
 #ifdef CONFIG_SPI_GPIO
 static struct spi_gpio_platform_data jz_spi_gpio_data = {
 
