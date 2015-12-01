@@ -1983,11 +1983,6 @@ static void dwc2_gadget_free_endpoints(struct dwc2 *dwc)
                    get_order((num_eps - 2) * DWC2_DEP_ALIGN_ALLOC_SIZE));
 }
 
-static void dwc2_gadget_release(struct device *dev)
-{
-	dev_dbg(dev, "%s\n", __func__);
-}
-
 static void dwc2_gadget_handle_early_suspend_intr(struct dwc2 *dwc)
 {
 	gintsts_data_t gintsts;
@@ -2526,24 +2521,22 @@ void dwc2_gadget_plug_change(int plugin)  {
 	if (!dwc)
 		return;
 
+
 	dwc2_spin_lock_irqsave(dwc, flags);
 
 	dwc->plugin = !!plugin;
 
-	if (!plugin && !dwc2_clk_is_enabled(dwc))
+	if (dwc->suspended)
 		goto out;
+
+	if (!plugin && !dwc2_clk_is_enabled(dwc))
+		goto out_print;
 
 	if (plugin)
 		dwc2_resume_controller(dwc);
 
 	if (!dwc2_is_device_mode(dwc))
 		goto out;
-
-	dev_info(dwc->dev,"enter %s:%d: plugin = %d pullup_on = %d suspend = %d\n",
-		__func__, __LINE__, plugin, dwc->pullup_on, dwc->suspended);
-
-//	if (dwc->suspended)//add by xyfu for when otg suspended plug usb, resume the adb is disconnect
-//		goto out;
 
 	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 	if (plugin) {
@@ -2561,9 +2554,7 @@ void dwc2_gadget_plug_change(int plugin)  {
 			dwc2_start_ep0state_watcher(dwc, DWC2_EP0STATE_WATCH_COUNT);
 		}
 	} else {
-		if (dctl.b.sftdiscon && jz_otg_phy_is_suspend()) {
-			dwc2_suspend_controller(dwc);
-		} else {
+		if (!(dctl.b.sftdiscon && jz_otg_phy_is_suspend())) {
 			dctl.b.sftdiscon = 1;
 			dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 #if !DWC2_HOST_MODE_ENABLE
@@ -2593,6 +2584,9 @@ void dwc2_gadget_plug_change(int plugin)  {
 		}
 		dwc2_suspend_controller(dwc);
 	}
+out_print:
+	dev_info(dwc->dev,"enter %s:%d: plugin = %d pullup_on = %d suspend = %d\n",
+		__func__, __LINE__, plugin, dwc->pullup_on, dwc->suspended);
 out:
 	dwc2_spin_unlock_irqrestore(dwc, flags);
 }

@@ -480,6 +480,38 @@ static int efuse_show_user_id(struct seq_file *m, void *v)
 }
 DECLARE_EFUSE_PROC_FOPS(user_id);
 
+static int efuse_show_trim0(struct seq_file *m, void *v)
+{
+	uint32_t buf;
+	jz_efuse_read(seg_addr[TRIM0], 4, &buf);
+	return seq_printf(m, "trim0 id: %08x\n", buf);
+}
+DECLARE_EFUSE_PROC_FOPS(trim0);
+
+static int efuse_show_trim1(struct seq_file *m, void *v)
+{
+	uint32_t buf;
+	jz_efuse_read(seg_addr[TRIM1], 4, &buf);
+	return seq_printf(m, "trim1 id: %08x\n", buf);
+}
+DECLARE_EFUSE_PROC_FOPS(trim1);
+
+static int efuse_show_trim2(struct seq_file *m, void *v)
+{
+	uint32_t buf;
+	jz_efuse_read(seg_addr[TRIM2], 4, &buf);
+	return seq_printf(m, "trim2 id: %08x\n", buf);
+}
+DECLARE_EFUSE_PROC_FOPS(trim2);
+
+static int efuse_show_trim3(struct seq_file *m, void *v)
+{
+	uint32_t buf;
+	jz_efuse_read(seg_addr[TRIM3], 4, &buf);
+	return seq_printf(m, "trim3 id: %08x\n", buf);
+}
+DECLARE_EFUSE_PROC_FOPS(trim3);
+
 static int efuse_show_segment_map(struct seq_file *m, void *v)
 {
 	seq_printf(m,"seg1:    0x200-->0x20F ro [chip id]\n");
@@ -581,6 +613,10 @@ static int jz_efuse_probe(struct platform_device *pdev)
 		proc_create("chip_num", 0444, parent_entry , &efuse_chip_num_fops);
 		proc_create("user_id", 0444, parent_entry , &efuse_user_id_fops);
 		proc_create("segment_map", 0444, parent_entry , &efuse_segment_map_fops);
+		proc_create("trim0", 0444, parent_entry , &efuse_trim0_fops);
+		proc_create("trim1", 0444, parent_entry , &efuse_trim1_fops);
+		proc_create("trim2", 0444, parent_entry , &efuse_trim2_fops);
+		proc_create("trim3", 0444, parent_entry , &efuse_trim3_fops);
 	}
 	efuse->parent_entry = parent_entry;
 

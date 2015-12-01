@@ -53,4 +53,6 @@ void jz_otg_phy_suspend(int suspend);
 int  jz_otg_phy_is_suspend(void);
 void jz_otg_phy_powerdown(void);
 void jz_otg_ctr_reset(void);
+void jz_otg_sft_id(int level);
+void jz_otg_sft_id_off(void);
 #endif

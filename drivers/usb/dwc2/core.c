@@ -912,7 +912,9 @@ static void dwc2_handle_otg_intr(struct dwc2 *dwc) {
 		}
 		/* close PHY */
 		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
-		if (likely((!dwc->keep_phy_on || dwc->suspended) && (dctl.b.sftdiscon || (!dwc->plugin))))
+		if (likely((!dwc->keep_phy_on || dwc->suspended) &&
+					(dctl.b.sftdiscon || (!dwc->plugin)) &&
+					dwc2_is_device_mode(dwc)))
 			jz_otg_phy_suspend(1);
 
 #ifdef CONFIG_BOARD_HAS_NO_DETE_FACILITY
@@ -1014,9 +1016,14 @@ static void dwc2_conn_id_status_change_work(struct work_struct *work)
 	if (gotgctl.b.conidsts) { /* B-Device connector (Device Mode) */
 #if DWC2_DEVICE_MODE_ENABLE
 		dctl_data_t	 dctl;
-
-		DWC2_CORE_DEBUG_MSG("init DWC core as B_PERIPHERAL\n");
+		pr_info("init DWC core as B_PERIPHERAL\n");
+#else
+		pr_info("DWC core A_HOST id disconnect\n");
+#endif
 		jz_set_vbus(dwc, 0);
+#if DWC2_DEVICE_MODE_ENABLE
+		if (!dwc->keep_phy_on)
+			jz_otg_sft_id(1);
 
 		dwc2_spin_lock_irqsave(dwc, flags);
 		dwc2_core_init(dwc);
@@ -1061,7 +1068,7 @@ static void dwc2_conn_id_status_change_work(struct work_struct *work)
 #endif		 /* DWC2_DEVICE_MODE_ENABLE */
 	} else {	      /* A-Device connector (Host Mode) */
 #if DWC2_HOST_MODE_ENABLE
-		DWC2_CORE_DEBUG_MSG("init DWC as A_HOST\n");
+		pr_info("init DWC as A_HOST\n");
 
 		dwc2_spin_lock_irqsave(dwc, flags);
 		dwc2_core_init(dwc);
@@ -1082,7 +1089,6 @@ static void dwc2_conn_id_status_change_work(struct work_struct *work)
 		dwc->hcd->self.is_b_host = 0;
 		dwc2_host_mode_init(dwc);
 		dwc2_spin_unlock_irqrestore(dwc, flags);
-
 		jz_set_vbus(dwc, 1);
 		set_bit(HCD_FLAG_POLL_RH, &dwc->hcd->flags);
 #endif	/* DWC2_HOST_MODE_ENABLE */
@@ -1645,45 +1651,29 @@ static int dwc2_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static void dwc2_device_suspend(struct dwc2 *dwc) {
 	dctl_data_t	 dctl;
-
 	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 	dwc->sftdiscon = dctl.b.sftdiscon;
 	dctl.b.sftdiscon = 1;
 	dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
-
-	/* suspend PHY0 */
-	dwc->phy_status = !jz_otg_phy_is_suspend();
-	jz_otg_phy_suspend(1);
-
 	dwc->plug_status = dwc->plugin;
 }
 
-static void dwc2_host_suspend(struct dwc2 *dwc) {
-
-	/* suspend PHY0 */
-	dwc->phy_status = !jz_otg_phy_is_suspend();
-	jz_otg_phy_suspend(1);
-}
-
+extern int dwc2_get_detect_pin_status(struct dwc2 *dwc);
 static int dwc2_suspend(struct platform_device *pdev, pm_message_t state) {
 	struct dwc2	*dwc = platform_get_drvdata(pdev);
 	unsigned long	 flags;
 
 	dwc2_spin_lock_irqsave(dwc, flags);
-
 	dwc->suspended = 1;
-
-	if (dwc2_is_device_mode(dwc)) {
+	if (dwc2_is_device_mode(dwc))
 		dwc2_device_suspend(dwc);
-	} else {
-		dwc2_host_suspend(dwc);
-	}
+	dwc->phy_status = !jz_otg_phy_is_suspend();
+	jz_otg_phy_suspend(1);
 	dwc2_core_debug_en = 1;
 	dwc2_spin_unlock_irqrestore(dwc, flags);
-
 	if (dwc2_is_host_mode(dwc))
 		jz_set_vbus(dwc, 0);
-	dev_dbg(dwc->dev, "dwc2_suspend-ed\n");
+	dev_info(dwc->dev, "dwc2_suspend-ed\n");
 
 	return 0;
 }
@@ -1713,43 +1703,31 @@ static void dwc2_device_resume(struct dwc2 *dwc) {
 	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 	dctl.b.sftdiscon = dwc->sftdiscon;
 	dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
-
-	jz_otg_phy_suspend(!dwc->phy_status);
-
 	if (dwc->plugin && dwc->pullup_on) {
 		dwc2_start_ep0state_watcher(dwc, DWC2_EP0STATE_WATCH_COUNT);
 	}
-}
-
-static void dwc2_host_resume(struct dwc2 *dwc) {
-	jz_otg_phy_suspend(!dwc->phy_status);
 }
 
 static int dwc2_resume(struct platform_device *pdev) {
 	struct dwc2	*dwc = platform_get_drvdata(pdev);
 	unsigned long	 flags;
 
-	dev_dbg(dwc->dev, "dwc2_resume, device_mode=%d\n",
-		dwc2_is_device_mode(dwc));
-
 	dwc2_spin_lock_irqsave(dwc, flags);
 #ifdef CONFIG_USB_DWC2_ALLOW_WAKEUP
 	wake_lock_timeout(&dwc->resume_wake_lock,msecs_to_jiffies(3000));
 #endif
-
 	dwc->suspended = 0;
-
-	if (dwc2_is_device_mode(dwc))
-		dwc2_device_resume(dwc);
-	else
-		dwc2_host_resume(dwc);
+	if (dwc2_clk_is_enabled(dwc)) {
+		if (jz_otg_phy_is_suspend())
+			jz_otg_phy_suspend(!dwc->phy_status);
+		if (dwc2_is_device_mode(dwc))
+			dwc2_device_resume(dwc);
+	}
 	dwc2_core_debug_en = 0;
 	dwc2_spin_unlock_irqrestore(dwc, flags);
 
-	if (dwc2_is_host_mode(dwc) && (dwc2_get_id_level(dwc) == 0)) {
+	if (dwc2_is_a_device(dwc))
 		jz_set_vbus(dwc, 1);
-	}
-
 	return 0;
 }
 

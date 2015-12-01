@@ -2342,7 +2342,7 @@ static void dwc2_disable_channel(struct dwc2 *dwc, struct dwc2_channel *chan,
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
 	timeout = wait_event_timeout(chan->disable_wq, (chan->disable_stage == 2), HZ);
-//	WARN((timeout == 0), "wait channel%d disable timeout!\n", chan->number);
+	WARN((timeout == 0), "wait channel%d disable timeout!\n", chan->number);
 	if(timeout == 0)
 		printk("wait channel%d disable timeout!\n", chan->number);
 
@@ -2403,8 +2403,7 @@ static int dwc2_hcd_urb_enqueue(struct usb_hcd *hcd,
 
 	spin_lock_irqsave(&dwc->lock, flags);
 
-	if ( ((dwc->port1_status & USB_PORT_STAT_CONNECTION) == 0) ||
-		!dwc->device_connected) {
+	if (!dwc->device_connected) {
 		ret = -ESHUTDOWN;
 		goto done_not_linked;
 	}
@@ -3159,31 +3158,14 @@ void dwc2_hcd_handle_device_disconnect_intr(struct dwc2 *dwc) {
 	if (unlikely(dwc2_is_device_mode(dwc))) {
 		printk("===========>TODO: enter %s: Device Mode\n", __func__);
 	} else {
-		unsigned long	flags;
 		hprt0_data_t	hprt0;
 
 		dwc2_host_cleanup(dwc);
 
 		/* TODO: if currently in A-Peripheral mode, do we need report HUB status? */
 
-		spin_lock_irqsave(&dwc->port1_status_lock, flags);
-		if (dwc->port1_status & USB_PORT_STAT_RESET)
-			__dwc2_port_reset(dwc, 0);
-		dwc->port1_status &= ~USB_PORT_STAT_RESET;
-
-		hprt0.d32 = dwc_readl(dwc->host_if.hprt0);
-
-		if (hprt0.b.prtconnsts)
-			dwc->port1_status |= USB_PORT_STAT_CONNECTION;
-		else
-			dwc->port1_status &= ~USB_PORT_STAT_CONNECTION;
-
-		//dwc->port1_status &= ~USB_PORT_STAT_CONNECTION;
 		dwc->port1_status |= (USB_PORT_STAT_C_CONNECTION << 16);
-
 		dwc->device_connected = !!hprt0.b.prtconnsts;
-
-		spin_unlock_irqrestore(&dwc->port1_status_lock, flags);
 
 		if (dwc->hcd->status_urb)
 			usb_hcd_poll_rh_status(dwc->hcd);
@@ -3357,7 +3339,6 @@ int dwc2_host_init(struct dwc2 *dwc) {
 	INIT_LIST_HEAD(&dwc->context_list);
 	INIT_LIST_HEAD(&dwc->idle_qh_list);
 	INIT_LIST_HEAD(&dwc->busy_qh_list);
-	spin_lock_init(&dwc->port1_status_lock);
 	dwc->hcd_started = 0;
 
 	*(struct dwc2 **)(hcd->hcd_priv) = dwc;

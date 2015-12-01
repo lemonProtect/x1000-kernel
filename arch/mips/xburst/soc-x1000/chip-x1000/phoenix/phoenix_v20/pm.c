@@ -46,7 +46,7 @@ __initdata int gpio_ss_table[][2] = {
 	{32*1+1,	GSS_INPUT_NOPULL	},	/* PWR_SEL */
 	{32*1+2,	GSS_OUTPUT_LOW	},	/* I2S_LRCK */
 	{32*1+3,	GSS_OUTPUT_LOW	},	/* I2S_DI */
-	{32*1+4,	GSS_INPUT_NOPULL	},	/* I2S_DO */
+	{32*1+4,	GSS_IGNORE},		/* I2S_DO */
 #ifdef CONFIG_JZ_DMIC_WAKEUP_V13
 	{32*1+5,	GSS_IGNORE	},	/* DMIC_IN1 */
 #else

@@ -2000,6 +2000,7 @@ typedef union hprt0_data {
 		unsigned prtlnsts:2;
 		unsigned prtpwr:1;
 		unsigned prttstctl:4;
+#define DWC_HPRT0_PRTTST_MASK	0xf
 		unsigned prtspd:2;
 #define DWC_HPRT0_PRTSPD_HIGH_SPEED 0
 #define DWC_HPRT0_PRTSPD_FULL_SPEED 1

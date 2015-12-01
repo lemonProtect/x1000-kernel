@@ -9,6 +9,8 @@
 #include <soc/cpm.h>
 
 #define USBRDT_VBFIL_LD_EN		25
+#define USBRDT_IDDIG_EN			24
+#define USBRDT_IDDIG_REG		23
 #define USBPCR_TXPREEMPHTUNE		6
 #define USBPCR_POR			22
 #define USBPCR_USB_MODE			31
@@ -24,92 +26,7 @@
 #define USBPCR1_WORD_IF1		18
 #define SRBC_USB_SR			12
 
-#if 0
-int cpm_start_ohci(void)
-{
-	int tmp;
-	static int has_reset = 0;
 
-	/* The PLL uses CLKCORE as reference */
-	tmp = cpm_inl(CPM_USBPCR1);
-	tmp &= ~(0x1<<31);
-	cpm_outl(tmp,CPM_USBPCR1);
-
-	tmp = cpm_inl(CPM_USBPCR1);
-	tmp |= (0x3<<26);
-	cpm_outl(tmp,CPM_USBPCR1);
-
-	/* selects the reference clock frequency 48M */
-	tmp = cpm_inl(CPM_USBPCR1);
-	tmp &= ~(0x3<<24);
-
-	tmp |=(2<<24);
-	cpm_outl(tmp,CPM_USBPCR1);
-
-	cpm_set_bit(23,CPM_USBPCR1);
-	cpm_set_bit(22,CPM_USBPCR1);
-
-	cpm_set_bit(18,CPM_USBPCR1);
-	cpm_set_bit(19,CPM_USBPCR1);
-
-	cpm_set_bit(7, CPM_OPCR);
-	cpm_set_bit(6, CPM_OPCR);
-
-	cpm_set_bit(24, CPM_USBPCR);
-
-	/* OTG PHY reset */
-	cpm_set_bit(22, CPM_USBPCR);
-	udelay(30);
-	cpm_clear_bit(22, CPM_USBPCR);
-	udelay(300);
-
-	/* UHC soft reset */
-	if(!has_reset) {
-		cpm_set_bit(20, CPM_USBPCR1);
-		cpm_set_bit(21, CPM_USBPCR1);
-		cpm_set_bit(13, CPM_SRBC);
-		cpm_set_bit(12, CPM_SRBC);
-		cpm_set_bit(11, CPM_SRBC);
-		udelay(300);
-		cpm_clear_bit(20, CPM_USBPCR1);
-		cpm_clear_bit(21, CPM_USBPCR1);
-		cpm_clear_bit(13, CPM_SRBC);
-		cpm_clear_bit(12, CPM_SRBC);
-		cpm_clear_bit(11, CPM_SRBC);
-		udelay(300);
-		has_reset = 1;
-	}
-
-	return 0;
-}
-EXPORT_SYMBOL(cpm_start_ohci);
-
-int cpm_stop_ohci(void)
-{
-	/* disable ohci phy power */
-	cpm_clear_bit(18,CPM_USBPCR1);
-	cpm_clear_bit(19,CPM_USBPCR1);
-
-	cpm_clear_bit(6, CPM_OPCR);
-	cpm_clear_bit(7, CPM_OPCR);
-
-	return 0;
-}
-EXPORT_SYMBOL(cpm_stop_ohci);
-#endif
-#if 0
-int cpm_start_ehci(void)
-{
-	return cpm_start_ohci();
-}
-EXPORT_SYMBOL(cpm_start_ehci);
-
-int cpm_stop_ehci(void)
-{
-	return cpm_stop_ohci();
-}
-EXPORT_SYMBOL(cpm_stop_ehci);
-#endif
 void jz_otg_ctr_reset(void)
 {
 	cpm_set_bit(SRBC_USB_SR, CPM_SRBC);
@@ -117,19 +34,10 @@ void jz_otg_ctr_reset(void)
 	cpm_clear_bit(SRBC_USB_SR, CPM_SRBC);
 }
 
-void jz_otg_phy_reset(void)
-{
-
-	cpm_set_bit(USBPCR_POR, CPM_USBPCR);
-	mdelay(1);
-	cpm_clear_bit(USBPCR_POR, CPM_USBPCR);
-	mdelay(1);
-}
-
 void jz_otg_phy_init(otg_mode_t mode)
 {
 	unsigned int ref_clk_div = CONFIG_EXTAL_CLOCK / 24;
-	unsigned int usbpcr1;
+	unsigned int usbpcr1, usbrdt;
 
 	/* select dwc otg */
 	cpm_set_bit(USBPCR1_USB_SEL, CPM_USBPCR1);
@@ -142,11 +50,19 @@ void jz_otg_phy_init(otg_mode_t mode)
 	usbpcr1 |= (ref_clk_div << 24);
 	cpm_outl(usbpcr1, CPM_USBPCR1);
 
+	/*unsuspend*/
+	cpm_set_bit(7, CPM_OPCR);
+	udelay(45);
+	cpm_clear_bit(USBPCR_SIDDQ, CPM_USBPCR);
+
 	/* fil */
 	cpm_outl(0, CPM_USBVBFIL);
 
 	/* rdt */
-	cpm_outl(0x96, CPM_USBRDT);
+	usbrdt = cpm_inl(CPM_USBRDT);
+	usbrdt &= ~(USBRDT_VBFIL_LD_EN | ((1 << 23) - 1));
+	usbrdt |= 0x96;
+	cpm_outl(usbrdt, CPM_USBRDT);
 
 	/* rdt - filload_en */
 	cpm_set_bit(USBRDT_VBFIL_LD_EN, CPM_USBRDT);
@@ -168,6 +84,7 @@ void jz_otg_phy_init(otg_mode_t mode)
 		cpm_clear_bit(USBPCR_USB_MODE, CPM_USBPCR);
 		cpm_clear_bit(USBPCR_OTG_DISABLE, CPM_USBPCR);
 		cpm_clear_bit(USBPCR_SIDDQ, CPM_USBPCR);
+		cpm_set_bit(USBPCR_COMMONONN, CPM_USBPCR);
 	} else {
 		unsigned int tmp;
 		pr_info("DWC IN OTG MODE\n");
@@ -192,14 +109,48 @@ int jz_otg_phy_is_suspend(void)
 }
 EXPORT_SYMBOL(jz_otg_phy_is_suspend);
 
+static int sft_id_set = false;
+void jz_otg_sft_id(int level)
+{
+	if (level) {
+		cpm_set_bit(USBRDT_IDDIG_REG, CPM_USBRDT);
+		printk("sft id ==================== 1\n");
+	} else {
+		cpm_clear_bit(USBRDT_IDDIG_REG, CPM_USBRDT);
+		printk("sft id ==================== 0\n");
+	}
+	cpm_set_bit(USBRDT_IDDIG_EN, CPM_USBRDT);
+	if (!jz_otg_phy_is_suspend())
+		mdelay(150);
+	else
+		sft_id_set = true;
+}
+EXPORT_SYMBOL(jz_otg_sft_id);
+
+void jz_otg_sft_id_off(void)
+{
+	cpm_clear_bit(USBRDT_IDDIG_EN, CPM_USBRDT);
+	if (!jz_otg_phy_is_suspend())
+		mdelay(150);
+	else
+		sft_id_set = true;
+	printk("sft id =========================off\n");
+}
+EXPORT_SYMBOL(jz_otg_sft_id_off);
+
 void jz_otg_phy_suspend(int suspend)
 {
 	if (!suspend && jz_otg_phy_is_suspend()) {
 		printk("EN PHY\n");
 		cpm_set_bit(7, CPM_OPCR);
+		if (sft_id_set == true)
+			mdelay(150);	/*2d6c0 phy clocks*/
+		sft_id_set = false;
+		udelay(45);
 	} else if (suspend && !jz_otg_phy_is_suspend()) {
 		printk("DIS PHY\n");
 		cpm_clear_bit(7, CPM_OPCR);
+		udelay(5);
 	}
 }
 EXPORT_SYMBOL(jz_otg_phy_suspend);

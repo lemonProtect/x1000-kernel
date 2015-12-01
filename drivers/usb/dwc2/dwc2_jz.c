@@ -187,13 +187,27 @@ int dwc2_get_id_level(struct dwc2 *dwc)
 }
 EXPORT_SYMBOL_GPL(dwc2_get_id_level);
 
+void dwc2_gpio_irq_mutex_lock(struct dwc2 *dwc)
+{
+	struct dwc2_jz *jz = to_dwc2_jz(dwc);
+	mutex_lock(&jz->irq_lock);
+}
+EXPORT_SYMBOL_GPL(dwc2_gpio_irq_mutex_lock);
+
+void dwc2_gpio_irq_mutex_unlock(struct dwc2 *dwc)
+{
+	struct dwc2_jz *jz = to_dwc2_jz(dwc);
+	mutex_unlock(&jz->irq_lock);
+}
+EXPORT_SYMBOL_GPL(dwc2_gpio_irq_mutex_unlock);
+
 #if DWC2_DEVICE_MODE_ENABLE
 extern void dwc2_gadget_plug_change(int plugin);
 static void usb_plug_change(struct dwc2_jz *jz) {
 
 	int insert = __dwc2_get_detect_pin_status(jz);
 	struct dwc2 *dwc = platform_get_drvdata(&jz->dwc2);
-	pr_info("USB %s\n", insert ? "connect" : "disconnect");
+	pr_info("DWC USB %s\n", insert ? "connect" : "disconnect");
 	dwc2_disable_global_interrupts(dwc);
 	synchronize_irq(dwc->irq);
 	flush_work(&dwc->otg_id_work);
@@ -222,17 +236,27 @@ static irqreturn_t usb_host_id_interrupt(int irq, void *dev_id) {
 	int is_first = 1, dither_count = DWC2_HOST_ID_MAX_DOG_COUNT;
 
 	mutex_lock(&jz->irq_lock);
-	wake_lock_timeout(&jz->id_resume_wake_lock, 3 * HZ);
+	wake_lock(&jz->id_resume_wake_lock);
 	/* 50ms dither filter */
 	msleep(50);
 	while (1) {
 		if (__dwc2_get_id_level(jz) == 0) { /* host */
-			printk("host detect\n");
-			dwc2_resume_controller(dwc);
-			if (is_first) /*slcao's version just report power2_key in the first time,
-					it's a bug or not, we just keep it and take care of it*/
-				__dwc2_input_report_power2_key(jz);
-			break;
+			/* Think about vbus with an big capacity, when we disconnect B-device, the vbus
+			 * slow down to 0v, Cause the detect pin is still active, B-device not disconnect from
+			 * system in time, At thie time, the A-host is connected, we resume controller,
+			 * But after a while the device disconnected, suppend controller , shit happend
+			 */
+			if (__dwc2_get_detect_pin_status(jz))
+				dither_count++;
+			else {
+				printk("host detect\n");
+				dwc2_resume_controller(dwc);
+				if (is_first) /*slcao's version just report power2_key in the first time,
+						it's a bug or not, we just keep it and take care of it*/
+					__dwc2_input_report_power2_key(jz);
+				jz_otg_sft_id_off();
+				break;
+			}
 		}
 		/*keep filter*/
 		is_first = 0;
@@ -242,6 +266,7 @@ static irqreturn_t usb_host_id_interrupt(int irq, void *dev_id) {
 		schedule_timeout_uninterruptible(DWC2_HOST_ID_TIMER_INTERVAL + 1);
 	}
 	mutex_unlock(&jz->irq_lock);
+	wake_lock_timeout(&jz->id_resume_wake_lock, 3 * HZ);
 	return IRQ_HANDLED;
 }
 
@@ -361,14 +386,11 @@ EXPORT_SYMBOL_GPL(jz_set_vbus);
 
 int dwc2_suspend_controller(struct dwc2 *dwc)
 {
-	int suspended = 0;
-
 	if (dwc->suspended || (!dwc->keep_phy_on)) {
 #ifndef CONFIG_USB_DWC2_SAVING_POWER
 		pr_info("Suspend otg by suspend phy\n");
 		dwc2_disable_global_interrupts(dwc);
 		jz_otg_phy_suspend(1);
-		suspended = 1;
 #else
 		if (dwc->suspended ||
 				(dwc2_is_host_mode(dwc)) ||
@@ -379,7 +401,6 @@ int dwc2_suspend_controller(struct dwc2 *dwc)
 			jz_otg_phy_suspend(1);
 			jz_otg_phy_powerdown();
 			dwc2_clk_disable(dwc);
-			suspended = 1;
 		}
 #endif
 	}
@@ -506,7 +527,7 @@ static int dwc2_jz_probe(struct platform_device *pdev) {
 	jz->id_irq = -1;
 #if DWC2_HOST_MODE_ENABLE
 	jz->vbus = regulator_get(NULL, VBUS_REG_NAME);
-	if (IS_ERR_OR_NULL(jz->vbus)) {
+	if (IS_ERR(jz->vbus)) {
 		ret = devm_gpio_request_one(&pdev->dev, jz->drvvbus_pin->num,
 				GPIOF_DIR_OUT, "drvvbus_pin");
 		if (ret < 0) jz->drvvbus_pin->num = -1;
@@ -531,6 +552,11 @@ static int dwc2_jz_probe(struct platform_device *pdev) {
 
 	jz_otg_ctr_reset();
 	jz_otg_phy_init(dwc2_usb_mode());
+	if (!dwc2_plat_data->keep_phy_on)
+		jz_otg_sft_id(1);
+	else {
+		jz_otg_sft_id_off();
+	}
 
 	/*
 	 * Close VBUS detect in DWC-OTG PHY.	WHY???
@@ -551,7 +577,9 @@ static int dwc2_jz_probe(struct platform_device *pdev) {
 	}
 
 #if DWC2_DEVICE_MODE_ENABLE
-	if (jz->dete_irq >= 0) {
+	if (dwc2_plat_data->keep_phy_on) {
+		dwc2_gadget_plug_change(1);
+	} else {
 		ret = devm_request_threaded_irq(&pdev->dev,
 				gpio_to_irq(jz->dete_pin->num),
 				NULL,
@@ -567,13 +595,14 @@ static int dwc2_jz_probe(struct platform_device *pdev) {
 			dwc2_gadget_plug_change(1);
 			mutex_unlock(&jz->irq_lock);
 		}
-	} else if (dwc2_plat_data->keep_phy_on) {
-		dwc2_gadget_plug_change(1);
 	}
 #endif	/* DWC2_DEVICE_MODE_ENABLE */
 
 #if DWC2_HOST_MODE_ENABLE
-	if (jz->id_irq >= 0) {
+	if (dwc2_plat_data->keep_phy_on) {
+		struct dwc2* dwc = platform_get_drvdata(dwc2);
+		dwc2_resume_controller(dwc);
+	} else {
 		unsigned long flags = 0;
 		if (jz->id_pin->enable_level == HIGH_ENABLE)
 			flags = IRQF_TRIGGER_RISING;
@@ -591,10 +620,8 @@ static int dwc2_jz_probe(struct platform_device *pdev) {
 		} else if (!__dwc2_get_id_level(jz)) {
 			struct dwc2* dwc = platform_get_drvdata(dwc2);
 			dwc2_resume_controller(dwc);
+			jz_otg_sft_id_off();
 		}
-	} else if (dwc2_plat_data->keep_phy_on) {
-		struct dwc2* dwc = platform_get_drvdata(dwc2);
-		dwc2_resume_controller(dwc);
 	}
 #endif	/* DWC2_HOST_MODE_ENABLE */
 

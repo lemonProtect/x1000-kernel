@@ -538,7 +538,6 @@ struct dwc2 {
 	struct usb_hcd		*hcd;
 	int			device_connected;
 	u32			 port1_status;
-	spinlock_t		 port1_status_lock;
 	unsigned long		 rh_timer;
 
 	struct dwc2_channel	 channel_pool[MAX_EPS_CHANNELS];
@@ -717,6 +716,11 @@ void dwc2_enable_common_interrupts(struct dwc2 *dwc);
 			uint32_t m_curmod = dwc_readl(&dwc->core_global_regs->gintsts);	\
 									\
 			(m_curmod & 0x1) == 1;				\
+		})
+
+#define dwc2_is_a_device(dwc) ({	\
+			uint32_t m_curmod = dwc_readl(&dwc->core_global_regs->gotgctl); \
+			((m_curmod >> 16)& 0x1) == 0;	\
 		})
 
 void dwc2_wait_3_phy_clocks(void);
