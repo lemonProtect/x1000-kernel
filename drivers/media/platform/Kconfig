@@ -88,6 +88,12 @@ config MCLK_GPIO_PC24
 	bool "select pc24 as mclk pin."
 endchoice
 
+config MIPI_CAMERA_BYPASS_MODE
+	bool "camera bypass mode"
+	depends on VIDEO_OVISP && SOC_M200
+	---help---
+	FOR select bypass mode with camera
+
 config VIDEO_TIMBERDALE
 	tristate "Support for timberdale Video In/LogiWIN"
 	depends on VIDEO_V4L2 && I2C && DMADEVICES

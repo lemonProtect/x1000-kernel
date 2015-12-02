@@ -1545,7 +1545,9 @@ static int isp_init(struct isp_device *isp, void *data)
 	isp->boot = 0;
 	isp->poweron = 1;
 	isp->snapshot = 0;
+#ifdef CONFIG_MIPI_CAMERA_BYPASS_MODE
 	isp->bypass = false;
+#endif
 	isp->running = 0;
 	isp->format_active = 0;
 	isp->bracket_end = 0;
@@ -1606,7 +1608,9 @@ static int isp_open(struct isp_device *isp, struct isp_prop *prop)
 
 	isp->debug.status = 1;
 	isp->input = prop->index;
-//	isp->bypass = prop->bypass;
+//#ifdef CONFIG_MIPI_CAMERA_BYPASS_MODE
+	isp->bypass = prop->bypass;
+//#endif
 	isp->snapshot = 0;
 	isp->format_active = 0;
 	memset(&isp->fmt_data, 0, sizeof(isp->fmt_data));
@@ -2061,10 +2065,14 @@ static int isp_s_fmt(struct isp_device *isp, struct isp_format *f)
 	if(ret)
 		return ret;
 	if(isp->parm.c_video == 0){
+#ifdef CONFIG_MIPI_CAMERA_BYPASS_MODE
+			isp->bypass = true;
+#else
 		if(f->vfmt.dev_fourcc == f->vfmt.fourcc)
 			isp->bypass = true;
 		else
 			isp->bypass = false;
+#endif
 	}
 	isp->format_active = 1;
 	return 0;

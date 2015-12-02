@@ -452,6 +452,14 @@ config VIDEO_OV5645
 	  This is a Video4Linux2 sensor-level driver for the OmniVision
 	  OV5645 camera.
 
+config VIDEO_OV5645_BYPASS
+	tristate "OmniVision OV5645 sensor support for bypass mode"
+	depends on I2C && VIDEO_V4L2
+	depends on MEDIA_CAMERA_SUPPORT
+	---help---
+	  This is a Video4Linux2 sensor-level driver for the OmniVision
+	  OV5645 camera with bypass.
+
 config VIDEO_OV9724
 	tristate "OmniVision OV9724 sensor support"
 	depends on I2C && VIDEO_V4L2
