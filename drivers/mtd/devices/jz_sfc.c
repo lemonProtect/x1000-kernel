@@ -94,6 +94,8 @@
 	JZ_NOR_INIT(CMD_REMS,0,0,0,0,0,0),\
 	JZ_NOR_INIT(CMD_RDID,0,1,0,0,0,0), \
 	JZ_NOR_INIT(CMD_FAST_READ,3,1,0,0,8,1), \
+	JZ_NOR_INIT(CMD_EN4B,0,0,0,0,0,0),\
+	JZ_NOR_INIT(CMD_EX4B,0,0,0,0,0,0),\
 	JZ_NOR_INIT(CMD_NON,0,0,0,0,0,0)
 
 
@@ -422,7 +424,13 @@ static int jz_sfc_pio_txrx(struct jz_sfc *flash, struct sfc_transfer *t)
 
 
 		if ( flash->nor_info->addr_len != 0) {
-			if(flash->addr_len == 3){
+			if (flash->addr_len == 4){
+				flash->nor_info->addr_len = flash->addr_len;
+				flash->addr = (((*(unsigned char*)(t->tx_buf + 1)) << 24)&0xff000000)|
+					(((*(unsigned char*)(t->tx_buf + 2)) << 16) &0x00ff0000)|
+					(((*(unsigned char*)(t->tx_buf + 3) << 8) &0x0000ff00))|
+					((*(unsigned char*)(t->tx_buf + 4)&0x000000ff));
+			}else if (flash->addr_len == 3){
 				if(flash->nor_info->M7_0 == 1){
 					flash->addr = (((*(unsigned char*)(t->tx_buf + 1)) << 24)&0xff000000)|
 						(((*(unsigned char*)(t->tx_buf + 2)) << 16) &0x00ff0000)|
@@ -666,11 +674,42 @@ static int jz_spi_norflash_set_quad_mode(struct jz_sfc *flash)
 }
 #endif
 
+static int jz_spi_norflash_set_address_mode(struct jz_sfc *flash,int on)
+{
+	int ret;
+	unsigned char command_stage1[1];
+	struct sfc_transfer transfer[1];
+
+	if(flash->board_info->addrsize == 4){
+
+		if(on == 1){
+			command_stage1[0] = CMD_EN4B;
+		}else{
+			command_stage1[0] = CMD_EX4B;
+		}
+
+		transfer[0].tx_buf  = command_stage1;
+		transfer[0].tx_buf1 = NULL;
+		transfer[0].rx_buf =  NULL;
+		transfer[0].len = 0;
+		ret = jz_sfc_pio_txrx(flash, transfer);
+		if(ret != transfer[0].len)
+			dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
+
+		ret = jz_spi_norflash_wait_till_ready(flash);
+		if (ret)
+			return ret;
+	}
+	return 0;
+}
+
 static int jz_spi_norflash_erase_sector(struct jz_sfc *flash, uint32_t offset)
 {
-	int ret = 0;
-	unsigned char command_stage1[4];
+	int ret = 0, j;
+	unsigned char command_stage1[5];
 	struct sfc_transfer transfer[1];
+
+	jz_spi_norflash_set_address_mode(flash,1);
 
 	ret = jz_spi_norflash_write_enable(flash);
 	if (ret)
@@ -687,10 +726,14 @@ static int jz_spi_norflash_erase_sector(struct jz_sfc *flash, uint32_t offset)
 		command_stage1[0] = SPINOR_OP_SE;
 		break;
 	}
-
+	/*
 	command_stage1[1] = offset >> 16;
 	command_stage1[2] = offset >> 8;
 	command_stage1[3] = offset;
+	*/
+	for(j = 1; j <= flash->addr_len; j++){
+			command_stage1[j] = offset >> (flash->addr_len - j) * 8;
+	}
 
 	transfer[0].tx_buf  = command_stage1;
 	transfer[0].tx_buf1 = NULL;
@@ -706,6 +749,8 @@ static int jz_spi_norflash_erase_sector(struct jz_sfc *flash, uint32_t offset)
 		printk("wait timeout\n");
 		return ret;
 	}
+
+	jz_spi_norflash_set_address_mode(flash,0);
 
 	return 0;
 }
@@ -772,8 +817,8 @@ static int jz_spi_norflash_erase(struct mtd_info *mtd, struct erase_info *instr)
 static int jz_spi_norflash_read(struct mtd_info *mtd, loff_t from,
 		size_t len, size_t *retlen, unsigned char *buf)
 {
-	int ret;
-	unsigned char command_stage1[4];
+	int ret,j;
+	unsigned char command_stage1[5];
 	struct sfc_transfer transfer[1];
 	struct jz_sfc *flash;
 	unsigned int tmp_len = 0;
@@ -783,6 +828,9 @@ static int jz_spi_norflash_read(struct mtd_info *mtd, loff_t from,
 	swap_buf = flash->swap_buf;
 
 	mutex_lock(&flash->lock);
+
+	jz_spi_norflash_set_address_mode(flash,1);
+
 #ifdef CONFIG_SPI_QUAD
 	if(quad_mode == 0)
 		jz_spi_norflash_set_quad_mode(flash);
@@ -796,10 +844,15 @@ static int jz_spi_norflash_read(struct mtd_info *mtd, loff_t from,
 #endif
 
 	if(len <= SWAP_BUF_SIZE){
-
+		/*
 		command_stage1[1] = from >> 16;
 		command_stage1[2] = from >> 8;
 		command_stage1[3] = from;
+		*/
+		for(j = 1; j <= flash->addr_len; j++){
+			command_stage1[j] = from >> (flash->addr_len - j) * 8;
+		}
+
 		transfer[0].tx_buf = command_stage1;
 		transfer[0].tx_buf1 = NULL;
 		transfer[0].rx_buf = swap_buf;
@@ -820,9 +873,14 @@ static int jz_spi_norflash_read(struct mtd_info *mtd, loff_t from,
 				rlen = len - tmp_len;
 			}
 
+			/*
 			command_stage1[1] = (from + tmp_len) >> 16;
 			command_stage1[2] = (from + tmp_len) >> 8;
 			command_stage1[3] = (from + tmp_len);
+			*/
+			for(j = 1; j <= flash->addr_len; j++){
+				command_stage1[j] = (from + tmp_len) >> (flash->addr_len - j) * 8;
+			}
 
 			transfer[0].tx_buf = command_stage1;
 			transfer[0].tx_buf1 = NULL;
@@ -841,6 +899,8 @@ static int jz_spi_norflash_read(struct mtd_info *mtd, loff_t from,
 		}
 	}
 
+	jz_spi_norflash_set_address_mode(flash,0);
+
 	mutex_unlock(&flash->lock);
 
 	return 0;
@@ -849,9 +909,9 @@ static int jz_spi_norflash_read(struct mtd_info *mtd, loff_t from,
 static int jz_spi_norflash_write(struct mtd_info *mtd, loff_t to, size_t len,
 			size_t *retlen, const unsigned char *buf)
 {
-	unsigned int i, ret,err;
+	unsigned int i, j, ret, err;
 	int ret_addr, actual_len, write_len;
-	unsigned char command_stage1[4];
+	unsigned char command_stage1[5];
 	struct sfc_transfer transfer[1];
 	unsigned char * swap_buf= NULL;
 	struct jz_sfc *flash;
@@ -869,6 +929,8 @@ static int jz_spi_norflash_write(struct mtd_info *mtd, loff_t to, size_t len,
 		actual_len = len;
 	else
 		actual_len = mtd->writesize - ret_addr;
+
+	jz_spi_norflash_set_address_mode(flash,1);
 
 #ifdef CONFIG_SPI_QUAD
 	if(quad_mode == 0)
@@ -889,9 +951,14 @@ static int jz_spi_norflash_write(struct mtd_info *mtd, loff_t to, size_t len,
 #else
 		command_stage1[0] = SPINOR_OP_PP;
 #endif
+		/*
 		command_stage1[1] = to >> 16;
 		command_stage1[2] = to >> 8;
 		command_stage1[3] = to;
+		*/
+		for(j = 1; j <= flash->addr_len; j++){
+			command_stage1[j] = to >> (flash->addr_len - j) * 8;
+		}
 
 		memcpy(swap_buf,buf,actual_len);
 
@@ -930,10 +997,14 @@ static int jz_spi_norflash_write(struct mtd_info *mtd, loff_t to, size_t len,
 #else
 		command_stage1[0] = SPINOR_OP_PP;
 #endif
-
+		/*
 		command_stage1[1] = (to + i) >> 16;
 		command_stage1[2] = (to + i) >> 8;
 		command_stage1[3] = (to + i);
+		*/
+		for(j = 1; j <= flash->addr_len; j++){
+			command_stage1[j] = (to + i) >> (flash->addr_len - j) * 8;
+		}
 
 		if(len - i < mtd->writesize)
 			write_len = len - i;
@@ -962,6 +1033,8 @@ static int jz_spi_norflash_write(struct mtd_info *mtd, loff_t to, size_t len,
 
 		*retlen += ret;
 	}
+
+	jz_spi_norflash_set_address_mode(flash,0);
 
 	mutex_unlock(&flash->lock);
 

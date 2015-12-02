@@ -28,6 +28,8 @@
 #define CMD_REMS        0x90 /* Read Manufacture ID/ Device ID */
 #define CMD_RDID        0x9F /* Read Identification */
 #define CMD_NON         0x00 /* Read Identification */
+#define CMD_EN4B		0xB7 /* Enter 4 bytes address mode */
+#define CMD_EX4B		0xE9 /* Exit 4 bytes address mode */
 
 /* SPI NAND Flash Instructions */
 //#define CMD_WREN    0x06    /* Write Enable */
