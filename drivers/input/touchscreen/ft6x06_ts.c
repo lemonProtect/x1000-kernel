@@ -38,8 +38,8 @@
 
 
 /* After report early 10 points, skip report point(1/3). */
-#define DEBUG_SKIP_REPORT_POINT
-#define DEBUG_SKIP_POINT_DIVIDE_RATIO (3) /* only report 1/3 */
+// #define DEBUG_SKIP_REPORT_POINT
+// #define DEBUG_SKIP_POINT_DIVIDE_RATIO (3) /* only report 1/3 */
 
 
 //#define FTS_CTL_IIC
