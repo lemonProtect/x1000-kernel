@@ -34,7 +34,6 @@
 #ifdef CONFIG_USB_GADGET_AUDIO_SOURCE
 #include "f_audio_source.c"
 #endif
-#include "storage_common.c"
 #include "f_mass_storage.c"
 #include "f_adb.c"
 #include "f_mtp.c"
@@ -932,22 +931,19 @@ static struct android_usb_function rndis_function = {
 	.attributes	= rndis_function_attributes,
 };
 
+
 struct mass_storage_function_config {
 	struct fsg_config fsg;
 	struct fsg_common *common;
-
-	struct usb_function_instance func_inst;
-	struct fsg_lun_opts lun0;
-	struct config_group *default_groups[2];
-	bool no_configfs; /* for legacy gadgets */
 };
+
 static int mass_storage_function_init(struct android_usb_function *f,
 					struct usb_composite_dev *cdev)
 {
 	struct mass_storage_function_config *config;
 	struct fsg_common *common;
 	int err;
-	int rc;
+
 	config = kzalloc(sizeof(struct mass_storage_function_config),
 								GFP_KERNEL);
 	if (!config)
@@ -956,43 +952,27 @@ static int mass_storage_function_init(struct android_usb_function *f,
 	config->fsg.nluns = 1;
 	config->fsg.luns[0].removable = 1;
 
-	common = fsg_common_setup(config->common);
-	if (IS_ERR(config->common)) {
-		rc = PTR_ERR(config->common);
-		goto release_opts;
+	common = fsg_common_init(NULL, cdev, &config->fsg);
+	if (IS_ERR(common)) {
+		kfree(config);
+		return PTR_ERR(common);
 	}
-	rc = fsg_common_set_nluns(config->common, FSG_MAX_LUNS);
-	if (rc)
-		goto release_opts;
 
-	rc = fsg_common_set_num_buffers(config->common,
-					CONFIG_USB_GADGET_STORAGE_NUM_BUFFERS);
-	if (rc)
-		goto release_luns;
+	err = sysfs_create_link(&f->dev->kobj,
+				&common->luns[0].dev.kobj,
+				"lun");
+	if (err) {
+		kfree(config);
+		return err;
+	}
 
-
-	rc = fsg_common_create_lun(config->common, &config, 0, "lun.0",
-				   (const char **)&config->func_inst.group.cg_item.ci_name);
-	config->lun0.lun = config->common->luns[0];
-	config->lun0.lun_id = 0;
-	config_group_init_type_name(&config->lun0.group, "lun.0", &fsg_lun_type);
-	config->default_groups[0] = &config->lun0.group;
-	config->func_inst.group.default_groups = config->default_groups;
-
-	config_group_init_type_name(&config->func_inst.group, "", &fsg_func_type);
 	config->common = common;
 	f->config = config;
 	return 0;
-release_luns:
-	kfree(common->luns);
-release_opts:
-	kfree(config);
-	return -1;
 }
 
 static void mass_storage_function_cleanup(struct android_usb_function *f)
 {
-
 	kfree(f->config);
 	f->config = NULL;
 }
@@ -1001,29 +981,7 @@ static int mass_storage_function_bind_config(struct android_usb_function *f,
 						struct usb_configuration *c)
 {
 	struct mass_storage_function_config *config = f->config;
-	struct fsg_common *common = config->common;
-	struct fsg_dev *fsg;
-	int rc;
-
-	fsg = kzalloc(sizeof *fsg, GFP_KERNEL);
-	if (unlikely(!fsg))
-		return -ENOMEM;
-
-	fsg->function.name        = FSG_DRIVER_DESC;
-	fsg->function.strings     = fsg_strings_array;
-	fsg->function.bind        = fsg_bind;
-	fsg->function.unbind      = fsg_unbind;
-	fsg->function.setup       = fsg_setup;
-	fsg->function.set_alt     = fsg_set_alt;
-	fsg->function.disable     = fsg_disable;
-
-	fsg->common               = common;
-	rc = usb_add_function(c, &fsg->function);
-	if (unlikely(rc))
-		kfree(fsg);
-	else
-		fsg_common_get(fsg->common);
-	return rc;
+	return fsg_bind_config(c->cdev, c, config->common);
 }
 
 static ssize_t mass_storage_inquiry_show(struct device *dev,
@@ -1049,7 +1007,6 @@ static ssize_t mass_storage_inquiry_store(struct device *dev,
 static DEVICE_ATTR(inquiry_string, S_IRUGO | S_IWUSR,
 					mass_storage_inquiry_show,
 					mass_storage_inquiry_store);
-
 
 static struct device_attribute *mass_storage_function_attributes[] = {
 	&dev_attr_inquiry_string,
@@ -1167,7 +1124,7 @@ static struct android_usb_function *supported_functions[] = {
 	&mtp_function,
 	&ptp_function,
 	&rndis_function,
-//	&mass_storage_function,
+	&mass_storage_function,
 	&accessory_function,
 #ifdef CONFIG_USB_GADGET_AUDIO_SOURCE
 	&audio_source_function,
