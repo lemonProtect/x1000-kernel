@@ -54,6 +54,11 @@ struct i2c_board_info jz_v4l2_camera_devs[] __initdata = {
 		I2C_BOARD_INFO("gc0308", 0x21),
 	},
 #endif
+#ifdef CONFIG_SOC_CAMERA_GC2155
+	[FRONT_CAMERA_INDEX] = {
+		I2C_BOARD_INFO("gc2155", 0x3c),
+	},
+#endif
 };
 int jz_v4l2_devs_size = ARRAY_SIZE(jz_v4l2_camera_devs);
 #endif
