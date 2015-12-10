@@ -909,7 +909,7 @@ static int jz_sfcnand_read_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_o
         int ret,timeout = 2000;
 
 	flash = to_jz_spi_nand(mtd);
-
+	mutex_lock(&flash->lock);
 	memset(transfer,0,sizeof(struct sfc_transfer_nand));
 	transfer[0].sfc_cmd.cmd=SPINAND_CMD_PARD;
 	transfer[0].sfc_cmd.addr_low=page;
@@ -975,6 +975,7 @@ static int jz_sfcnand_read_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_o
         transfer[0].sfc_mode=0;
 	ret=jz_sfc_pio_txrx(flash,transfer);
 	ops->retlen=ret;
+	mutex_unlock(&flash->lock);
         return ret;
 
 
@@ -1034,29 +1035,8 @@ static int jz_sfcnand_write_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_
         jz_sfc_pio_txrx(flash,transfer);
 
         jz_sfc_nandflash_write_enable(flash);
-        memset(transfer,0,sizeof(struct sfc_transfer_nand));
 
-        transfer[0].sfc_cmd.cmd=SPINAND_CMD_PLRd;
-        transfer[0].sfc_cmd.addr_low=column;
-        transfer[0].sfc_cmd.addr_high=0;
-        transfer[0].sfc_cmd.dummy_byte=0;
-        transfer[0].sfc_cmd.addr_len=2;
-        transfer[0].sfc_cmd.cmd_len=1;
-        transfer[0].sfc_cmd.transmode=0;
-        transfer[0].finally_len=0;
-
-        transfer[0].tx_buf = ops->oobbuf;
-        transfer[0].rx_buf = NULL;
-        transfer[0].len=ops->ooblen;
-        transfer[0].date_en=1;
-        transfer[0].dma_mode=DMA_MODE;
-        transfer[0].pollen=0;
-        transfer[0].rw_mode=W_MODE;
-        transfer[0].sfc_mode=0;
-        ret=jz_sfc_pio_txrx(flash,transfer);
-
-        memset(transfer,0,sizeof(struct sfc_transfer_nand));
-        transfer[0].sfc_cmd.cmd=SPINAND_CMD_PRO_EN;
+	transfer[0].sfc_cmd.cmd=SPINAND_CMD_PRO_EN;
         transfer[0].sfc_cmd.addr_low=page;
         transfer[0].sfc_cmd.addr_high=0;
         transfer[0].sfc_cmd.dummy_byte=0;
@@ -1080,10 +1060,11 @@ static int jz_sfcnand_write_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_
 		ret = jz_sfc_nandflash_get_status(flash);
 		timeout--;
         }while((ret & SPINAND_IS_BUSY) && (timeout > 0));
-	if(ret & p_FAIL){
-                pr_info("spi nand write fail %s %s %d\n",__FILE__,__func__,__LINE__);
-                return -EIO;
-	}
+		if(ret & p_FAIL){
+                	pr_info("spi nand write fail %s %s %d\n",__FILE__,__func__,__LINE__);
+			mutex_unlock(&flash->lock);
+                	return -EIO;
+		}
 	ops->retlen=ret;
         mutex_unlock(&flash->lock);
         return 0;
