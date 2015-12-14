@@ -19,7 +19,7 @@
 #define LDO7_NAME "vcc_sensor3v3"
 #define LDO8_NAME "vcc_sensor1v8"
 #define LDO9_NAME "ldo9"
-#define LDO10_NAME "ldo10"
+#define LDO10_NAME "dmic_1v8"
 #define LDORTC1_NAME "rtc_1v8"
 #define LDORTC2_NAME "rtc_1v1"
 /* ****************************PMU DC/LDO NAME END*************************** */

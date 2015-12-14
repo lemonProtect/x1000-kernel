@@ -32,6 +32,7 @@
 #include "board_base.h"
 
 #define PMIC_IRQ	0
+#define CONFIG_RICOH61X_CHARGE_DONE_LIMIT 1
 
 /* If don't use the GPIO function, Set this macro to -1 */
 #define PLATFORM_RICOH_GPIO_BASE	(-1)
@@ -48,7 +49,13 @@
 static struct regulator_consumer_supply ricoh619_dc1_supply_0[] = {
 	REGULATOR_SUPPLY(DC1_NAME, NULL),
 };
-
+/*
+static struct regulator_consumer_supply ricoh619_dc1_slp_supply_0[] = {
+#ifdef DC1_SLP_NAME
+	REGULATOR_SUPPLY(DC1_SLP_NAME, NULL),
+#endif
+};
+*/
 static struct regulator_consumer_supply ricoh619_dc2_supply_0[] = {
 	REGULATOR_SUPPLY(DC2_NAME, NULL),
 };
@@ -64,6 +71,7 @@ static struct regulator_consumer_supply ricoh619_dc4_supply_0[] = {
 static struct regulator_consumer_supply ricoh619_dc5_supply_0[] = {
 	REGULATOR_SUPPLY(DC5_NAME, NULL),
 };
+
 static struct regulator_consumer_supply ricoh619_ldo1_supply_0[] = {
 	REGULATOR_SUPPLY(LDO1_NAME, NULL),
 };
@@ -146,12 +154,12 @@ static struct regulator_consumer_supply ricoh619_ldortc2_supply_0[] = {
 RICOH_PDATA_INIT(dc1, 0,	600,   1200, 0, DC1_ALWAYS_ON, DC1_BOOT_ON, 1,
 		 DC1_INIT_UV, DC1_INIT_SLP_UV, DC1_INIT_ENABLE, 1, 0, 0, 0);
 RICOH_PDATA_INIT(dc2, 0,	600,   3500, 0, DC2_ALWAYS_ON, DC2_BOOT_ON, 1,
-		 DC2_INIT_UV, DC2_INIT_SLP_UV, DC1_INIT_ENABLE, 1, 0, 0, 0);
+		 DC2_INIT_UV, DC2_INIT_SLP_UV, 1, DC1_INIT_ENABLE, 0, 0, 0);
 RICOH_PDATA_INIT(dc3, 0,	600,   3500, 0, DC3_ALWAYS_ON, DC3_BOOT_ON, 1,
 		 DC3_INIT_UV, DC3_INIT_SLP_UV, DC3_INIT_ENABLE, 1, 0, 0, 0);
 RICOH_PDATA_INIT(dc4, 0,	600,   3500, 0, DC4_ALWAYS_ON, DC4_BOOT_ON, 1,
 		 DC4_INIT_UV, DC4_INIT_SLP_UV, DC4_INIT_ENABLE, 1, 0, 0, 0);
-RICOH_PDATA_INIT(dc5, 0,	600,   3500, 0, DC5_ALWAYS_ON, DC5_BOOT_ON, 1,
+RICOH_PDATA_INIT(dc5, 0,	600,   3500, 0, DC5_ALWAYS_ON | LDO6_ALWAYS_ON | LDO9_ALWAYS_ON | LDO10_ALWAYS_ON, DC5_BOOT_ON | LDO6_BOOT_ON | LDO9_BOOT_ON | LDO10_BOOT_ON, 1,
 		 DC5_INIT_UV, DC5_INIT_SLP_UV, DC5_INIT_ENABLE, 1, 0, 0, 0);
 RICOH_PDATA_INIT(ldo1, 0,	900,   3500, 0, LDO1_ALWAYS_ON, LDO1_BOOT_ON, 1,
 		 LDO1_INIT_UV, LDO1_INIT_SLP_UV, LDO1_INIT_ENABLE, 1, 0, 0, 0);
@@ -180,7 +188,8 @@ RICOH_PDATA_INIT(ldortc2, 0,	900,   3500, 0, LDORTC2_ALWAYS_ON, LDORTC2_BOOT_ON,
 
 /*-------- if Ricoh RTC exists -----------*/
 #ifdef CONFIG_RTC_DRV_R5T619
-static struct ricoh_rtc_platform_data rtc_data = {
+#include <linux/rtc/rtc-ricoh619.h>
+static struct ricoh619_rtc_platform_data rtc_data = {
 	.irq = RICOH619_IRQ_BASE,
 	.time = {
 		.tm_year = 1970,
@@ -241,12 +250,12 @@ static struct ricoh619_battery_platform_data ricoh619_battery_data = {
 	.type[0] = {
 		.ch_vfchg 	= 0x02,	/* VFCHG	= 0 - 4 (4.05v, 4.10v, 4.15v, 4.20v, 4.35v) */
 		.ch_vrchg 	= 0x4,	/* VRCHG	= 0 - 4 (3.85v, 3.90v, 3.95v, 4.00v, 4.10v) */
-		.ch_vbatovset 	= 0x0,	/* VBATOVSET	= 0 or 1 (0 : 4.38v(up)/3.95v(down) 1: 4.53v(up)/4.10v(down)) */
+		.ch_vbatovset 	= 0x1,	/* VBATOVSET	= 0 or 1 (0 : 4.38v(up)/3.95v(down) 1: 4.53v(up)/4.10v(down)) */
 		.ch_ichg 	= 0x09,	/* ICHG		= 0 - 0x1D (100mA - 3000mA) */
-		.ch_ilim_adp 	= 0x18,	/* ILIM_ADP	= 0 - 0x1D (100mA - 3000mA) */
-		.ch_ilim_usb 	= 0x04,	/* ILIM_USB	= 0 - 0x1D (100mA - 3000mA) */
-		.ch_icchg 	= 0x03,	/* ICCHG	= 0 - 3 (50mA 100mA 150mA 200mA) */
-		.fg_target_vsys = 3000,	/* This value is the target one to DSOC=0% */
+		.ch_ilim_adp 	= 0x1D,	/* ILIM_ADP	= 0 - 0x1D (100mA - 3000mA) */
+		.ch_ilim_usb 	= 0x1D,	/* ILIM_USB	= 0 - 0x1D (100mA - 3000mA) */
+		.ch_icchg 	= (CONFIG_RICOH61X_CHARGE_DONE_LIMIT),	/* ICCHG	= 0 - 3 (50mA 100mA 150mA 200mA) */
+		.fg_target_vsys = 3500,	/* This value is the target one to DSOC=0% */
 		.fg_target_ibat = 200, /* This value is the target one to DSOC=0% */
 		.fg_poff_vbat 	= 0, 	/* setting value of 0 per Vbat */
 		.jt_en 		= 0,	/* JEITA Enable	  = 0 or 1 (1:enable, 0:disable) */
@@ -262,12 +271,12 @@ static struct ricoh619_battery_platform_data ricoh619_battery_data = {
 	.type[1] = {
 		.ch_vfchg 	= 0x03,	/* VFCHG	= 0 - 4 (4.05v, 4.10v, 4.15v, 4.20v, 4.35v) */
 		.ch_vrchg 	= 0x01,	/* VRCHG	= 0 - 4 (3.85v, 3.90v, 3.95v, 4.00v, 4.10v) */
-		.ch_vbatovset 	= 0x0,	/* VBATOVSET	= 0 or 1 (0 : 4.38v(up)/3.95v(down) 1: 4.53v(up)/4.10v(down)) */
+		.ch_vbatovset 	= 0x1,	/* VBATOVSET	= 0 or 1 (0 : 4.38v(up)/3.95v(down) 1: 4.53v(up)/4.10v(down)) */
 		.ch_ichg 	= 0x03,	/* ICHG		= 0 - 0x1D (100mA - 3000mA) */
-		.ch_ilim_adp 	= 0x18,	/* ILIM_ADP	= 0 - 0x1D (100mA - 3000mA) */
-		.ch_ilim_usb 	= 0x04,	/* ILIM_USB	= 0 - 0x1D (100mA - 3000mA) */
-		.ch_icchg 	= 0x00,	/* ICCHG	= 0 - 3 (50mA 100mA 150mA 200mA) */
-		.fg_target_vsys = 3000,	/* This value is the target one to DSOC=0% */
+		.ch_ilim_adp 	= 0x1D,	/* ILIM_ADP	= 0 - 0x1D (100mA - 3000mA) */
+		.ch_ilim_usb 	= 0x1D,	/* ILIM_USB	= 0 - 0x1D (100mA - 3000mA) */
+		.ch_icchg 	= (CONFIG_RICOH61X_CHARGE_DONE_LIMIT),	/* ICCHG	= 0 - 3 (50mA 100mA 150mA 200mA) */
+		.fg_target_vsys = 3500,	/* This value is the target one to DSOC=0% */
 		.fg_target_ibat = 100, /* This value is the target one to DSOC=0% */
 		.fg_poff_vbat 	= 0, 	/* setting value of 0 per Vbat */
 		.fg_rsense_val	= 100,	/* setting value of R Sense */

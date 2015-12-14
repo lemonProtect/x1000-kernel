@@ -108,7 +108,7 @@ static inline int gpio_pin_level(struct jzgpio_chip *jz, int pin)
 }
 
 static void gpio_set_func(struct jzgpio_chip *chip,
-			  enum gpio_function func, unsigned int pins)
+		enum gpio_function func, unsigned int pins)
 {
 	unsigned long comp, flags;
 	unsigned long grp;
@@ -163,7 +163,7 @@ static void gpio_set_func(struct jzgpio_chip *chip,
 }
 
 static void gpio_restore_func(struct jzgpio_chip *chip,
-			      struct gpio_reg_func *rfunc, unsigned int pins)
+		struct gpio_reg_func *rfunc, unsigned int pins)
 {
 	unsigned long comp, flags;
 	unsigned long grp;
@@ -221,7 +221,7 @@ static void gpio_restore_func(struct jzgpio_chip *chip,
 	spin_unlock_irqrestore(&chip->gpio_lock,flags);
 }
 int jz_gpio_save_reset_func(enum gpio_port port, enum gpio_function dst_func,
-			    unsigned long pins, struct gpio_reg_func *rfunc)
+		unsigned long pins, struct gpio_reg_func *rfunc)
 {
 	struct jzgpio_chip *jz = &jz_gpio_chips[port];
 
@@ -237,7 +237,7 @@ int jz_gpio_save_reset_func(enum gpio_port port, enum gpio_function dst_func,
 }
 
 int jz_gpio_restore_func(enum gpio_port port,
-			 unsigned long pins, struct gpio_reg_func *rfunc)
+		unsigned long pins, struct gpio_reg_func *rfunc)
 {
 	struct jzgpio_chip *jz = &jz_gpio_chips[port];
 
@@ -247,7 +247,7 @@ int jz_gpio_restore_func(enum gpio_port port,
 }
 
 int jzgpio_set_func(enum gpio_port port,
-		    enum gpio_function func,unsigned long pins)
+		enum gpio_function func,unsigned long pins)
 {
 	struct jzgpio_chip *jz = &jz_gpio_chips[port];
 
@@ -265,11 +265,11 @@ int jz_gpio_set_func(int gpio, enum gpio_function func)
 
 	struct jzgpio_chip *jz = &jz_gpio_chips[port];
 
-/*
- * TODO: ugly stuff
- * should i check and mark the pin has been requested?
- * it's a duplicate of request_gpio
- */
+	/*
+	 * TODO: ugly stuff
+	 * should i check and mark the pin has been requested?
+	 * it's a duplicate of request_gpio
+	 */
 #if 0
 	if (jz->dev_map[0] & pins)
 		return -EINVAL;
@@ -297,9 +297,24 @@ int jzgpio_ctrl_pull(enum gpio_port port, int enable_pull,unsigned long pins)
 }
 EXPORT_SYMBOL(jzgpio_ctrl_pull);
 
+int jzgpio_set_func_nopull(enum gpio_port port,
+		enum gpio_function func,unsigned long pins)
+{
+	jzgpio_set_func(port,func,pins);
+	return 0;
+}
+
+int jzgpio_set_func_pull(enum gpio_port port,
+		enum gpio_function func,unsigned long pins)
+{
+	jzgpio_set_func(port,func,pins);
+	jzgpio_ctrl_pull(port,1,pins);
+	return 0;
+}
+
 /* Functions followed for GPIOLIB */
 static int jz_gpio_set_pull(struct gpio_chip *chip,
-			    unsigned offset, unsigned pull)
+		unsigned offset, unsigned pull)
 {
 	struct jzgpio_chip *jz = gpio2jz(chip);
 
@@ -319,7 +334,7 @@ static int jz_gpio_set_pull(struct gpio_chip *chip,
 /* Functions followed for GPIOLIB */
 
 static void jz_gpio_set(struct gpio_chip *chip,
-			unsigned offset, int value)
+		unsigned offset, int value)
 {
 	struct jzgpio_chip *jz = gpio2jz(chip);
 
@@ -359,7 +374,7 @@ static int jz_gpio_input(struct gpio_chip *chip, unsigned offset)
 }
 
 static int jz_gpio_output(struct gpio_chip *chip,
-			  unsigned offset, int value)
+		unsigned offset, int value)
 {
 	struct jzgpio_chip *jz = gpio2jz(chip);
 
@@ -369,7 +384,7 @@ static int jz_gpio_output(struct gpio_chip *chip,
 
 	set_bit(offset, jz->out_map);
 	gpio_set_func(jz, value? GPIO_OUTPUT1: GPIO_OUTPUT0
-		      , BIT(offset));
+			, BIT(offset));
 	return 0;
 }
 
@@ -482,18 +497,18 @@ static int gpio_set_type(struct irq_data *data, unsigned int flow_type)
 	if (flow_type & IRQ_TYPE_PROBE)
 		return 0;
 	switch (flow_type & IRQD_TRIGGER_MASK) {
-	case IRQ_TYPE_LEVEL_HIGH:	func = GPIO_INT_HI;	break;
-	case IRQ_TYPE_LEVEL_LOW:	func = GPIO_INT_LO;	break;
-	case IRQ_TYPE_EDGE_RISING:	func = GPIO_INT_RE;	break;
-	case IRQ_TYPE_EDGE_FALLING:	func = GPIO_INT_FE;	break;
-	case IRQ_TYPE_EDGE_BOTH:
-		if (gpio_pin_level(jz, pin))
-			func = GPIO_INT_FE;
-		else
-			func = GPIO_INT_RE;
-		break;
-	default:
-		return -EINVAL;
+		case IRQ_TYPE_LEVEL_HIGH:	func = GPIO_INT_HI;	break;
+		case IRQ_TYPE_LEVEL_LOW:	func = GPIO_INT_LO;	break;
+		case IRQ_TYPE_EDGE_RISING:	func = GPIO_INT_RE;	break;
+		case IRQ_TYPE_EDGE_FALLING:	func = GPIO_INT_FE;	break;
+		case IRQ_TYPE_EDGE_BOTH:
+						if (gpio_pin_level(jz, pin))
+							func = GPIO_INT_FE;
+						else
+							func = GPIO_INT_RE;
+						break;
+		default:
+						return -EINVAL;
 	}
 
 	irqd_set_trigger_type(data, flow_type);
@@ -649,16 +664,16 @@ static int __init setup_gpio_irq(void)
 
 	for (i = 0; i < ARRAY_SIZE(jz_gpio_chips); i++) {
 		if (request_irq(IRQ_GPIO_PORT(i), gpio_handler, IRQF_DISABLED,
-				jz_gpio_chips[i].irq_chip.name,
-				(void*)&jz_gpio_chips[i]))
+					jz_gpio_chips[i].irq_chip.name,
+					(void*)&jz_gpio_chips[i]))
 			continue;
 
 		enable_irq_wake(IRQ_GPIO_PORT(i));
 		irq_set_handler(IRQ_GPIO_PORT(i), handle_simple_irq);
 		for (j = 0; j < 32; j++)
 			irq_set_chip_and_handler(jz_gpio_chips[i].irq_base + j,
-						 &jz_gpio_chips[i].irq_chip,
-						 handle_level_irq);
+					&jz_gpio_chips[i].irq_chip,
+					handle_level_irq);
 	}
 	return 0;
 }
@@ -703,21 +718,21 @@ void gpio_suspend_set(struct jzgpio_chip *jz)
 
 	/* printk("grp:%d pxint:0x%08x,pxmsk:0x%08x,pxpat1:0x%08x,pxpat0:0x%08x,pxpen:0x%08x\n", */
 	/*       grp,pxint,pxmsk,pxpat1,pxpat0,pxpen); */
-        //set set reg
+	//set set reg
 	writel(pxint,jz->reg + PXINT);
 	writel(pxmsk,jz->reg + PXMSK);
 	writel(pxpat1,jz->reg + PXPAT1);
 	writel(pxpat0,jz->reg + PXPAT0);
 	writel(~pxpen,jz->reg + PXPEN);
 
-/* #define output_str(x) \ */
-/* 	printk("\t " #x " 0x%08x\n",readl(jz->reg + x)); */
-/* 	output_str(PXINT); */
-/* 	output_str(PXMSK); */
-/* 	output_str(PXPAT1); */
-/* 	output_str(PXPAT0); */
-/* 	output_str(PXPEN); */
-/* #undef output_str */
+	/* #define output_str(x) \ */
+	/* 	printk("\t " #x " 0x%08x\n",readl(jz->reg + x)); */
+	/* 	output_str(PXINT); */
+	/* 	output_str(PXMSK); */
+	/* 	output_str(PXPAT1); */
+	/* 	output_str(PXPAT0); */
+	/* 	output_str(PXPEN); */
+	/* #undef output_str */
 
 
 	spin_unlock_irqrestore(&jz->gpio_lock,flags);
@@ -820,21 +835,21 @@ int __init gpio_ss_check(void)
 			panic_flags[group] |= 1 << index;
 		}
 		switch(state) {
-		case GSS_OUTPUT_HIGH:
-			gpio_type = GPIO_OUTPUT1;
-			break;
-		case GSS_OUTPUT_LOW:
-			gpio_type = GPIO_OUTPUT0;
-			break;
-		case GSS_INPUT_PULL:
-			gpio_type = GPIO_INPUT_PULL;
-			break;
-		case GSS_INPUT_NOPULL:
-			gpio_type = GPIO_INPUT;
-			break;
-		case GSS_IGNORE:
-			gpio_type = -1;
-			break;
+			case GSS_OUTPUT_HIGH:
+				gpio_type = GPIO_OUTPUT1;
+				break;
+			case GSS_OUTPUT_LOW:
+				gpio_type = GPIO_OUTPUT0;
+				break;
+			case GSS_INPUT_PULL:
+				gpio_type = GPIO_INPUT_PULL;
+				break;
+			case GSS_INPUT_NOPULL:
+				gpio_type = GPIO_INPUT;
+				break;
+			case GSS_IGNORE:
+				gpio_type = -1;
+				break;
 		}
 
 		if(gpio_type == -1)
@@ -842,22 +857,22 @@ int __init gpio_ss_check(void)
 		else{
 
 #define SLEEP_SET_STATE(st,t)	do{					\
-				if((gpio_type) & (t))			\
-					jz_gpio_chips[group].sleep_state.px##st |= 1 << (index); \
-				else					\
-					jz_gpio_chips[group].sleep_state.px##st &= ~(1 << (index)); \
-			}while(0)
+	if((gpio_type) & (t))			\
+	jz_gpio_chips[group].sleep_state.px##st |= 1 << (index); \
+	else					\
+	jz_gpio_chips[group].sleep_state.px##st &= ~(1 << (index)); \
+}while(0)
 
-			SLEEP_SET_STATE(pen,0x10);
-			SLEEP_SET_STATE(int,0x8);
-			SLEEP_SET_STATE(msk,0x4);
-			SLEEP_SET_STATE(pat1,0x2);
-			SLEEP_SET_STATE(pat0,0x1);
+		SLEEP_SET_STATE(pen,0x10);
+		SLEEP_SET_STATE(int,0x8);
+		SLEEP_SET_STATE(msk,0x4);
+		SLEEP_SET_STATE(pat1,0x2);
+		SLEEP_SET_STATE(pat0,0x1);
 #undef SLEEP_SET_STATE
 
 		}
-	}
-	return 0;
+}
+return 0;
 }
 
 int __init setup_gpio_pins(void)
@@ -933,12 +948,12 @@ static int dump_gpio_regs_l(char *buffer, int port)
 	PRINT("\tPIN\t\tFLG\t\tINT\t\tMASK\t\tPAT1\t\tPAT0\n");
 	for(i = port; i < port_end; i++) {
 		PRINT("\t0x%08x\t0x%08x\t0x%08x\t0x%08x\t0x%08x\t0x%08x\n",
-		      readl(jz_gpio_chips[i].reg + PXPIN),
-		      readl(jz_gpio_chips[i].reg + PXFLG),
-		      readl(jz_gpio_chips[i].reg + PXINT),
-		      readl(jz_gpio_chips[i].reg + PXMSK),
-		      readl(jz_gpio_chips[i].reg + PXPAT1),
-		      readl(jz_gpio_chips[i].reg + PXPAT0));
+				readl(jz_gpio_chips[i].reg + PXPIN),
+				readl(jz_gpio_chips[i].reg + PXFLG),
+				readl(jz_gpio_chips[i].reg + PXINT),
+				readl(jz_gpio_chips[i].reg + PXMSK),
+				readl(jz_gpio_chips[i].reg + PXPAT1),
+				readl(jz_gpio_chips[i].reg + PXPAT0));
 	}
 
 	return len;
