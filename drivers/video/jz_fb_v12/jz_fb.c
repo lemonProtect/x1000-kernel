@@ -712,22 +712,22 @@ static void jzfb_slcd_mcu_init(struct fb_info *info)
 
 }
 
-//void jzfb_clk_enable(struct jzfb *jzfb)
-//{
-//if(jzfb->is_clk_en){
-//return;
-//}
-//clk_enable(jzfb->clk);
-//jzfb->is_clk_en = 1;
-//}
-//void jzfb_clk_disable(struct jzfb *jzfb)
-//{
-//if(!jzfb->is_clk_en){
-//return;
-//}
-//jzfb->is_clk_en = 0;
-//clk_disable(jzfb->clk);
-//}
+void jzfb_clk_enable(struct jzfb *jzfb)
+{
+	if(jzfb->is_clk_en){
+		return;
+	}
+	clk_enable(jzfb->clk);
+	jzfb->is_clk_en = 1;
+}
+void jzfb_clk_disable(struct jzfb *jzfb)
+{
+	if(!jzfb->is_clk_en){
+		return;
+	}
+	jzfb->is_clk_en = 0;
+	clk_disable(jzfb->clk);
+}
 
 static void jzfb_enable_2(struct fb_info *info)
 {
@@ -2817,14 +2817,14 @@ static int jzfb_suspend(struct device *dev)
 
 	mutex_lock(&jzfb->suspend_lock);
 	jzfb->is_suspend = 1;
-	mutex_unlock(&jzfb->suspend_lock);
 //#ifdef CONFIG_JZ_MIPI_DSI
 	//jzfb->dsi->master_ops->set_blank(jzfb->dsi, DSI_BLANK_POWERDOWN);
 //#endif
 	/*disable clock*/
-	//jzfb_clk_disable(jzfb);
-	//clk_disable(jzfb->pclk);
-	//clk_disable(jzfb->pwcl);
+	jzfb_clk_disable(jzfb);
+	clk_disable(jzfb->pclk);
+	mutex_unlock(&jzfb->suspend_lock);
+//	clk_disable(jzfb->pwcl);
 
 	//jzfb->blank = FB_BLANK_POWERDOWN;
 #if 1
@@ -2845,9 +2845,11 @@ static int jzfb_resume(struct device *dev)
 
 	mutex_lock(&jzfb->suspend_lock);
 	jzfb->is_suspend = 0;
-	mutex_unlock(&jzfb->suspend_lock);
 	//jzfb->blank = FB_BLANK_UNBLANK;
 
+	clk_enable(jzfb->pclk);
+	jzfb_clk_enable(jzfb);
+	mutex_unlock(&jzfb->suspend_lock);
 #if 1
 	printk("----[ lcd resume ]:\n");
 	//dump_lcdc_registers(jzfb);

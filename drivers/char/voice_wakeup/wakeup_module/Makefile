@@ -48,4 +48,5 @@ $(TOPDIR)/lib/libivw3_6.a:$(TOPDIR)/lib/libivw3_6.hex
 clean:
 	find . -name "*.o" | xargs rm -vf
 	find . -name "*.o.cmd" | xargs rm -vf
+	rm *.dump *.map
 

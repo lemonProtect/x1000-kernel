@@ -78,6 +78,7 @@ int wakeup_module_wakeup_enable(int enable);
 
 int wakeup_module_is_wakeup_enabled(void);
 
+int wakeup_module_cpu_should_sleep(void);
 
 
 

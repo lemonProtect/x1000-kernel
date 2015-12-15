@@ -24,6 +24,7 @@
 	.extern set_dma_channel
 	.extern voice_wakeup_enable
 	.extern is_voice_wakeup_enabled
+	.extern cpu_should_sleep
 
 	.extern module_init
 	.extern module_exit
@@ -46,6 +47,7 @@ interface:
 	.word set_dma_channel
 	.word voice_wakeup_enable
 	.word is_voice_wakeup_enabled
+	.word cpu_should_sleep
 
 	.word module_init
 	.word module_exit

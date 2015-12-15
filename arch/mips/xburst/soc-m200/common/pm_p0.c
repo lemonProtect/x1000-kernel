@@ -468,6 +468,8 @@ LABLE1:
 	/* set cache writeback */
 	REG32(SLEEP_TCSM_RESUME_DATA + 32) = __read_32bit_c0_register($12, 2); /* cache attr */
 	__write_32bit_c0_register($12, 2, REG32(SLEEP_TCSM_RESUME_DATA + 32) | (1<<31));
+	while(!wakeup_module_cpu_should_sleep())
+		;
 #endif
 	/* set pdma deep sleep */
 	REG32(0xb00000b8) |= (1<<31);
@@ -575,6 +577,7 @@ static noinline void cpu_resume(void)
 #ifdef CONFIG_JZ_DMIC_WAKEUP
 	if(REG32(SLEEP_TCSM_RESUME_DATA + 28) == 1) {
 		/* wakeup module is enabled */
+		__jz_cache_init();
 		temp = *(unsigned int *)WAKEUP_HANDLER_ADDR;
 		func = (int (*)(int))temp;
 		val = func(1);
@@ -717,7 +720,6 @@ static void load_func_to_tcsm(unsigned int *tcsm_addr,unsigned int *f_addr,unsig
 
 static int m200_pm_enter(suspend_state_t state)
 {
-
 	unsigned int  lcr_tmp;
 	unsigned int opcr_tmp;
 	unsigned int gate, spcr0;

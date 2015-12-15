@@ -123,7 +123,16 @@ void dmic_init(void)
 
 int cpu_should_sleep(void)
 {
-	return ((REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR - 20)) &&(last_dma_count != REG_DMADTC(5)) ? 1 : 0;
+	volatile unsigned int i = 20;
+
+	while(!(REG_DMIC_FSR & (1 << 16))) {
+		REG_DMIC_DR;
+	}
+
+	last_dma_count = REG_DMADTC(5);
+	while(i--);
+
+	return ((REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR - 20)) &&(last_dma_count == REG_DMADTC(5)) ? 1 : 0;
 }
 
 int dmic_init_mode(int mode)

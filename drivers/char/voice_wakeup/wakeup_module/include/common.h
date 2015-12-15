@@ -117,7 +117,7 @@ typedef unsigned int	u32;
 
 
 /* Choose One Work Mode: */
-/*#define CONFIG_CPU_IDLE_SLEEP*/
+/* #define CONFIG_CPU_IDLE_SLEEP */
 #define CONFIG_CPU_SWITCH_FREQUENCY
 
 

@@ -147,7 +147,7 @@ static inline void powerdown_wait(void)
 	lcr |= 1;
 	REG32(CPM_IOBASE + CPM_LCR) = lcr;
 
-	cpu_no = get_cp0_ebase();
+	cpu_no = get_cp0_ebase() & 1;
 	opcr = REG32(CPM_IOBASE + CPM_OPCR);
 	opcr &= ~(3<<25);
 	opcr |= (cpu_no + 1) << 25;
@@ -159,6 +159,9 @@ static inline void powerdown_wait(void)
 	REG32(0xb0000020) &= ~(1 << 31);
 
 	temp = REG32(CPM_IOBASE + CPM_OPCR);
+
+	while(!cpu_should_sleep())
+		;
 	__asm__ volatile(".set mips32\n\t"
 			"nop\n\t"
 			"nop\n\t"
@@ -292,6 +295,8 @@ int handler(int par)
 #else
 			if(cpu_should_sleep()) {
 				flush_dcache_all();
+				while(!cpu_should_sleep())
+					;
 				__asm__ __volatile__("sync");
 				powerdown_wait();
 			} else {
@@ -301,6 +306,9 @@ int handler(int par)
 		} else if(ret == SYS_WAKEUP_FAILED) {
 			/* deep sleep */
 			flush_dcache_all();
+
+			while(!cpu_should_sleep())
+				;
 			__asm__ __volatile__("sync");
 			powerdown_wait();
 		}

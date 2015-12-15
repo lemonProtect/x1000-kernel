@@ -3,7 +3,7 @@
 
 
 extern int (*h_handler)(const char *fmt, ...);
-/*#define CONFIG_SLEEP_DEBUG*/
+/* #define CONFIG_SLEEP_DEBUG */
 
 #ifdef CONFIG_SLEEP_DEBUG
 #define printk	h_handler
@@ -77,6 +77,3 @@ static inline void serial_put_hex(unsigned int x) {
 
 
 #endif
-
-
-
