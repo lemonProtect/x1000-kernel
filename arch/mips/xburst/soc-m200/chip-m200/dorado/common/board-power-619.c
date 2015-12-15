@@ -288,7 +288,7 @@ static struct ricoh619_battery_platform_data ricoh619_battery_data = {
 		.ch_ichg 	= 0x04,	/* ICHG		= 0 - 0x1D (100mA - 3000mA) */
 		.ch_ilim_adp 	= 0x1D,	/* ILIM_ADP	= 0 - 0x1D (100mA - 3000mA) */
 		.ch_ilim_usb 	= 0x1D,	/* ILIM_USB	= 0 - 0x1D (100mA - 3000mA) */
-		.ch_icchg 	= (CONFIG_RICOH61X_CHARGE_DONE_LIMIT),	/* ICCHG	= 0 - 3 (50mA 100mA 150mA 200mA) */
+		.ch_icchg 	= 0x01,	/* ICCHG	= 0 - 3 (50mA 100mA 150mA 200mA) */
 		.fg_target_vsys = 3500,	/* This value is the target one to DSOC=0% */
 		.fg_target_ibat = 100, /* This value is the target one to DSOC=0% */
 		.fg_poff_vbat 	= 0, 	/* setting value of 0 per Vbat */
