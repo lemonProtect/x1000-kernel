@@ -63,7 +63,9 @@ struct vpu_dmmu_map_info {
 #define CPM_VPU_STP          (0x1<<30)
 #define CPM_VPU_ACK          (0x1<<29)
 
-#define MAX_LOCK_DEPTH		(999)
+#define REG_VPU_SCH_GLBC	(*(volatile unsigned int *)0xb3200000)
+
+//#define MAX_LOCK_DEPTH		(999)
 #define CMD_VPU_CACHE		(100)
 #define CMD_VPU_PHY		(101)
 #define CMD_VPU_DMA_NOTLB	(102)
@@ -86,8 +88,8 @@ struct vpu_dmmu_map_info {
 #define VPU_WAIT_OK		(0x40000000)
 #define VPU_END			(0x1)
 
-#define UNMAP			(0)
-#define	MAPED			(1)
+#define UNMAP			(0xe0)
+#define	MAPED			(0xe1)
 #define RELEASE_YES		(1)
 #define RELEASE_NO		(0)
 #endif	/* __JZ_VPU_V12_H__ */

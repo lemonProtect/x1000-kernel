@@ -14,6 +14,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/mman.h>
 #include <linux/pfn.h>
+#include <jz_notifier.h>
 
 #include <linux/fs.h>
 #include <soc/base.h>
@@ -56,28 +57,19 @@ struct jz_vpu {
 	pid_t			owner_pid;
 
 	unsigned int		status;
-	unsigned int		release_all_mem;
 
 	struct list_head	mem_list;
+
 };
 
-struct kernel_space_node {
-	unsigned long vaddr;
-	struct list_head list;
-};
 
-struct user_space_node {
-	unsigned long vaddr;
-	unsigned long page_num;
-	struct list_head list;
-	struct list_head mem_list;
-	unsigned int dmmu_map_flag;		//0:unmap, 1:map
-};
 
-static struct jz_vpu *vpu;
 
-unsigned int jwsun_debug;
-unsigned long jz_tcsm_start;
+
+static int vpu_lock(struct jz_vpu *vpu);
+static int vpu_unlock(struct jz_vpu *vpu);
+static int vpu_dmmu_unmap_all(struct jz_vpu *vpu);
+
 
 static int vpu_reset(struct jz_vpu *vpu)
 {
@@ -164,19 +156,16 @@ static void vpu_off(struct jz_vpu *vpu)
 	dev_dbg(vpu->dev, "[%d:%d] off\n", current->tgid, current->pid);
 }
 
+
 static int vpu_open(struct inode *inode, struct file *filp)
 {
 	struct miscdevice *dev = filp->private_data;
 	struct jz_vpu *vpu = container_of(dev, struct jz_vpu, mdev);
 	int ret = 0;
 
+	dev_dbg(vpu->dev, "#########%s %d,open vpu, pid:%d,tgid:%d,comm:%s, current->mm: %p\n",
+			__func__, __LINE__,current->pid,current->tgid,current->comm, current->mm);
 
-	dev_dbg(vpu->dev, "[%d:%d] open vpu\n", current->tgid, current->pid);
-#if 1
-	pr_dbg_mem("###########%s %d,[%d:%d],comm:%s, open vpu\n",
-			__func__, __LINE__,current->tgid,current->pid,current->comm);
-	jwsun_debug = current->tgid;
-#endif
 	mutex_lock(&vpu->lock);
 
 	if (vpu->use_count == 0) {
@@ -188,7 +177,6 @@ static int vpu_open(struct inode *inode, struct file *filp)
 		}
 		vpu->use_count++;
 		INIT_LIST_HEAD(&vpu->mem_list);
-		vpu->release_all_mem = RELEASE_YES;
 	} else {
 		dev_err(vpu->dev, "[%d:%d] VPU already on,"
 				" please check your code!!!\n",
@@ -199,267 +187,19 @@ static int vpu_open(struct inode *inode, struct file *filp)
 
 	mutex_unlock(&vpu->lock);
 
+
 	return 0;
 ERR:
 	mutex_unlock(&vpu->lock);
 	return ret;
 }
 
-static int vpu_alloc_one_page(struct user_space_node *us_node)
-{
-	int ret;
-	unsigned long vaddr = 0;
-	struct kernel_space_node *ks_node;
-
-	ks_node = kzalloc(sizeof(struct kernel_space_node), GFP_KERNEL);
-	if (!ks_node) {
-		printk("Error, alloc memory for kernel_space_node\n");
-		ret = -ENOMEM;
-		goto ERR0;
-	}
-
-	vaddr = __get_free_page(GFP_KERNEL | __GFP_ZERO);
-	//vaddr = __get_free_page(GFP_ATOMIC | __GFP_ZERO);
-	if (vaddr) {
-		SetPageReserved(virt_to_page((void *)vaddr));
-		ks_node->vaddr = vaddr;
-		INIT_LIST_HEAD(&ks_node->list);
-		list_add(&ks_node->list, &us_node->list);
-	} else {
-		printk("%s %d,no memory for alloc, and return\n",
-				__func__, __LINE__);
-		ret = -ENOMEM;
-		goto ERR1;
-	}
-
-	return 0;
-ERR1:
-	kfree(ks_node);
-ERR0:
-	return ret;
-}
-
-static void vpu_free_user_pages(struct user_space_node *us_node)
-{
-	struct list_head *pos, *next;
-	struct kernel_space_node *ks_node;
-
-	list_for_each_safe(pos, next, &us_node->list) {
-		ks_node = list_entry(pos, struct kernel_space_node, list);
-		ClearPageReserved(virt_to_page((void *)ks_node->vaddr));
-		free_page(ks_node->vaddr);
-		__list_del_entry(&ks_node->list);
-		kfree(ks_node);
-	}
-}
-
-static int vpu_alloc_pages_for_user(struct user_space_node *us_node)
-{
-	int ret;
-	unsigned long page_num = us_node->page_num;
-
-	while (page_num >= 1) {
-		ret = vpu_alloc_one_page(us_node);
-		if (ret < 0) {
-			printk("%s %d, alloc one page for VPU error\n",
-					__func__, __LINE__);
-			goto ERR_MEM;
-		}
-		page_num -= 1;
-	}
-	return 0;
-
-ERR_MEM:
-	vpu_free_user_pages(us_node);
-
-	return ret;
-}
-
-static int vpu_remap_pages_to_userspace(struct user_space_node *us_node)
-{
-	struct vm_area_struct *vma;
-	struct list_head *pos, *next;
-	struct kernel_space_node *ks_node;
-	unsigned long start;
-	int ret;
-
-	start = us_node->vaddr;
-
-	down_write(&current->mm->mmap_sem);
-
-	vma = find_vma(current->mm, us_node->vaddr);
-
-	list_for_each_safe(pos, next, &us_node->list) {
-		ks_node = list_entry(pos, struct kernel_space_node, list);
-		ret = io_remap_pfn_range(vma, start,
-				(ks_node->vaddr & 0x1fffffff) >> PAGE_SHIFT,
-				PAGE_SIZE, vma->vm_page_prot);
-		if (ret) {
-			printk("%s %d, remap_pfn_range error\n", __func__, __LINE__);
-			goto ERR;
-		}
-		start += PAGE_SIZE;
-	}
-
-	up_write(&current->mm->mmap_sem);
-
-	return 0;
-ERR:
-	up_write(&current->mm->mmap_sem);
-	return -EAGAIN;
-}
-
-static unsigned long vpu_request_mem(struct jz_vpu *vpu, unsigned long arg)
-{
-	int ret;
-	unsigned long v_addr;
-	unsigned long len = arg;
-	unsigned long flags, prot;
-	struct user_space_node *us_node;
-
-	mutex_lock(&vpu->mem_lock);
-	us_node = kzalloc(sizeof(struct user_space_node), GFP_KERNEL);
-	if (!us_node) {
-		printk("%s %d, alloc memory for user_space_node error\n",
-				__func__, __LINE__);
-		goto ERR0;
-	}
-#if 0
-	flags = MAP_SHARED | MAP_ANONYMOUS;
-	flags &= ~(MAP_EXECUTABLE | MAP_DENYWRITE);
-#else
-	flags = MAP_SHARED;
-#endif
-	prot = PROT_READ | PROT_WRITE;
-	v_addr = vm_mmap(NULL, 0, len, prot, flags, 0);
-	if (IS_ERR_VALUE(v_addr)) {
-		printk("%s %d, vm_mmap_gpoff error\n", __func__, __LINE__);
-		goto ERR1;
-	}
-
-	us_node->page_num = (arg + PAGE_SIZE - 1) / PAGE_SIZE;
-	us_node->vaddr = v_addr;
-	us_node->dmmu_map_flag = UNMAP;
-	INIT_LIST_HEAD(&us_node->list);
-	INIT_LIST_HEAD(&us_node->mem_list);
-
-	ret = vpu_alloc_pages_for_user(us_node);
-	if (ret) {
-		printk("%s %d, alloc pages for user error\n",
-				__func__, __LINE__);
-		goto ERR2;
-	}
-
-	ret = vpu_remap_pages_to_userspace(us_node);
-	if (ret) {
-		printk("%s %d, remap kernel memory to userspace error\n",
-				__func__, __LINE__);
-		goto ERR3;
-	}
-
-#if 1
-	pr_dbg_mem("\t\tv_addr:0x%08lx(userspace)\tsize:%ld\n",
-			us_node->vaddr, us_node->page_num * PAGE_SIZE);
-#endif
-	list_add(&us_node->mem_list, &vpu->mem_list);
-	mutex_unlock(&vpu->mem_lock);
-
-	return us_node->vaddr;
-ERR3:
-	vpu_free_user_pages(us_node);
-ERR2:
-	vm_munmap(us_node->vaddr, us_node->page_num * PAGE_SIZE);
-ERR1:
-	kfree(us_node);
-ERR0:
-	mutex_unlock(&vpu->mem_lock);
-	return 0;
-}
-
-static int vpu_release_mem(struct jz_vpu *vpu, unsigned long arg)
-{
-	struct list_head *pos, *next;
-	struct user_space_node *us_node;
-
-	mutex_lock(&vpu->mem_lock);
-	list_for_each_safe(pos, next, &vpu->mem_list) {
-		us_node = list_entry(pos, struct user_space_node, mem_list);
-		if (us_node->vaddr == arg) {
-			if (us_node->dmmu_map_flag == UNMAP) {
-				vm_munmap(us_node->vaddr, us_node->page_num * PAGE_SIZE);
-				vpu_free_user_pages(us_node);
-				__list_del_entry(&us_node->mem_list);
-				kfree(us_node);
-				mutex_unlock(&vpu->mem_lock);
-				return 0;
-			} else {
-				dev_err(vpu->dev, "[%d:%d] VPU memory have not"
-						" been unmaped, addr:0x%lx\n",
-						current->tgid, current->pid, arg);
-				mutex_unlock(&vpu->mem_lock);
-				return -EPERM;
-			}
-		}
-	}
-	if (list_empty(&vpu->mem_list)) {
-
-		vpu->release_all_mem = RELEASE_YES;
-	}
-	dev_warn(vpu->dev, "[%d:%d]Exception: VPU release the memory had"
-			" been release again. Please check your code,"
-			" addr:0x%lx\n", current->tgid, current->pid, arg);
-	mutex_unlock(&vpu->mem_lock);
-
-	return 0;
-}
-
-static int vpu_release_all_mem(struct jz_vpu *vpu, unsigned int release)
-{
-	struct list_head *pos, *next;
-	struct user_space_node *us_node;
-
-	pr_dbg_mem("###########%s %d,,pid:%d,tgid:%d,comm:%s, release mem\n",
-			__func__, __LINE__,current->pid,current->tgid,current->comm);
-	mutex_lock(&vpu->mem_lock);
-
-	if (list_empty(&vpu->mem_list)) {
-		dev_warn(vpu->dev, "[%d:%d] VPU memory have been release already!!\n",
-			current->tgid, current->pid);
-		mutex_unlock(&vpu->mem_lock);
-		return 0;
-	}
-	if (vpu->release_all_mem != RELEASE_YES) {
-		dev_err(vpu->dev, "[%d:%d] VPU memory have not been all unmaped\n",
-			current->tgid, current->pid);
-		mutex_unlock(&vpu->mem_lock);
-		return -EPERM;
-	}
-
-	list_for_each_safe(pos, next, &vpu->mem_list) {
-		us_node = list_entry(pos, struct user_space_node, mem_list);
-		pr_dbg_mem("%s %d, [%d:%d] Now Release memory v_addr:0x%x\n",
-				__func__, __LINE__, current->tgid,
-				current->pid, us_node->vaddr);
-		if (release == 0)
-			vm_munmap(us_node->vaddr, us_node->page_num * PAGE_SIZE);
-		vpu_free_user_pages(us_node);
-		__list_del_entry(&us_node->mem_list);
-		kfree(us_node);
-	}
-
-	vpu->release_all_mem = RELEASE_YES;
-
-	mutex_unlock(&vpu->mem_lock);
-
-	return 0;
-}
 
 static int vpu_dmmu_unmap_all(struct jz_vpu *vpu)
 {
 	int ret;
 	mutex_lock(&vpu->mem_lock);
 	ret = dmmu_unmap_all(vpu->mdev.this_device);
-	vpu->release_all_mem = RELEASE_YES;
 	mutex_unlock(&vpu->mem_lock);
 
 	return ret;
@@ -471,9 +211,6 @@ static int vpu_release_resource(struct jz_vpu *vpu)
 
 	pr_dbg_mem("#########%s %d,close vpu, pid:%d,tgid:%d,comm:%s\n",
 			__func__, __LINE__,current->pid,current->tgid,current->comm);
-#if 0
-	dump_stack();
-#endif
 
 	mutex_lock(&vpu->lock);
 
@@ -498,15 +235,6 @@ static int vpu_release_resource(struct jz_vpu *vpu)
 			return ret;
 		}
 
-		ret = vpu_release_all_mem(vpu, 1);
-		if (ret) {
-			dev_err(vpu->dev, "[%d:%d] VPU release all memory error\n",
-					current->tgid, current->pid);
-			mutex_unlock(&vpu->lock);
-			WARN_ON(1);
-			return ret;
-		}
-
 		if (mutex_is_locked(&vpu->mutex)) {
 			dev_warn(vpu->dev, "[%d:%d]Exception: VPU has been locked,"
 					" and USER have not release, so it is need"
@@ -523,28 +251,30 @@ static int vpu_release_resource(struct jz_vpu *vpu)
 		return -EPERM;
 	}
 
-	dev_dbg(vpu->dev, "[%d:%d] close\n", current->tgid, current->pid);
+	dev_info(vpu->dev, "[%d:%d] close\n", current->tgid, current->pid);
 
 	mutex_unlock(&vpu->lock);
 
 	return 0;
 }
 
-static int vpu_release(struct inode *inode, struct file *filp)
+static int vpu_close(struct inode *inode, struct file *filp)
 {
 	struct miscdevice *dev = filp->private_data;
 	struct jz_vpu *vpu = container_of(dev, struct jz_vpu, mdev);
 
-	pr_dbg_mem("###########%s %d,,pid:%d,tgid:%d,comm:%s, close vpu\n",
-			__func__, __LINE__,current->pid,current->tgid,current->comm);
+
+	dev_dbg(vpu->dev, "###########%s %d,,pid:%d,tgid:%d,comm:%s, , mm: %p close vpu\n",
+			__func__, __LINE__,current->pid,current->tgid,current->comm, current->mm);
 	return vpu_release_resource(vpu);
-	//return 0;
+//	return 0;
 }
 
 #if 1
 static int vpu_lock(struct jz_vpu *vpu)
 {
 	int ret = 0;
+
 
 	if (vpu->owner_pid == current->pid) {
 		dev_err(vpu->dev, "[%d:%d] dead lock(vpu_driver)\n",
@@ -590,47 +320,21 @@ static int vpu_dmmu_map(struct jz_vpu *vpu, unsigned long arg)
 {
 	struct miscdevice *dev = &vpu->mdev;
 	struct vpu_dmmu_map_info di;
-	struct user_space_node *us_node;
-	struct list_head *pos, *next;
 	int ret = 0;
-	int map_over = 0;
 	if (copy_from_user(&di, (void *)arg, sizeof(di))) {
 		printk("%s %d, cmd_vpu_dmmu_map, pid:%d,comm:%s\n", __func__, __LINE__,
 				current->pid,current->comm);
 		return 0;
 	}
-#if 0
-	printk("%s %d, cmd_vpu_dmmu_map, addr:0x%x, len:%d, pid:%d comm:%s\n",
-			__func__, __LINE__,
-			di.addr, di.len,current->pid,current->comm);
-#endif
 
 	mutex_lock(&vpu->mem_lock);
-	list_for_each_safe(pos, next, &vpu->mem_list) {
-		us_node = list_entry(pos, struct user_space_node, mem_list);
-		if (us_node->vaddr == di.addr) {
-			if (us_node->dmmu_map_flag == UNMAP) {
-				ret = dmmu_map(dev->this_device,di.addr,di.len);
-				if (!ret) {
-					printk("dmmu_map error,addr:0x%lx\n",
-							us_node->vaddr);
-					return ret;
-				}
-				map_over = 1;
-				us_node->dmmu_map_flag = MAPED;
-				vpu->release_all_mem = RELEASE_NO;
-				mutex_unlock(&vpu->mem_lock);
-				return ret;
-			} else {
-				printk("Error:This addr:0x%x has been mapped\n", di.addr);
-				mutex_unlock(&vpu->mem_lock);
-				return 0;
-			}
-		}
-	}
-	if (map_over == 0)
-		printk("Error:This addr:0x%x is not belone mem_list\n", di.addr);
 
+	ret = dmmu_map(dev->this_device, di.addr, di.len);
+	if(ret == 0) {
+		printk("vpu map user ptr error!!\n");
+		mutex_unlock(&vpu->mem_lock);
+		return -EFAULT;
+	}
 
 	mutex_unlock(&vpu->mem_lock);
 
@@ -640,42 +344,26 @@ static int vpu_dmmu_map(struct jz_vpu *vpu, unsigned long arg)
 static int vpu_dmmu_unmap(struct jz_vpu *vpu, unsigned long arg)
 {
 	struct miscdevice *dev = &vpu->mdev;
-	struct user_space_node *us_node;
 	struct vpu_dmmu_map_info di;
-	struct list_head *pos, *next;
 	int ret = 0;
+
 	if (copy_from_user(&di, (void *)arg, sizeof(di))) {
 		ret = -EFAULT;
 		printk("%s %d, cmd_vpu_dmmu_unmap, pid:%d,comm:%s\n", __func__, __LINE__,
 				current->pid,current->comm);
 		return ret;
 	}
-#if 0
-	printk("%s %d, cmd_vpu_dmmu_unmap, addr:0x%x, len:%d,pid:%d,comm:%s\n",
-			__func__, __LINE__,di.addr, di.len,current->pid,current->comm);
-#endif
-	mutex_lock(&vpu->mem_lock);
-	list_for_each_safe(pos, next, &vpu->mem_list) {
-		us_node = list_entry(pos, struct user_space_node, mem_list);
-		if (us_node->vaddr == di.addr) {
-			if (us_node->dmmu_map_flag == MAPED) {
-				ret = dmmu_unmap(dev->this_device,di.addr,di.len);
-				if (ret) {
-					printk("dmmu_unmap error,addr:0x%lx\n",
-							us_node->vaddr);
-					return ret;
-				}
-				us_node->dmmu_map_flag = UNMAP;
-				mutex_unlock(&vpu->mem_lock);
 
-				return 0;
-			} else {
-				printk("Error:This addr:0x%x has been unmapped\n", di.addr);
-				mutex_unlock(&vpu->mem_lock);
-				ret = -EFAULT;
-				return ret;
-			}
-		}
+	pr_dbg_mem("%s %d, cmd_vpu_dmmu_unmap, addr:0x%x, len:%d,pid:%d,comm:%s\n",
+			__func__, __LINE__,di.addr, di.len,current->pid,current->comm);
+
+	mutex_lock(&vpu->mem_lock);
+
+	ret = dmmu_unmap(dev->this_device, di.addr, di.len);
+	if(ret) {
+		printk("vpu unmap user ptr error!!\n");
+		mutex_unlock(&vpu->mem_lock);
+		return -EFAULT;
 	}
 
 	mutex_unlock(&vpu->mem_lock);
@@ -703,11 +391,13 @@ static long vpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case CMD_VPU_CLOSE:
 		pr_dbg_mem("###########%s %d,[%d:%d],comm:%s, close vpu\n",
 				__func__, __LINE__,current->tgid,current->pid,current->comm);
-		return vpu_release_resource(vpu);
+		break;
+
 	case WAIT_COMPLETE:
 		pr_dbg_mem("###########%s %d,[%d:%d],comm:%s, wait complete\n",
 				__func__, __LINE__,current->tgid,current->pid,current->comm);
-		ret = wait_for_completion_interruptible_timeout(
+
+		ret = wait_for_completion_timeout(
 			&vpu->done, msecs_to_jiffies(200));
 		if (ret > 0) {
 			status = vpu->status;
@@ -719,6 +409,7 @@ static long vpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 				printk("Reset vpu error\n");
 				status = 0;
 			}
+
 			vpu->done.done = 0;
 		}
 		if (copy_to_user((void *)arg, &status, sizeof(status)))
@@ -760,8 +451,6 @@ static long vpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case CMD_VPU_PHY:
 		pr_dbg_mem("###########%s %d,[%d:%d],comm:%s, vpu phy\n",
 				__func__, __LINE__,current->tgid,current->pid,current->comm);
-		arg_r = (unsigned int *)arg;
-		*arg_r = (0x1fffffff) & jz_tcsm_start;
 		break;
 	case CMD_VPU_CACHE:
 		pr_dbg_mem("###########%s %d,[%d:%d],comm:%s, cache crash\n",
@@ -834,17 +523,18 @@ static long vpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 #ifdef CONFIG_SOC_M200
 	case CMD_VPU_REQUEST_MEM:
-		pr_dbg_mem("###########%s %d,[%d:%d],comm:%s, request mem for vpu\n",
+		printk("###########%s %d,[%d:%d],comm:%s, request mem for vpu\n",
 				__func__, __LINE__,current->tgid,current->pid,current->comm);
-		return vpu_request_mem(vpu, arg);
+		return -EFAULT;
 	case CMD_VPU_RELEASE_MEM:
-		pr_dbg_mem("###########%s %d,[%d:%d],comm:%s, release mem for vpu\n",
+		printk("###########%s %d,[%d:%d],comm:%s, release mem for vpu\n",
 				__func__, __LINE__,current->tgid,current->pid,current->comm);
-		return vpu_release_mem(vpu, arg);
+		return -EFAULT;
 	case CMD_VPU_RELEASE_ALL_MEM:
 		pr_dbg_mem("###########%s %d,[%d:%d],comm:%s, release all mem for vpu\n",
 				__func__, __LINE__,current->tgid,current->pid,current->comm);
-		return vpu_release_all_mem(vpu, 0);
+		return -EFAULT;
+
 	case CMD_VPU_DMMU_MAP:
 		pr_dbg_mem("###########%s %d,[%d:%d],comm:%s, dmmu map for vpu\n",
 				__func__, __LINE__,current->tgid,current->pid,current->comm);
@@ -852,7 +542,7 @@ static long vpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case CMD_VPU_DMMU_UNMAP:
 		pr_dbg_mem("###########%s %d,[%d:%d],comm:%s, dmmu unmap for vpu\n",
 				__func__, __LINE__,current->tgid,current->pid,current->comm);
-#if 1
+
 		local_irq_save(flags);
 		REG_CPM_VPU_SWRST |= CPM_VPU_STP;
 		while(!(REG_CPM_VPU_SWRST & CPM_VPU_ACK))
@@ -861,12 +551,12 @@ static long vpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		REG_CPM_VPU_SWRST = (REG_CPM_VPU_SWRST & ~CPM_VPU_SR & ~CPM_VPU_STP);
 		REG_VPU_LOCK = 0;
 		local_irq_restore(flags);
-#endif
+
 		return vpu_dmmu_unmap(vpu, arg);
 	case CMD_VPU_DMMU_UNMAP_ALL:
 		pr_dbg_mem("###########%s %d,[%d:%d],comm:%s, dmmu unmap all for vpu\n",
 				__func__, __LINE__,current->tgid,current->pid,current->comm);
-#if 1
+
 		local_irq_save(flags);
 		REG_CPM_VPU_SWRST |= CPM_VPU_STP;
 		while(!(REG_CPM_VPU_SWRST & CPM_VPU_ACK))
@@ -875,7 +565,7 @@ static long vpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		REG_CPM_VPU_SWRST = (REG_CPM_VPU_SWRST & ~CPM_VPU_SR & ~CPM_VPU_STP);
 		REG_VPU_LOCK = 0;
 		local_irq_restore(flags);
-#endif
+
 		vpu_dmmu_unmap_all(vpu);
 		break;
 #endif
@@ -970,13 +660,14 @@ static struct file_operations vpu_misc_fops = {
 	.open		= vpu_open,
 	.unlocked_ioctl	= vpu_ioctl,
 	.mmap		= vpu_mmap,
-	.release	= vpu_release,
+	.release	= vpu_close,
 };
 
 static int vpu_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct resource	*regs;
+	struct jz_vpu *vpu;
 
 	vpu = kzalloc(sizeof(struct jz_vpu), GFP_KERNEL);
 	if (!vpu)
