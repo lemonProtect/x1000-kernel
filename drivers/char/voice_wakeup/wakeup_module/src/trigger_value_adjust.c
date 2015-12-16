@@ -5,7 +5,7 @@
 
 int thr_table[TRIGGER_CNTS] = {1000, 5000};
 int tri_cnt[TRIGGER_CNTS] = {2, 6};
-
+#ifdef CONFIG_SLEEP_DEBUG
 static int quantity_thr(int thr)
 {
 	int i;
@@ -16,6 +16,7 @@ static int quantity_thr(int thr)
 	}
 	return i;
 }
+#endif
 int quantity_tri(int times)
 {
 	if(times < 2) {

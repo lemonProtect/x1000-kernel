@@ -8,6 +8,7 @@ source "drivers/tty/Kconfig"
 
 config JZ_DMIC_V12
 	bool "Ingenic Dmic Driver"
+	depends on SOC_M200
 	default n
 	help
 		Say Y here if you want to support DMIC on your board. The Dmic Driver
@@ -21,6 +22,7 @@ config JZ_DMIC_WAKEUP
 		Driver support voice wakeup. when in doubt , Say N here.
 config JZ_DMIC_V13
 	bool "Ingenic Dmic Driveri v13"
+	depends on SOC_X1000
 	default n
 	help
 		Say Y here if you want to support DMIC on your board. The Dmic Driver

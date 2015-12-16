@@ -241,7 +241,6 @@ static inline void idle_wait(void)
 int handler(int par)
 {
 	volatile int ret;
-	volatile unsigned int int0;
 	__attribute__ ((unused)) unsigned int int1;
 
 	/* DDR clock off*/
@@ -249,7 +248,6 @@ int handler(int par)
 
 	while(1) {
 
-		int0 = REG32(0xb0001010);
 		int1 = REG32(0xb0001030);
 		if((REG32(0xb0001010) & INTC0_MASK) || (REG32(0xb0001030) & INTC1_MASK)) {
 			serial_put_hex(REG32(0xb0001010));

@@ -38,15 +38,16 @@ void build_circ_descs(struct dma_desc *desc)
 	}
 
 }
-
+#ifdef CONFIG_SLEEP_DEBUG
 void dump_descs(struct dma_desc *desc)
 {
 	int i;
-	struct dma_desc *temp;
-	struct dma_desc *temp_phy;
+
 	for(i=0; i<NR_DESC; i++) {
+		struct dma_desc *temp, *temp_phy;
+
 		temp = &desc[i];
-		temp_phy = (struct dma_desc *)((unsigned int)temp | 0xA0000000);
+		temp_phy=(struct dma_desc *)((unsigned int)temp | 0xA0000000);
 
 		printf("desc[%d].dcm:%08x:dcm:%08x\n",i,temp->dcm, temp_phy->dcm);
 		printf("desc[%d].dsa:%08x:dsa:%08x\n",i,temp->dsa, temp_phy->dsa);
@@ -63,9 +64,9 @@ void dump_descs(struct dma_desc *desc)
 void dump_tcsm()
 {
 	int i;
-	unsigned int *t = (unsigned int *)TCSM_DATA_BUFFER_ADDR;
+	unsigned int * t = (unsigned int *)VOICE_TCSM_DATA_BUF;
 	for(i = 0; i< 256; i++) {
-		printf("t[%d]:%x\n", i, *(t+i));
+		printf("t[%d]:%x\n", i, *(t +i));
 	}
 }
 
@@ -138,6 +139,7 @@ void dump_dma_register(int chn)
 	printf("INT_ICSR0:0x%08X\n",*(int volatile*)0xB0001000);
 	printf("\n");
 }
+#endif
 void dma_set_channel(int channel)
 {
 	printf("%s: set channel:%d\n", __func__, channel);
@@ -149,7 +151,7 @@ void dma_config_normal(void)
 
 	desc = (struct dma_desc *)(DMA_DESC_ADDR);
 	src_buf = (int *)DMIC_RX_FIFO;
-	dst_buf = (int *)TCSM_DATA_BUFFER_ADDR;
+	dst_buf = (int *)VOICE_TCSM_DATA_BUF;
 
 	config.type = DMIC_REQ_TYPE; /* dmic reveive request */
 	config.channel = dma_channel;

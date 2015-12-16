@@ -1,9 +1,8 @@
 #ifndef __VOICE_WAKEUP_MODULE_H__
 #define __VOICE_WAKEUP_MODULE_H__
 
-#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
 #include<soc/tcsm_layout.h>
-#endif
+
 
 enum open_mode {
 	EARLY_SLEEP = 1,
@@ -43,13 +42,9 @@ struct sleep_buffer {
 #define TCSM_BANK5_V		(0xb3427000)
 #define TCSM_BUFFER_SIZE	(4096)
 
-#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
 #define TCSM_DATA_BUFFER_ADDR	VOICE_TCSM_DATA_BUF
 #define TCSM_DATA_BUFFER_SIZE	VOICE_TCSM_DATA_BUF_SIZE
-#else
-#define TCSM_DATA_BUFFER_ADDR	(0xb3422000) /* bank0 */
-#define TCSM_DATA_BUFFER_SIZE	(4096)
-#endif
+
 int wakeup_module_open(int mode);
 
 int wakeup_module_close(int mode);

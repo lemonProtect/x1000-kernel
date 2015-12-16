@@ -4,6 +4,7 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
+#include <tcsm_layout.h>
 #ifndef noinline
 #define noinline __attribute__((noinline))
 #endif
@@ -67,34 +68,6 @@ typedef unsigned int	u32;
 			: "i" (op), "R" (*(unsigned char *)(addr))  \
 			: "memory"                  \
 			)
-
-
-
-
-/**
- *      |-------------|     <--- SLEEP_TCSM_BOOTCODE_TEXT
- *      | BOOT CODE   |
- *      |-------------|     <--- SLEEP_TCSM_RESUMECODE_TEXT
- *      |    ...      |
- *      | RESUME CODE |
- *      |    ...      |
- *      |-------------|     <--- SLEEP_TCSM_RESUME_DATA
- *      | RESUME DATA |
- *      |_____________|
- */
-
-#define SLEEP_TCSM_SPACE           0xb3423000
-#define SLEEP_TCSM_LEN             4096
-
-#define SLEEP_TCSM_BOOT_LEN        256
-#define SLEEP_TCSM_DATA_LEN        64
-#define SLEEP_TCSM_RESUME_LEN      (SLEEP_TCSM_LEN - SLEEP_TCSM_BOOT_LEN - SLEEP_TCSM_DATA_LEN)
-
-#define SLEEP_TCSM_BOOT_TEXT       (SLEEP_TCSM_SPACE)
-#define SLEEP_TCSM_RESUME_TEXT     (SLEEP_TCSM_BOOT_TEXT + SLEEP_TCSM_BOOT_LEN)
-#define SLEEP_TCSM_RESUME_DATA     (SLEEP_TCSM_RESUME_TEXT + SLEEP_TCSM_RESUME_LEN)
-
-#define CPU_RESMUE_SP               0xb3425FFC  /* BANK3~BANK2 */
 
 
 #define _cpu_switch_restore()						\

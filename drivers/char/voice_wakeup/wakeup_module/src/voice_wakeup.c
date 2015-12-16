@@ -166,9 +166,9 @@ int wakeup_open(void)
 	/* code that need rewrite */
 	struct circ_buf *xfer = &rx_fifo->xfer;
 	rx_fifo->n_size	= BUF_SIZE; /*tcsm 4kBytes*/
-	xfer->buf = (char *)TCSM_DATA_BUFFER_ADDR;
+	xfer->buf = (char *)VOICE_TCSM_DATA_BUF;
 	dma_addr = pdma_trans_addr(DMA_CHANNEL, 2);
-	if((dma_addr >= (TCSM_DATA_BUFFER_ADDR & 0x1fffffff)) && (dma_addr <= ((TCSM_DATA_BUFFER_ADDR + BUF_SIZE)& 0x1fffffff))) {
+	if((dma_addr >= (VOICE_TCSM_DATA_BUF & 0x1fffffff)) && (dma_addr <= ((VOICE_TCSM_DATA_BUF + BUF_SIZE)& 0x1fffffff))) {
 		xfer->head = (char *)(dma_addr | 0xA0000000) - xfer->buf;
 	} else {
 		xfer->head = 0;

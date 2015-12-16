@@ -1,9 +1,9 @@
 TOPDIR = .
 
-CC = mipsel-linux-android-gcc
-LD = mipsel-linux-android-ld
-OBJCOPY = mipsel-linux-android-objcopy
-OBJDUMP	= mipsel-linux-android-objdump
+CC = mips-linux-gnu-gcc
+LD = mips-linux-gnu-ld
+OBJCOPY = mips-linux-gnu-objcopy
+OBJDUMP	= mips-linux-gnu-objdump
 drop-sections := .reginfo .mdebug .oomment .note .pdr .options .MIPS.options
 strip-flags   := $(addprefix --remove-section=,$(drop-sections))
 
