@@ -208,8 +208,9 @@ static int jz_spdif_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	/* sample rate */
-	jz_aic->sample_rate = jz_spdif_set_rate(aic,jz_aic,sample_rate);
-	if(jz_aic->sample_rate < 0)
+	unsigned long tmp_rate = 0;
+	tmp_rate = jz_spdif_set_rate(aic,jz_aic,sample_rate);
+	if(tmp_rate < 0)
 		printk("set spdif clk failed!!\n");
 	/* signed transfer */
 	if(snd_pcm_format_signed(params_format(params)))
@@ -289,16 +290,20 @@ static int jz_spdif_trigger(struct snd_pcm_substream *substream, int cmd, struct
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
+#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 		if (atomic_read(&prtd->stopped_pending))
 			return -EPIPE;
+#endif
 		if(jz_spdif_start_substream(substream, dai))
 			return -EINVAL;
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
+#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 		if (atomic_read(&prtd->stopped_pending))
 			return 0;
+#endif
 		jz_spdif_stop_substream(substream, dai);
 		break;
 	}
@@ -410,7 +415,7 @@ static struct device_attribute jz_spdif_sysfs_attrs[] = {
 	__ATTR(spdif_regs, S_IRUGO, jz_spdif_regs_show, NULL),
 };
 
-static const struct snd_soc_component_driver jz_i2s_component = {
+static const struct snd_soc_component_driver jz_spdif_component = {
 	.name		= "jz-spdif",
 };
 

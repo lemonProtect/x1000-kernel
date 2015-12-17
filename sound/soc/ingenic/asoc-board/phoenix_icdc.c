@@ -198,34 +198,37 @@ static struct snd_soc_card phoenix = {
 	.dai_link = phoenix_dais,
 	.num_links = ARRAY_SIZE(phoenix_dais),
 };
+static struct platform_device *phoenix_snd_device;
 
-static int snd_phoenix_probe(struct platform_device *pdev)
+
+static int phoenix_init(void)
 {
-	int ret = 0;
-	phoenix.dev = &pdev->dev;
-	ret = snd_soc_register_card(&phoenix);
-	if (ret)
-		dev_err(&pdev->dev, "snd_soc_register_card failed %d\n", ret);
+	int ret;
+	phoenix_snd_device = platform_device_alloc("soc-audio", -1);
+	if (!phoenix_snd_device) {
+		gpio_free(phoenix_SPK_GPIO);
+		return -ENOMEM;
+	}
+
+	platform_set_drvdata(phoenix_snd_device, &phoenix);
+	ret = platform_device_add(phoenix_snd_device);
+	if (ret) {
+		platform_device_put(phoenix_snd_device);
+		gpio_free(phoenix_SPK_GPIO);
+	}
+
+	dev_info(&phoenix_snd_device->dev, "Alsa sound card:phoenix init ok!!!\n");
 	return ret;
 }
 
-static int snd_phoenix_remove(struct platform_device *pdev)
+static void phoenix_exit(void)
 {
-	snd_soc_unregister_card(&phoenix);
-	platform_set_drvdata(pdev, NULL);
-	return 0;
+	platform_device_unregister(phoenix_snd_device);
+	gpio_free(phoenix_SPK_GPIO);
 }
 
-static struct platform_driver snd_phoenix_driver = {
-	.driver = {
-		.owner = THIS_MODULE,
-		.name = "ingenic-phoenix",
-		.pm = &snd_soc_pm_ops,
-	},
-	.probe = snd_phoenix_probe,
-	.remove = snd_phoenix_remove,
-};
-module_platform_driver(snd_phoenix_driver);
+module_init(phoenix_init);
+module_exit(phoenix_exit);
 
 MODULE_AUTHOR("sccheng<shicheng.cheng@ingenic.com>");
 MODULE_DESCRIPTION("ALSA SoC phoenix Snd Card");

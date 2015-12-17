@@ -147,7 +147,7 @@ config SND_ASOC_INGENIC_PHOENIX_ICDC
 
 config SND_ASOC_INGENIC_PHOENIX_SPDIF
 	bool "Audio support for phoenix with spdif"
-	select SND_ASOC_DMA_V13
+	select SND_ASOC_DMA_V12
 	select SND_ASOC_JZ_AIC_SPDIF_V13
 	select SND_ASOC_JZ_SPDIF_V13
 	select SND_ASOC_JZ_PCM_V13

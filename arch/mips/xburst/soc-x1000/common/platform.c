@@ -471,9 +471,6 @@ struct platform_device jz_aic_device = {
 #endif
 
 #if defined(CONFIG_SND_ASOC_JZ_ICDC_D3)
-struct platform_device snd_phoenix_device = {
-	.name = "ingenic-phoenix",
-};
 
 static struct resource jz_icdc_resources[] = {
 	[0] = {
@@ -576,9 +573,6 @@ struct platform_device jz_pcm_device = {
 #endif
 
 #if defined(CONFIG_SND_ASOC_JZ_SPDIF_DUMP_CDC)
-struct platform_device snd_phoenix_device = {
-	.name = "ingenic-phoenix",
-};
 
 struct platform_device jz_spdif_dump_cdc_device = {   /*jz dump codec*/
 	.name           = "spdif dump",

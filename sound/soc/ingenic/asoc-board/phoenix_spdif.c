@@ -26,7 +26,7 @@
 #include <sound/jack.h>
 #include <linux/gpio.h>
 
-static struct snd_soc_ops mensa_i2s_ops = {
+static struct snd_soc_ops phoenix_i2s_ops = {
 
 };
 
@@ -34,7 +34,7 @@ static struct snd_soc_ops mensa_i2s_ops = {
 #define GPIO_PG(n)      (5*32 + 23 + n)
 #endif
 
-static struct snd_soc_dai_link mensa_dais[] = {
+static struct snd_soc_dai_link phoenix_dais[] = {
 	[0] = {
 		.name = "PHOENIX ICDC",
 		.stream_name = "PHOENIX ICDC",
@@ -42,7 +42,7 @@ static struct snd_soc_dai_link mensa_dais[] = {
 		.cpu_dai_name = "jz-asoc-aic-spdif",
 		.codec_dai_name = "spdif dump dai",
 		.codec_name = "spdif dump",
-		.ops = &mensa_i2s_ops,
+		.ops = &phoenix_i2s_ops,
 	},
 	[1] = {
 		.name = "PHOENIX PCMBT",
@@ -62,40 +62,39 @@ static struct snd_soc_dai_link mensa_dais[] = {
 	},
 };
 
-static struct snd_soc_card mensa = {
+static struct snd_soc_card phoenix = {
 	.name = "phoenix",
 	.owner = THIS_MODULE,
-	.dai_link = mensa_dais,
-	.num_links = ARRAY_SIZE(mensa_dais),
+	.dai_link = phoenix_dais,
+	.num_links = ARRAY_SIZE(phoenix_dais),
 };
 
-static int snd_phoenix_probe(struct platform_device *pdev)
+static struct platform_device *phoenix_snd_device;
+static int phoenix_init(void)
 {
-	int ret = 0;
-	phoenix.dev = &pdev->dev;
-	ret = snd_soc_register_card(&phoenix);
-	if (ret)
-		dev_err(&pdev->dev, "snd_soc_register_card failed %d\n", ret);
+	/*struct jz_aic_gpio_func *gpio_info;*/
+	int ret;
+	phoenix_snd_device = platform_device_alloc("soc-audio", -1);
+	if (!phoenix_snd_device)
+		return -ENOMEM;
+
+	platform_set_drvdata(phoenix_snd_device, &phoenix);
+	ret = platform_device_add(phoenix_snd_device);
+	if (ret) {
+		platform_device_put(phoenix_snd_device);
+	}
+
+	dev_info(&phoenix_snd_device->dev, "Alsa sound card:phoenix init ok!!!\n");
 	return ret;
 }
 
-static int snd_phoenix_remove(struct platform_device *pdev)
+static void phoenix_exit(void)
 {
-	snd_soc_unregister_card(&phoenix);
-	platform_set_drvdata(pdev, NULL);
-	return 0;
+	platform_device_unregister(phoenix_snd_device);
 }
 
-static struct platform_driver snd_phoenix_driver = {
-	.driver = {
-		.owner = THIS_MODULE,
-		.name = "ingenic-phoenix",
-		.pm = &snd_soc_pm_ops,
-	},
-	.probe = snd_phoenix_probe,
-	.remove = snd_phoenix_remove,
-};
-module_platform_driver(snd_phoenix_driver);
+module_init(phoenix_init);
+module_exit(phoenix_exit);
 
 MODULE_AUTHOR("sccheng<shicheng.cheng@ingenic.com>");
 MODULE_DESCRIPTION("ALSA SoC phoenix Snd Card");
