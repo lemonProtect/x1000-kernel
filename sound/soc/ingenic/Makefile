@@ -48,6 +48,9 @@ snd-soc-mensa-icdc-objs	   := asoc-board/mensa_icdc.o
 snd-soc-mensa-spdif-objs   := asoc-board/mensa_spdif.o
 snd-soc-phoenix-spdif-objs := asoc-board/phoenix_spdif.o
 snd-soc-phoenix-icdc-objs  := asoc-board/phoenix_icdc.o
+
+snd-soc-halley2-spdif-objs := asoc-board/halley2_spdif.o
+snd-soc-halley2-icdc-objs  := asoc-board/halley2_icdc.o
 obj-$(CONFIG_SND_ASOC_INGENIC_DORADO_ICDC) += snd-soc-dorado-icdc.o
 obj-$(CONFIG_SND_ASOC_INGENIC_WATCH_AW808_ICDC) += snd-soc-watch-icdc.o
 obj-$(CONFIG_SND_ASOC_INGENIC_NEWTON2_PLUS_ICDC) += snd-soc-newton2-plus-icdc.o
@@ -55,3 +58,6 @@ obj-$(CONFIG_SND_ASOC_INGENIC_MENSA_ICDC) += snd-soc-mensa-icdc.o
 obj-$(CONFIG_SND_ASOC_INGENIC_MENSA_SPDIF) += snd-soc-mensa-spdif.o
 obj-$(CONFIG_SND_ASOC_INGENIC_PHOENIX_ICDC) += snd-soc-phoenix-icdc.o
 obj-$(CONFIG_SND_ASOC_INGENIC_PHOENIX_SPDIF) += snd-soc-phoenix-spdif.o
+
+obj-$(CONFIG_SND_ASOC_INGENIC_HALLEY2_ICDC) += snd-soc-halley2-icdc.o
+obj-$(CONFIG_SND_ASOC_INGENIC_HALLEY2_SPDIF) += snd-soc-halley2-spdif.o
