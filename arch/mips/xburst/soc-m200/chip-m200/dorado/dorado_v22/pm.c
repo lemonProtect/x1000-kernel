@@ -1,8 +1,8 @@
 #include <gpio.h>
 __initdata int gpio_ss_table[][2] = {
 	{32*0+0,	GSS_IGNORE		},	/* BT_WAKE_HOST */
-	{32*0+1,	GSS_INPUT_PULL		},	/* HOST_WAKE_BT */
-	{32*0+2,	GSS_INPUT_PULL		},	/* BT_REG_EN */
+	{32*0+1,	GSS_IGNORE		},	/* HOST_WAKE_BT */
+	{32*0+2,	GSS_IGNORE		},	/* BT_REG_EN */
 	{32*0+3,	GSS_INPUT_NOPULL	},	/* PMU_IRQ_N */
 	{32*0+4,	GSS_INPUT_NOPULL	},	/* MSC0_D4 */
 	{32*0+5,	GSS_INPUT_NOPULL	},	/* MSC0_D5 */
@@ -49,7 +49,7 @@ __initdata int gpio_ss_table[][2] = {
 	{32*2+25,	GSS_INPUT_PULL		},	/* LCD_RR5 */
 	{32*2+26,	GSS_INPUT_PULL		},	/* LCD_RR6 */
 	{32*2+27,	GSS_INPUT_PULL		},	/* LCD_RR7 */
-	{32*3+14,	GSS_INPUT_NOPULL	},	/* CLK32K */
+	{32*3+14,	GSS_IGNORE	},	/* CLK32K */
 	{32*3+17,	GSS_INPUT_PULL		},	/* LCD_DISP_N */
 	{32*3+18,	GSS_INPUT_NOPULL	},	/* BOOT_SEL1 */
 	{32*3+19,	GSS_INPUT_PULL		},	/* LCD_RESET_N */
@@ -72,10 +72,10 @@ __initdata int gpio_ss_table[][2] = {
 	{32*4+29,	GSS_INPUT_NOPULL		},	/* SDIO_CMD_WIFI */
 	{32*4+30,	GSS_IGNORE		},	/* SMB1_SDA */
 	{32*4+31,	GSS_IGNORE		},	/* SMB1_SCK */
-	{32*5+0,	GSS_INPUT_PULL		},	/* BT_UART0_RXD */
-	{32*5+1,	GSS_INPUT_PULL		},	/* BT_UART0_CTS */
-	{32*5+2,	GSS_INPUT_PULL		},	/* BT_UART0_RTS */
-	{32*5+3,	GSS_INPUT_PULL		},	/* BT_UART0_TXD */
+	{32*5+0,	GSS_IGNORE		},	/* BT_UART0_RXD */
+	{32*5+1,	GSS_IGNORE		},	/* BT_UART0_CTS */
+	{32*5+2,	GSS_IGNORE	},	/* BT_UART0_RTS */
+	{32*5+3,	GSS_IGNORE		},	/* BT_UART0_TXD */
 	{32*5+6,	GSS_IGNORE			},	/* DMIC_CLK */
 	{32*5+7,	GSS_IGNORE			},	/* DMIC_DOUT1 */
 	{32*5+12,	GSS_INPUT_PULL		},	/* BT_PCM_DO */
