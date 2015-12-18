@@ -527,10 +527,13 @@ static int dwc2_jz_probe(struct platform_device *pdev) {
 	jz->id_irq = -1;
 #if DWC2_HOST_MODE_ENABLE
 	jz->vbus = regulator_get(NULL, VBUS_REG_NAME);
-	if (IS_ERR(jz->vbus)) {
-		ret = devm_gpio_request_one(&pdev->dev, jz->drvvbus_pin->num,
-				GPIOF_DIR_OUT, "drvvbus_pin");
-		if (ret < 0) jz->drvvbus_pin->num = -1;
+	if (IS_ERR_OR_NULL(jz->vbus)) {
+		if(jz->drvvbus_pin->num > 0) {
+			ret = devm_gpio_request_one(&pdev->dev, jz->drvvbus_pin->num,
+					GPIOF_DIR_OUT, "drvvbus_pin");
+
+			if (ret < 0) jz->drvvbus_pin->num = -1;
+		}
 		dev_warn(&pdev->dev, "regulator %s get error\n", VBUS_REG_NAME);
 	} else {
 		jz->drvvbus_pin->num = -1;
@@ -538,11 +541,15 @@ static int dwc2_jz_probe(struct platform_device *pdev) {
 	INIT_WORK(&jz->vbus_work, dwc2_vbus_work);
 	atomic_set(&jz->vbus_on, 0);
 
-	ret = devm_gpio_request_one(&pdev->dev, jz->id_pin->num,
-			GPIOF_DIR_IN, "otg-id-detect");
-	if (ret == 0) {
-		jz->id_irq = gpio_to_irq(jz->id_pin->num);
-		wake_lock_init(&jz->id_resume_wake_lock, WAKE_LOCK_SUSPEND, "otgid-resume");
+	if(jz->id_pin->num > 0) {
+		ret = devm_gpio_request_one(&pdev->dev, jz->id_pin->num,
+				GPIOF_DIR_IN, "otg-id-detect");
+		if (ret == 0) {
+			jz->id_irq = gpio_to_irq(jz->id_pin->num);
+			wake_lock_init(&jz->id_resume_wake_lock, WAKE_LOCK_SUSPEND, "otgid-resume");
+		} else {
+			dwc2_plat_data->keep_phy_on = 1;
+		}
 	} else {
 		dwc2_plat_data->keep_phy_on = 1;
 	}
