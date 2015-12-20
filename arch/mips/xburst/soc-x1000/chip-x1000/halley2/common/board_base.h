@@ -117,6 +117,6 @@ extern struct platform_device truly_tft240240_device;
 extern struct platform_device kfm701a21_1a_device;
 #endif
 #if defined(CONFIG_SND_ASOC_JZ_AIC_V12)
-extern struct platform_device snd_phoenix_device;
+extern struct platform_device snd_alsa_device;
 #endif
 #endif

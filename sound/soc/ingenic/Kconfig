@@ -145,15 +145,6 @@ config SND_ASOC_INGENIC_PHOENIX_ICDC
 	select SND_ASOC_JZ_PCM_V13
 	select SND_ASOC_JZ_DMIC_V13
 
-config SND_ASOC_INGENIC_HALLEY2_ICDC
-	tristate "Audio support for halley2 with internal codec"
-	select SND_ASOC_DMA_V12
-	select SND_ASOC_JZ_AIC_I2S_V13
-	select SND_ASOC_JZ_ICDC_D3
-	select SND_ASOC_JZ_PCM_V13
-	select SND_ASOC_JZ_DMIC_V13
-
-
 config SND_ASOC_INGENIC_PHOENIX_SPDIF
 	bool "Audio support for phoenix with spdif"
 	select SND_ASOC_DMA_V12
@@ -162,13 +153,6 @@ config SND_ASOC_INGENIC_PHOENIX_SPDIF
 	select SND_ASOC_JZ_PCM_V13
 	select SND_ASOC_JZ_DMIC_V13
 
-config SND_ASOC_INGENIC_HALLEY2_SPDIF
-	bool "Audio support for halley2 with spdif"
-	select SND_ASOC_DMA_V12
-	select SND_ASOC_JZ_AIC_SPDIF_V13
-	select SND_ASOC_JZ_SPDIF_V13
-	select SND_ASOC_JZ_PCM_V13
-	select SND_ASOC_JZ_DMIC_V13
 endchoice
 
 config SND_ASOC_INGENIC_DMIC

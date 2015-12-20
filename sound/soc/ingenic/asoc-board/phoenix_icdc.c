@@ -1,4 +1,4 @@
- /*
+/*
  * Copyright (C) 2014 Ingenic Semiconductor Co., Ltd.
  *	http://www.ingenic.com
  * Author: cli <chen.li@ingenic.com>
@@ -25,34 +25,39 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 #include <linux/gpio.h>
+#include <mach/jzsnd.h>
 #include "../icodec/icdc_d3.h"
 
-#define GPIO_PG(n)      (5*32 + 23 + n)
-#define phoenix_SPK_GPIO GPIO_PB(0)
-#define phoenix_SPK_EN 0
+static struct snd_codec_data *codec_platform_data = NULL;
 
 unsigned long codec_sysclk = -1;
 static int phoenix_spk_power(struct snd_soc_dapm_widget *w,
-				struct snd_kcontrol *kcontrol, int event)
+		struct snd_kcontrol *kcontrol, int event)
 {
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
-		gpio_direction_output(phoenix_SPK_GPIO, phoenix_SPK_EN);
-		printk("gpio speaker enable %d\n", gpio_get_value(phoenix_SPK_GPIO));
+		if (codec_platform_data && (codec_platform_data->gpio_spk_en.gpio) != -1) {
+			gpio_direction_output(codec_platform_data->gpio_spk_en.gpio, codec_platform_data->gpio_spk_en.active_level);
+			printk("gpio speaker enable %d\n", gpio_get_value(codec_platform_data->gpio_spk_en.gpio));
+		} else
+			printk("set speaker enable failed. please check codec_platform_data\n");
 	} else {
-		gpio_direction_output(phoenix_SPK_GPIO, !phoenix_SPK_EN);
-		printk("gpio speaker disable %d\n", gpio_get_value(phoenix_SPK_GPIO));
+		if (codec_platform_data && (codec_platform_data->gpio_spk_en.gpio) != -1) {
+			gpio_direction_output(codec_platform_data->gpio_spk_en.gpio, !(codec_platform_data->gpio_spk_en.active_level));
+			printk("gpio speaker disable %d\n", gpio_get_value(codec_platform_data->gpio_spk_en.gpio));
+		} else
+			printk("set speaker disable failed. please check codec_platform_data\n");
 	}
 	return 0;
 }
 
 void phoenix_spk_sdown(struct snd_pcm_substream *sps){
-		gpio_direction_output(phoenix_SPK_GPIO, !phoenix_SPK_EN);
-		return;
+	gpio_direction_output(codec_platform_data->gpio_spk_en.gpio, !(codec_platform_data->gpio_spk_en.active_level));
+	return;
 }
 
 int phoenix_spk_sup(struct snd_pcm_substream *sps){
-		gpio_direction_output(phoenix_SPK_GPIO, phoenix_SPK_EN);
-		return 0;
+	gpio_direction_output(codec_platform_data->gpio_spk_en.gpio, codec_platform_data->gpio_spk_en.active_level);
+	return 0;
 }
 
 int phoenix_i2s_hw_params(struct snd_pcm_substream *substream, struct snd_pcm_hw_params *params) {
@@ -126,9 +131,14 @@ static int phoenix_dlv_dai_link_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_card *card = rtd->card;
 	int err;
-	err = devm_gpio_request(card->dev, phoenix_SPK_GPIO, "Speaker_en");
-	if (err)
+	if (codec_platform_data) {
+		err = devm_gpio_request(card->dev, codec_platform_data->gpio_spk_en.gpio, "Speaker_en");
+		if (err)
+			return err;
+	} else {
+		pr_err("codec_platform_data gpio_spk_en is NULL\n");
 		return err;
+	}
 	err = snd_soc_dapm_new_controls(dapm, phoenix_dapm_widgets,
 			ARRAY_SIZE(phoenix_dapm_widgets));
 	if (err){
@@ -198,37 +208,35 @@ static struct snd_soc_card phoenix = {
 	.dai_link = phoenix_dais,
 	.num_links = ARRAY_SIZE(phoenix_dais),
 };
-static struct platform_device *phoenix_snd_device;
 
-
-static int phoenix_init(void)
+static int snd_phoenix_probe(struct platform_device *pdev)
 {
-	int ret;
-	phoenix_snd_device = platform_device_alloc("soc-audio", -1);
-	if (!phoenix_snd_device) {
-		gpio_free(phoenix_SPK_GPIO);
-		return -ENOMEM;
-	}
-
-	platform_set_drvdata(phoenix_snd_device, &phoenix);
-	ret = platform_device_add(phoenix_snd_device);
-	if (ret) {
-		platform_device_put(phoenix_snd_device);
-		gpio_free(phoenix_SPK_GPIO);
-	}
-
-	dev_info(&phoenix_snd_device->dev, "Alsa sound card:phoenix init ok!!!\n");
+	int ret = 0;
+	phoenix.dev = &pdev->dev;
+	codec_platform_data = (struct snd_codec_data *)phoenix.dev->platform_data;
+	ret = snd_soc_register_card(&phoenix);
+	if (ret)
+		dev_err(&pdev->dev, "snd_soc_register_card failed %d\n", ret);
 	return ret;
 }
 
-static void phoenix_exit(void)
+static int snd_phoenix_remove(struct platform_device *pdev)
 {
-	platform_device_unregister(phoenix_snd_device);
-	gpio_free(phoenix_SPK_GPIO);
+	snd_soc_unregister_card(&phoenix);
+	platform_set_drvdata(pdev, NULL);
+	return 0;
 }
 
-module_init(phoenix_init);
-module_exit(phoenix_exit);
+static struct platform_driver snd_phoenix_driver = {
+	.driver = {
+		.owner = THIS_MODULE,
+		.name = "ingenic-alsa",
+		.pm = &snd_soc_pm_ops,
+	},
+	.probe = snd_phoenix_probe,
+	.remove = snd_phoenix_remove,
+};
+module_platform_driver(snd_phoenix_driver);
 
 MODULE_AUTHOR("sccheng<shicheng.cheng@ingenic.com>");
 MODULE_DESCRIPTION("ALSA SoC phoenix Snd Card");
