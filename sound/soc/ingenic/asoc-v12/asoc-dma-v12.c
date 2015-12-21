@@ -89,7 +89,8 @@ static int jz_pcm_hw_params(struct snd_pcm_substream *substream,
 #ifdef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
 	{
 		unsigned long long time_ns;
-		time_ns = 1000 * 1000 * 1000 * params_period_size(params)/params_rate(params);
+		time_ns = 1000LL * 1000 * 1000 * params_period_size(params);
+		do_div(time_ns, params_rate(params));
 		prtd->expires = ns_to_ktime(time_ns);
 	}
 #else
@@ -196,7 +197,6 @@ snd_pcm_get_pos(struct snd_pcm_substream *substream, dma_addr_t addr)
 	return (addr - substream->runtime->dma_addr);
 }
 
-
 static enum hrtimer_restart jz_asoc_hrtimer_callback(struct hrtimer *hr_timer) {
 	struct jz_pcm_runtime_data *prtd = container_of(hr_timer,
 			struct jz_pcm_runtime_data, hr_timer);
@@ -208,8 +208,11 @@ static enum hrtimer_restart jz_asoc_hrtimer_callback(struct hrtimer *hr_timer) {
 	enum dma_transfer_direction direction = substream->stream == SNDRV_PCM_STREAM_PLAYBACK ?
 		DMA_MEM_TO_DEV : DMA_DEV_TO_MEM;
 
+
 	if (atomic_read(&prtd->stopped))
 		goto out;
+
+
 	hrtimer_start(&prtd->hr_timer, prtd->expires , HRTIMER_MODE_REL);
 	pdma_addr = dma_chan->device->get_current_trans_addr(dma_chan,
 			NULL,
@@ -236,8 +239,10 @@ static enum hrtimer_restart jz_asoc_hrtimer_callback(struct hrtimer *hr_timer) {
 		prtd->pos = curr_pos;
 	}
 	//printk(KERN_DEBUG"curr_pos = %d buffer_bytes = %d\n", curr_pos, buffer_bytes);
+
 	snd_pcm_period_elapsed(substream);
 out:
+
 	return HRTIMER_NORESTART;
 }
 #endif

@@ -1182,6 +1182,11 @@ static int ovisp_vidioc_streamoff(struct file *file, void *priv,
 {
 	struct ovisp_camera_dev *camdev = video_drvdata(file);
 	ISP_PRINT(ISP_INFO,"%s==========%d\n", __func__, __LINE__);
+
+	if(camdev->isp->tlb_flag){
+		isp_dev_call(camdev->isp, tlb_unmap_all_vaddr);
+	}
+
 	return vb2_streamoff(&camdev->vbq, i);
 }
 

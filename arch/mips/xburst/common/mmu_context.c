@@ -13,6 +13,6 @@ void arch_dup_mmap(struct mm_struct *oldmm,
 
 void arch_exit_mmap(struct mm_struct *mm)
 {
-	jz_notifier_call(NOTEFY_PROI_HIGH, MMU_CONTEXT_EXIT_MMAP, mm);
+	jz_notifier_call(NOTEFY_PROI_NORMAL, MMU_CONTEXT_EXIT_MMAP, mm);
 	return;
 }

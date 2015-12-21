@@ -86,8 +86,9 @@ struct dmmu_handle {
 	struct list_head map_list;
 
 	struct mm_struct *handle_mm; /* mm struct used to match exit_mmap notify */
-	struct jz_notifier mmu_context_notify;
 };
+
+struct jz_notifier mmu_context_notify;
 
 
 static struct map_node *check_map(struct dmmu_handle *h,unsigned long vaddr,unsigned long len)
@@ -306,6 +307,20 @@ static int dmmu_unmap_node_unlock(struct dmmu_handle *h)
 }
 
 
+static struct dmmu_handle *find_handle_mm(struct mm_struct *mm)
+{
+
+	struct list_head *pos, *next;
+	struct dmmu_handle *h;
+
+	list_for_each_safe(pos, next, &handle_list) {
+		h = list_entry(pos, struct dmmu_handle, list);
+		if(h->handle_mm == mm)
+			return h;
+	}
+
+	return NULL;
+}
 /**
 * @brief Before kernel exit_mmap, clearPagereserved of pte, exit_mmap is always called
 * 	when mm is going to be destroyed.
@@ -318,23 +333,20 @@ static int dmmu_unmap_node_unlock(struct dmmu_handle *h)
 static int mmu_context_exit_mmap(struct jz_notifier *notify,void *v)
 {
 
-	struct dmmu_handle *h = container_of(notify, struct dmmu_handle, mmu_context_notify);
-
+	struct dmmu_handle *h;
 	struct mm_struct *mm = (struct mm_struct *)v;
+
+	h = find_handle_mm(mm);
+	if(h) {
 #ifdef DEBUG
 	printk("================ %s, %d  exit mmap!, mm: %p, h->handle_mm: %p\n", __func__, __LINE__, mm, h->handle_mm);
 #endif
-	if(h->handle_mm == mm) {
 		mutex_lock(&h->lock);
-		/* dmmu_destroy_handle, which will destroy everything on a handle
-		 * these may be harmfull on android, which will unmap vpu, camera, ipu map list
-		 * but when a mm is being exit, the whole process should exit.
-		 * */
+
 		dmmu_unmap_node_unlock(h);
 
 		mutex_unlock(&h->lock);
 	}
-
 
 	return 0;
 }
@@ -373,11 +385,13 @@ static struct dmmu_handle *create_handle(void)
 
 	/* register exit_mmap notify */
 	h->handle_mm = current->mm;
-	h->mmu_context_notify.jz_notify = mmu_context_exit_mmap;
-	h->mmu_context_notify.level = NOTEFY_PROI_HIGH;
-	h->mmu_context_notify.msg = MMU_CONTEXT_EXIT_MMAP;
 
-	jz_notifier_register(&h->mmu_context_notify, NOTEFY_PROI_HIGH);
+	if(list_empty(&handle_list)) {
+		mmu_context_notify.jz_notify = mmu_context_exit_mmap;
+		mmu_context_notify.level = NOTEFY_PROI_NORMAL;
+		mmu_context_notify.msg = MMU_CONTEXT_EXIT_MMAP;
+		jz_notifier_register(&mmu_context_notify, NOTEFY_PROI_NORMAL);
+	}
 
 	list_add(&h->list, &handle_list);
 
@@ -535,7 +549,11 @@ int dmmu_unmap(struct device *dev,unsigned long vaddr, int len)
 		list_del(&h->list);
 		ClearPageReserved(virt_to_page((void *)h->pdg));
 		free_page(h->pdg);
-		jz_notifier_unregister(&h->mmu_context_notify, NOTEFY_PROI_HIGH);
+
+		if(list_empty(&handle_list)) {
+			jz_notifier_unregister(&mmu_context_notify, NOTEFY_PROI_NORMAL);
+		}
+
 		mutex_unlock(&h->lock);
 		kfree(h);
 		return 0;
@@ -579,7 +597,9 @@ int dmmu_free_all(struct device *dev)
 	ClearPageReserved(virt_to_page((void *)h->pdg));
 	free_page(h->pdg);
 
-	jz_notifier_unregister(&h->mmu_context_notify, NOTEFY_PROI_HIGH);
+	if(list_empty(&handle_list)) {
+		jz_notifier_unregister(&mmu_context_notify, NOTEFY_PROI_NORMAL);
+	}
 
 	mutex_unlock(&h->lock);
 
