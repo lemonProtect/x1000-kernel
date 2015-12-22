@@ -205,6 +205,34 @@ static unsigned int icdc_d3_read(struct snd_soc_codec *codec, unsigned int reg)
 	return 0;
 }
 
+static int icdc_d3_set_bias_level(struct snd_soc_codec *codec,
+		enum snd_soc_bias_level level) {
+	DEBUG_MSG("%s enter set level %d\n", __func__, level);
+
+	switch (level) {
+	case SND_SOC_BIAS_ON:
+	case SND_SOC_BIAS_PREPARE:
+		break;
+	case SND_SOC_BIAS_STANDBY:
+		if (snd_soc_update_bits(codec, SCODA_REG_CR_VIC, SCODA_CR_VIC_SB_MASK, 0))
+			msleep(250);
+		if (snd_soc_update_bits(codec, SCODA_REG_CR_VIC, SCODA_CR_VIC_SB_SLEEP_MASK, 0)) {
+			msleep(400);
+		}
+		snd_soc_update_bits(codec, SCODA_REG_AICR_ADC, SCODA_AICR_ADC_SB_MASK, 0);
+		snd_soc_update_bits(codec, SCODA_REG_AICR_DAC, SCODA_AICR_DAC_SB_MASK, 0);
+		break;
+	case SND_SOC_BIAS_OFF:
+		snd_soc_update_bits(codec, SCODA_REG_AICR_ADC, SCODA_AICR_ADC_SB_MASK, 1);
+		snd_soc_update_bits(codec, SCODA_REG_AICR_DAC, SCODA_AICR_DAC_SB_MASK, 1);
+		snd_soc_update_bits(codec, SCODA_REG_CR_VIC, SCODA_CR_VIC_SB_SLEEP_MASK, 1);
+		snd_soc_update_bits(codec, SCODA_REG_CR_VIC, SCODA_CR_VIC_SB_MASK, 1);
+		break;
+	}
+
+	codec->dapm.bias_level = level;
+	return 0;
+}
 
 static int icdc_d3_hw_params(struct snd_pcm_substream *substream,
 			    struct snd_pcm_hw_params *params,
@@ -535,21 +563,34 @@ static const struct snd_soc_dapm_route intercon[] = {
 	{ "DO_LO_PWM", NULL, "MERCURY AIDAC Mux" },
 };
 
+#ifdef CONFIG_PM
 static int icdc_d3_suspend(struct snd_soc_codec *codec)
 {
+	struct icdc_d3 *icdc_d3 = snd_soc_codec_get_drvdata(codec);
+
+	icdc_d3_set_bias_level(codec, SND_SOC_BIAS_OFF);
+	snd_soc_update_bits(codec, SCODA_REG_CR_CK, SCODA_CR_CK_SDCLK_MASK, 1);
 	return 0;
 }
 
 static int icdc_d3_resume(struct snd_soc_codec *codec)
 {
+	struct icdc_d3 *icdc_d3 = snd_soc_codec_get_drvdata(codec);
+
+	snd_soc_update_bits(codec, SCODA_REG_CR_CK, SCODA_CR_CK_SDCLK_MASK, 0);
+	icdc_d3_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
 	return 0;
 }
+#endif
 
 static int icdc_d3_probe(struct snd_soc_codec *codec)
 {
 	struct icdc_d3 *icdc_d3 = snd_soc_codec_get_drvdata(codec);
 
 	dev_info(codec->dev, "codec icdc-d3 probe enter\n");
+	/*power on codec bias*/
+	icdc_d3_set_bias_level(codec, SND_SOC_BIAS_STANDBY);
+
 	/* power off codec */
 	snd_soc_update_bits(codec, SCODA_REG_CR_VIC, SCODA_CR_VIC_SB_SLEEP_MASK, 1);
 	snd_soc_update_bits(codec, SCODA_REG_CR_VIC, SCODA_CR_VIC_SB_MASK, 1);
@@ -588,14 +629,17 @@ static int icdc_d3_remove(struct snd_soc_codec *codec)
 {
 	/*struct icdc_d3 *icdc_d3 = snd_soc_codec_get_drvdata(codec);*/
 	dev_info(codec->dev, "codec icdc_d3 remove enter\n");
+	icdc_d3_set_bias_level(codec, SND_SOC_BIAS_OFF);
 	return 0;
 }
 
 static struct snd_soc_codec_driver soc_codec_dev_icdc_d3_codec = {
 	.probe = 	icdc_d3_probe,
 	.remove = 	icdc_d3_remove,
+#ifdef CONFIG_PM
 	.suspend =	icdc_d3_suspend,
 	.resume =	icdc_d3_resume,
+#endif
 
 	.read = 	icdc_d3_read,
 	.write = 	icdc_d3_write,
@@ -606,6 +650,7 @@ static struct snd_soc_codec_driver soc_codec_dev_icdc_d3_codec = {
 	.reg_word_size = sizeof(u8),
 	.reg_cache_step = 1,
 	.reg_cache_size = SCODA_MAX_REG_NUM,
+	.set_bias_level = icdc_d3_set_bias_level,
 
 	.controls = 	icdc_d3_snd_controls,
 	.num_controls = ARRAY_SIZE(icdc_d3_snd_controls),
