@@ -469,27 +469,6 @@ static int jz_i2s_platfom_remove(struct platform_device *pdev)
 }
 
 
-#ifdef CONFIG_PM
-static int jz_i2s_platfom_suspend(struct platform_device *pdev, pm_message_t state)
-{
-	struct device *aic = pdev->dev.parent;
-	struct jz_aic *jz_aic = dev_get_drvdata(aic);
-	printk("jz aic susend!\n");
-	clk_disable(jz_aic->clk_gate);
-	clk_disable(jz_aic->clk);
-	return 0;
-}
-
-static int jz_i2s_platfom_resume(struct platform_device *pdev)
-{
-	struct device *aic = pdev->dev.parent;
-	struct jz_aic *jz_aic = dev_get_drvdata(aic);
-	clk_enable(jz_aic->clk_gate);
-	clk_enable(jz_aic->clk);
-	printk("jz aic resume!\n");
-	return 0;
-}
-#endif
 static struct platform_driver jz_i2s_plat_driver = {
 	.probe  = jz_i2s_platfrom_probe,
 	.remove = jz_i2s_platfom_remove,
@@ -497,10 +476,6 @@ static struct platform_driver jz_i2s_plat_driver = {
 		.name = "jz-asoc-aic-i2s",
 		.owner = THIS_MODULE,
 	},
-#ifdef CONFIG_PM
-	.suspend = jz_i2s_platfom_suspend,
-	.resume = jz_i2s_platfom_resume,
-#endif
 };
 
 static int jz_i2s_init(void)

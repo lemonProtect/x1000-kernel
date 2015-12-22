@@ -164,9 +164,9 @@ static int phoenix_dlv_dai_link_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_disable_pin(dapm, "Headphone Jack");
 #endif
 
-	snd_soc_dapm_force_enable_pin(dapm, "Speaker");
-	snd_soc_dapm_force_enable_pin(dapm, "Mic Buildin");
-	snd_soc_dapm_force_enable_pin(dapm, "DMic");
+	snd_soc_dapm_enable_pin(dapm, "Speaker");
+	snd_soc_dapm_enable_pin(dapm, "Mic Buildin");
+	snd_soc_dapm_enable_pin(dapm, "DMic");
 
 	snd_soc_dapm_sync(dapm);
 	return 0;
