@@ -556,6 +556,14 @@ config BCM_RFKILL
 	Creates an rfkill entry in sysfs for power control of Bluetooth
 	bcm-xxxx chips.
 
+config BCM_43438_RFKILL
+	tristate "Bluetooth power control driver for BCM-43438 module"
+	depends on RFKILL
+	default n
+	---help---
+	Creates an rfkill entry in sysfs for power control of Bluetooth
+	bcm-xxxx chips.
+
 
 config GPS_RFKILL
 	tristate "GPS power control driver"
