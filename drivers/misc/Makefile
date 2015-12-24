@@ -52,6 +52,7 @@ obj-y				+= carma/
 obj-$(CONFIG_BCM_PM_CORE) 	+= bcm-pm-core.o
 obj-$(CONFIG_BROADCOM_RFKILL)   += bt-power-bluesleep.o bluesleep.o
 obj-$(CONFIG_BCM_AP6212_RFKILL)   += bt-power_bluesleep.o
+obj-$(CONFIG_BCM_43438_RFKILL)   += bt-power_bluesleep.o
 obj-$(CONFIG_GPS_RFKILL)    += gps-power.o
 obj-$(CONFIG_USB_SWITCH_FSA9480) += fsa9480.o
 obj-$(CONFIG_ALTERA_STAPL)	+=altera-stapl/
