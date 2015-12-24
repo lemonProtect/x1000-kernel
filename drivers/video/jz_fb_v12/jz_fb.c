@@ -1999,65 +1999,69 @@ static void jzfb_do_suspend(struct jzfb *jzfb)
 {
 	if (fb_is_always_on())
 		return;
-	mutex_lock(&jzfb->lock);
+	if (!jzfb->is_suspend){
+		mutex_lock(&jzfb->lock);
 
 #ifdef CONFIG_JZ_MIPI_DSI
-	jzfb->dsi->master_ops->set_blank_mode(jzfb->dsi, FB_BLANK_POWERDOWN);
+		jzfb->dsi->master_ops->set_blank_mode(jzfb->dsi, FB_BLANK_POWERDOWN);
 #endif
 		/* set suspend state and notify panel, backlight client */
-	jzfb_do_blank(jzfb, FB_BLANK_POWERDOWN);
-	mutex_lock(&jzfb->suspend_lock);
-	jzfb->is_suspend = 1;
-	mutex_unlock(&jzfb->suspend_lock);
-	mutex_unlock(&jzfb->lock);
+		jzfb_do_blank(jzfb, FB_BLANK_POWERDOWN);
+		mutex_lock(&jzfb->suspend_lock);
+		jzfb->is_suspend = 1;
+		mutex_unlock(&jzfb->suspend_lock);
+		mutex_unlock(&jzfb->lock);
 
-	/*disable clock*/
-	jzfb_clk_disable(jzfb);
-	clk_disable(jzfb->pclk);
-	clk_disable(jzfb->pwcl);
+		/*disable clock*/
+		jzfb_clk_disable(jzfb);
+		clk_disable(jzfb->pclk);
+		clk_disable(jzfb->pwcl);
 #if 0
-	printk("----lcd early suspend:\n");
-	dump_cpm_reg();
+		printk("----lcd early suspend:\n");
+		dump_cpm_reg();
 #endif
+	}
 }
 
 static void jzfb_do_resume(struct jzfb *jzfb)
 {
 	if (fb_is_always_on())
 		return;
+	if(jzfb->is_suspend){
 #ifdef CONFIG_JZ_MIPI_DSI
-	jzfb->dsi->master_ops->set_blank_mode(jzfb->dsi, FB_BLANK_UNBLANK);
+		jzfb->dsi->master_ops->set_blank_mode(jzfb->dsi, FB_BLANK_UNBLANK);
 #endif
-	jzfb_do_blank(jzfb, FB_BLANK_UNBLANK);
-	clk_enable(jzfb->pwcl);
-	jzfb_clk_enable(jzfb);
-	jzfb_set_par(jzfb->fb);
-	jzfb_enable(jzfb->fb);
-	/* This position will start The First Frame dma to lcd
-	 * jzfb_set_par set SLCDC_CTRL_DMA_START bit to slcd register
-	 * jzfb_enable let it work.
-	 * */
+		jzfb_do_blank(jzfb, FB_BLANK_UNBLANK);
+		clk_enable(jzfb->pwcl);
+		jzfb_clk_enable(jzfb);
+		jzfb_set_par(jzfb->fb);
+		jzfb_enable(jzfb->fb);
+		/* This position will start The First Frame dma to lcd
+		 * jzfb_set_par set SLCDC_CTRL_DMA_START bit to slcd register
+		 * jzfb_enable let it work.
+		 * */
 #ifdef CONFIG_JZ_MIPI_DSI
-    if (jzfb->dsi->master_ops->ioctl)
-        jzfb->dsi->master_ops->ioctl(jzfb->dsi, CMD_MIPI_DISPLAY_ON);
+		if (jzfb->dsi->master_ops->ioctl)
+			jzfb->dsi->master_ops->ioctl(jzfb->dsi, CMD_MIPI_DISPLAY_ON);
 #endif
 
 #ifdef CONFIG_DELAY_AFTER_LCD_DISPLAY_ON
-	/* this delay is affected by those conditions
-	 * 1, when send display on cmd to lcd, it offten takes a few time to let the lcd panel ready to display
-	 * 2, The first frame will takes a few time to completly send to lcd
-	 * */
-	msleep(CONFIG_DELAY_AFTER_LCD_DISPLAY_ON);
+		/* this delay is affected by those conditions
+		 * 1, when send display on cmd to lcd, it offten takes a few time to let the lcd panel ready to display
+		 * 2, The first frame will takes a few time to completly send to lcd
+		 * */
+		msleep(CONFIG_DELAY_AFTER_LCD_DISPLAY_ON);
 #endif
 
-	mutex_lock(&jzfb->suspend_lock);
-	jzfb->is_suspend = 0;
-	mutex_unlock(&jzfb->suspend_lock);
+		mutex_lock(&jzfb->suspend_lock);
+		jzfb->is_suspend = 0;
+		mutex_unlock(&jzfb->suspend_lock);
 
 #if 0
-	printk("----lcd early resume:\n");
-	dump_cpm_reg();
+		printk("----lcd early resume:\n");
+		dump_cpm_reg();
 #endif
+	}
 }
 
 static void jzfb_change_dma_desc(struct fb_info *info)
@@ -3166,8 +3170,8 @@ static int jzfb_suspend(struct device *dev)
 	/* clk_disable(jzfb->pclk); */
 	printk("++++++%s\n",__func__);
 	jzfb_do_suspend(jzfb);
-
 	return 0;
+
 }
 
 static int jzfb_resume(struct device *dev)
@@ -3178,13 +3182,13 @@ static int jzfb_resume(struct device *dev)
 	/* jzfb_clk_enable(jzfb); */
 	printk("++++++%s\n",__func__);
 	jzfb_do_resume(jzfb);
-
 	return 0;
+
 }
 
 static const struct dev_pm_ops jzfb_pm_ops = {
-//	.suspend = jzfb_suspend,
-//	.resume = jzfb_resume,
+	.suspend = jzfb_suspend,
+	.resume = jzfb_resume,
 };
 #endif
 static struct platform_driver jzfb_driver = {
