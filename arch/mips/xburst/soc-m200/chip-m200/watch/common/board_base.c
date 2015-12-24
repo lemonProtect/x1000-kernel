@@ -23,6 +23,10 @@
 #include <mach/jz_dsim.h>
 #include "board_base.h"
 
+#ifdef CONFIG_SWITCH
+#include <linux/switch.h>
+#endif
+
 struct jz_platform_device
 {
 	struct platform_device *pdevices;

@@ -179,12 +179,21 @@ struct mipi_dsim_lcd_device {
 	void            *platform_data;
 };
 
+enum {
+    POWER_ON_LCD = 1,
+    POWER_ON_BL,
+};
+enum {
+    CMD_MIPI_DISPLAY_ON = 1,
+    CMD_MIPI_END,
+};
 struct mipi_dsim_lcd_driver {
 	char            *name;
 	int         id;
 
-	void    (*power_on)(struct mipi_dsim_lcd_device *dsim_dev, int enable);
+	void    (*power_on)(struct mipi_dsim_lcd_device *dsim_dev, int mode);
 	void    (*set_sequence)(struct mipi_dsim_lcd_device *dsim_dev);
+	int    (*ioctl)(struct mipi_dsim_lcd_device *dsim_dev, int cmd);
 	int (*probe)(struct mipi_dsim_lcd_device *dsim_dev);
 	int (*remove)(struct mipi_dsim_lcd_device *dsim_dev);
 	void    (*shutdown)(struct mipi_dsim_lcd_device *dsim_dev);
@@ -251,6 +260,7 @@ struct dsi_master_ops {
 	int (*set_early_blank_mode)(struct dsi_device *dsi, int power);
 	int (*set_blank_mode)(struct dsi_device *dsi, int power);
 	int (*set_blank)(struct dsi_device *dsi, int blank_mode);
+    int (*ioctl)(struct dsi_device *dsi, int cmd);
 };
 
 extern struct jzdsi_data jzdsi_pdata;
