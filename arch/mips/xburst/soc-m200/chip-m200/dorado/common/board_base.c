@@ -145,7 +145,7 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_USB_EHCI_HCD
 	DEF_DEVICE(&jz_ehci_device, 0, 0),
 #endif
-#ifdef CONFIG_USB_JZ_DWC2
+#if defined(CONFIG_USB_JZ_DWC2) || defined(CONFIG_USB_DWC2)
 	DEF_DEVICE(&jz_dwc_otg_device, 0, 0),
 #endif
 #ifdef CONFIG_JZ4775_MAC

@@ -139,10 +139,8 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #endif
 
 #if defined(CONFIG_JZ_DMIC1) || defined(CONFIG_SND_ASOC_JZ_DMIC_V12)
-#ifndef CONFIG_USB_DWC2_DUAL_ROLE
-#ifndef CONFIG_USB_DWC2_HOST_ONLY
+#if !defined(CONFIG_USB_DWC2_HOST_ONLY) && !defined(CONFIG_USB_DWC2_HOST) && !defined(CONFIG_USB_DWC2_DUAL_ROLE) && !defined(CONFIG_USB_DWC2_DUAL)
 	DMIC_PORTE,
-#endif
 #endif
 #endif
 
@@ -183,7 +181,7 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_JZ_PWM_GPIO_D11
 #endif
 
-#ifdef CONFIG_USB_DWC2_DRVVBUS_FUNCTION_PIN
+#if defined(CONFIG_USB_DWC2_HOST) || defined(CONFIG_USB_DWC2_DUAL) || defined(CONFIG_USB_DWC2_DRVVBUS_FUNCTION_PIN)
 	OTG_DRVVUS,
 #endif
 
