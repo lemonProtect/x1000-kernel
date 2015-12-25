@@ -104,8 +104,13 @@ __initdata int gpio_ss_table[][2] = {
     { 32 * 5 + 2, GSS_IGNORE }, /* UART0_RTS */
     { 32 * 5 + 3, GSS_IGNORE }, /* UART0_TXD */
 
+#ifdef CONFIG_JZ_DMIC_WAKEUP
+    { 32 * 5 + 6, GSS_IGNORE }, /* DMIC_CLK */
+    { 32 * 5 + 7, GSS_IGNORE }, /* DMIC_DOUT */
+#else
     { 32 * 5 + 6, GSS_OUTPUT_LOW }, /* DMIC_CLK */
     { 32 * 5 + 7, GSS_INPUT_PULL }, /* DMIC_DOUT */
+#endif
 
     { 32 * 5 + 12, GSS_OUTPUT_LOW }, /* BT_PCM_DO */
     { 32 * 5 + 13, GSS_OUTPUT_LOW }, /* BT_PCM_CLK */

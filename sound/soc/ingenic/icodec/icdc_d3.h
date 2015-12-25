@@ -321,22 +321,22 @@ static int icdc_d3_hw_write_extend(struct icdc_d3 *icdc_d3, u8 sreg, u8 sdata){
 		case SCODA_MIX_0 ... SCODA_MIX_4:
 			creg = SCODA_REG_CR_MIX;
 			dreg = SCODA_REG_DR_MIX;
-			sreg -= (SCODA_REG_SR_TR_SRCDAC + 1);
+			sreg -= SCODA_MIX_0;
 			break;
 		case SCODA_DAC_AGC0 ... SCODA_DAC_AGC3:
 			creg = SCODA_REG_CR_DAC_AGC;
 			dreg = SCODA_REG_DR_DAC_AGC;
-			sreg -= (SCODA_MIX_4 +1);
+			sreg -= SCODA_DAC_AGC0;
 			break;
 		case SCODA_DAC2_AGC0 ... SCODA_DAC2_AGC3:
-			creg = SCODA_REG_CR_DAC2;
+			creg = SCODA_REG_CR_DAC2_AGC;
 			dreg = SCODA_REG_DR_DAC2_AGC;
-			sreg -= (SCODA_DAC_AGC3 + 1);
+			sreg -= SCODA_DAC2_AGC0;
 			break;
 		case SCODA_ADC_AGC0 ... SCODA_ADC_AGC4:
 			creg = SCODA_REG_CR_ADC_AGC;
 			dreg = SCODA_REG_DR_ADC_AGC;
-			sreg -= (SCODA_ADC_AGC4 + 1);
+			sreg -= SCODA_ADC_AGC0;
 			break;
 		default:
 			return 0;
@@ -361,22 +361,22 @@ static u8 icdc_d3_hw_read_extend(struct icdc_d3 *icdc_d3, u8 sreg)
 		case SCODA_MIX_0 ... SCODA_MIX_4:
 			creg = SCODA_REG_CR_MIX;
 			dreg = SCODA_REG_DR_MIX;
-			sreg -= (SCODA_REG_SR_TR_SRCDAC + 1);
+			sreg -= SCODA_MIX_0;
 			break;
 		case SCODA_DAC_AGC0 ... SCODA_DAC_AGC3:
 			creg = SCODA_REG_CR_DAC_AGC;
 			dreg = SCODA_REG_DR_DAC_AGC;
-			sreg -= (SCODA_MIX_4 +1);
+			sreg -= SCODA_DAC_AGC0;
 			break;
 		case SCODA_DAC2_AGC0 ... SCODA_DAC2_AGC3:
-			creg = SCODA_REG_CR_DAC2;
+			creg = SCODA_REG_CR_DAC2_AGC;
 			dreg = SCODA_REG_DR_DAC2_AGC;
-			sreg -= (SCODA_DAC_AGC3 + 1);
+			sreg -= SCODA_DAC2_AGC0;
 			break;
 		case SCODA_ADC_AGC0 ... SCODA_ADC_AGC4:
 			creg = SCODA_REG_CR_ADC_AGC;
 			dreg = SCODA_REG_DR_ADC_AGC;
-			sreg -= (SCODA_ADC_AGC4 + 1);
+			sreg -= SCODA_ADC_AGC0;
 			break;
 		default:
 			return 0;
