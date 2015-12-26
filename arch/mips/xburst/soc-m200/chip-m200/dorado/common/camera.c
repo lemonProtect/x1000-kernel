@@ -43,7 +43,7 @@ static struct i2c_board_info ov9724_board_info = {
 	.addr = 0x10,
 };
 #endif /* CONFIG_VIDEO_OV9724 */
-#if (defined(CONFIG_VIDEO_OV5645) || defined(CONFIG_VIDEO_OV5645_BYPASS))
+#if defined(CONFIG_VIDEO_OV5645)
 static int ov5645_power(int onoff)
 {
 	if(temp) {
@@ -171,10 +171,14 @@ static struct i2c_board_info ov9712_board_info = {
 
 
 static struct ovisp_camera_client ovisp_camera_clients[] = {
-#if (defined(CONFIG_VIDEO_OV5645) || defined(CONFIG_VIDEO_OV5645_BYPASS))
+#if defined(CONFIG_VIDEO_OV5645)
 	{
 		.board_info = &ov5645_board_info,
-		.flags = CAMERA_CLIENT_IF_MIPI | CAMERA_CLIENT_ISP_BYPASS,
+		.flags = CAMERA_CLIENT_IF_MIPI
+#if defined(CONFIG_MIPI_CAMERA_BYPASS_MODE)
+			 |   CAMERA_CLIENT_ISP_BYPASS
+#endif
+		,
 		.mclk_rate = 24000000,
 		.max_video_width = 2592,
 		.max_video_height = 1944,

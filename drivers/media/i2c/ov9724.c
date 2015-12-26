@@ -126,6 +126,13 @@ static struct ov9724_win_setting {
 		.mbus_code	= V4L2_MBUS_FMT_SGRBG10_1X10,
 		.colorspace	= V4L2_COLORSPACE_SRGB,
 		.regs 		= ov9724_init_720p_raw10_regs,
+	},
+	{
+		.width		= 640,
+		.height		= 480,
+		.mbus_code	= V4L2_MBUS_FMT_SGRBG10_1X10,
+		.colorspace	= V4L2_COLORSPACE_SRGB,
+		.regs 		= ov9724_init_720p_raw10_regs,
 	}
 };
 #define N_WIN_SIZES (ARRAY_SIZE(ov9724_win_sizes))
