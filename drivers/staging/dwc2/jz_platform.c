@@ -1,7 +1,9 @@
+w
 /*
- * platform.c - DesignWare HS OTG Controller platform driver
+ * jz4780_platform.c - JZ4780 DWC2 controller platform driver
  *
  * Copyright (C) Matthijs Kooijman <matthijs@stdin.nl>
+ * Copyright (C) 2014 Imagination Technologies Ltd.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,68 +37,42 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/gpio.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
 #include <linux/of_device.h>
-#include <linux/mutex.h>
 #include <linux/platform_device.h>
-
-#include <linux/usb/of.h>
+#include <linux/clk.h>
+#include <linux/regulator/consumer.h>
+#include <linux/jz_dwc.h>
 
 #include "core.h"
 #include "hcd.h"
 #include "debug.h"
 
-static const char dwc2_driver_name[] = "dwc2";
+#define USBRESET_DETECT_TIME	0x96
+#define OTG_REG_GUSBCFG		0xb3500000
 
-static const struct dwc2_core_params params_bcm2835 = {
-	.otg_cap			= 0,	/* HNP/SRP capable */
-	.otg_ver			= 0,	/* 1.3 */
-	.dma_enable			= 1,
-	.dma_desc_enable		= 0,
-	.speed				= 0,	/* High Speed */
-	.enable_dynamic_fifo		= 1,
-	.en_multiple_tx_fifo		= 1,
-	.host_rx_fifo_size		= 774,	/* 774 DWORDs */
-	.host_nperio_tx_fifo_size	= 256,	/* 256 DWORDs */
-	.host_perio_tx_fifo_size	= 512,	/* 512 DWORDs */
-	.max_transfer_size		= 65535,
-	.max_packet_count		= 511,
-	.host_channels			= 8,
-	.phy_type			= 1,	/* UTMI */
-	.phy_utmi_width			= 8,	/* 8 bits */
-	.phy_ulpi_ddr			= 0,	/* Single */
-	.phy_ulpi_ext_vbus		= 0,
-	.i2c_enable			= 0,
-	.ulpi_fs_ls			= 0,
-	.host_support_fs_ls_low_power	= 0,
-	.host_ls_low_power_phy_clk	= 0,	/* 48 MHz */
-	.ts_dline			= 0,
-	.reload_ctl			= 0,
-	.ahbcfg				= 0x10,
-	.uframe_sched			= 0,
-	.external_id_pin_ctl		= -1,
-	.hibernation			= -1,
-};
+static const char dwc2_driver_name[] = "jz-dwc2";
 
-static const struct dwc2_core_params params_rk3066 = {
-	.otg_cap			= 2,	/* non-HNP/non-SRP */
+static const struct dwc2_core_params params_jz4780 = {
+	.otg_cap			= 2,
 	.otg_ver			= -1,
-	.dma_enable			= -1,
-	.dma_desc_enable		= 0,
+	.dma_enable			=  1,	/* DMA Enabled */
+	.dma_desc_enable		=  0,
 	.speed				= -1,
-	.enable_dynamic_fifo		= 1,
+	.enable_dynamic_fifo		= -1,
 	.en_multiple_tx_fifo		= -1,
-	.host_rx_fifo_size		= 520,	/* 520 DWORDs */
-	.host_nperio_tx_fifo_size	= 128,	/* 128 DWORDs */
-	.host_perio_tx_fifo_size	= 256,	/* 256 DWORDs */
-	.max_transfer_size		= 65535,
+	.host_rx_fifo_size		=  1024, /* 1024 DWORDs */
+	.host_nperio_tx_fifo_size	=  1024, /* 1024 DWORDs */
+	.host_perio_tx_fifo_size	=  1024, /* 1024 DWORDs */
+	.max_transfer_size		= -1,
 	.max_packet_count		= -1,
 	.host_channels			= -1,
 	.phy_type			= -1,
-	.phy_utmi_width			= -1,
+	.phy_utmi_width			= 16,
 	.phy_ulpi_ddr			= -1,
 	.phy_ulpi_ext_vbus		= -1,
 	.i2c_enable			= -1,
@@ -105,11 +81,18 @@ static const struct dwc2_core_params params_rk3066 = {
 	.host_ls_low_power_phy_clk	= -1,
 	.ts_dline			= -1,
 	.reload_ctl			= -1,
-	.ahbcfg				= 0x7, /* INCR16 */
+	.ahbcfg				= -1,
 	.uframe_sched			= -1,
 	.external_id_pin_ctl		= -1,
 	.hibernation			= -1,
 };
+
+struct jz4780_otg_info {
+	struct dwc2_hsotg	hsotg;
+	struct clk		*otg_clk;
+	struct clk		*phy_clk;
+};
+
 
 /**
  * dwc2_driver_remove() - Called when the DWC_otg core is unregistered with the
@@ -124,22 +107,17 @@ static const struct dwc2_core_params params_rk3066 = {
  */
 static int dwc2_driver_remove(struct platform_device *dev)
 {
-	struct dwc2_hsotg *hsotg = platform_get_drvdata(dev);
+	struct jz4780_otg_info *jz4780_otg = platform_get_drvdata(dev);
 
-	dwc2_debugfs_exit(hsotg);
-	if (hsotg->hcd_enabled)
-		dwc2_hcd_remove(hsotg);
-	if (hsotg->gadget_enabled)
-		s3c_hsotg_remove(hsotg);
+	clk_disable_unprepare(jz4780_otg->otg_clk);
+	clk_disable_unprepare(jz4780_otg->phy_clk);
+	dwc2_hcd_remove(&jz4780_otg->hsotg);
 
 	return 0;
 }
 
 static const struct of_device_id dwc2_of_match_table[] = {
-	{ .compatible = "brcm,bcm2835-usb", .data = &params_bcm2835 },
-	{ .compatible = "rockchip,rk3066-usb", .data = &params_rk3066 },
-	{ .compatible = "snps,dwc2", .data = NULL },
-	{ .compatible = "samsung,s3c6400-hsotg", .data = NULL},
+	{ .compatible = "ingenic,jz4780-otg", .data = &params_jz4780 },
 	{},
 };
 MODULE_DEVICE_TABLE(of, dwc2_of_match_table);
@@ -159,14 +137,18 @@ MODULE_DEVICE_TABLE(of, dwc2_of_match_table);
 static int dwc2_driver_probe(struct platform_device *dev)
 {
 	const struct of_device_id *match;
-	const struct dwc2_core_params *params;
+	struct dwc2_core_params *params;
 	struct dwc2_core_params defparams;
+	struct jz4780_otg_info *jz4780_otg;
 	struct dwc2_hsotg *hsotg;
 	struct resource *res;
-	struct phy *phy;
-	struct usb_phy *uphy;
 	int retval;
 	int irq;
+	u32 reg;
+	struct clk *clk_otg_phy, *clk_otg1;
+
+	if (usb_disabled())
+		return -ENODEV;
 
 	match = of_match_device(dwc2_of_match_table, &dev->dev);
 	if (match && match->data) {
@@ -174,19 +156,15 @@ static int dwc2_driver_probe(struct platform_device *dev)
 	} else {
 		/* Default all params to autodetect */
 		dwc2_set_all_params(&defparams, -1);
+		defparams = params_jz4780;
 		params = &defparams;
-
-		/*
-		 * Disable descriptor dma mode by default as the HW can support
-		 * it, but does not support it for SPLIT transactions.
-		 */
-		defparams.dma_desc_enable = 0;
 	}
 
-	hsotg = devm_kzalloc(&dev->dev, sizeof(*hsotg), GFP_KERNEL);
-	if (!hsotg)
+	jz4780_otg = devm_kzalloc(&dev->dev, sizeof(*jz4780_otg), GFP_KERNEL);
+	if (!jz4780_otg)
 		return -ENOMEM;
 
+	hsotg = &jz4780_otg->hsotg;
 	hsotg->dev = &dev->dev;
 
 	/*
@@ -220,25 +198,58 @@ static int dwc2_driver_probe(struct platform_device *dev)
 	dev_dbg(&dev->dev, "mapped PA %08lx to VA %p\n",
 		(unsigned long)res->start, hsotg->regs);
 
-	hsotg->dr_mode = of_usb_get_dr_mode(dev->dev.of_node);
-
-	/*
-	 * Attempt to find a generic PHY, then look for an old style
-	 * USB PHY
-	 */
-	phy = devm_phy_get(&dev->dev, "usb2-phy");
-	if (IS_ERR(phy)) {
-		hsotg->phy = NULL;
-		uphy = devm_usb_get_phy(&dev->dev, USB_PHY_TYPE_USB2);
-		if (IS_ERR(uphy))
-			hsotg->uphy = NULL;
-		else
-			hsotg->uphy = uphy;
-	} else {
-		hsotg->phy = phy;
-		phy_power_on(hsotg->phy);
-		phy_init(hsotg->phy);
+	clk_otg_phy = devm_clk_get(&dev->dev, "cgu_usb");
+	if (IS_ERR(clk_otg_phy)) {
+		retval = PTR_ERR(clk_otg_phy);
+		dev_err(&dev->dev, "Failed to get otgphy clock: %d\n", retval);
+		return retval;
 	}
+
+	jz4780_otg->phy_clk = clk_otg_phy;
+
+	retval = clk_prepare_enable(clk_otg_phy);
+	if (retval) {
+		dev_err(&dev->dev, "Failed to enable otgphy clk:%d\n", retval);
+		return retval;
+	}
+
+	retval = clk_set_rate(clk_otg_phy, 24000000);
+	if (retval) {
+		dev_err(&dev->dev, "Failed to set usb otg phy clk rate: %d\n",
+			retval);
+		return retval;
+	}
+
+	clk_otg1 = devm_clk_get(&dev->dev, "otg1");
+	if (IS_ERR(clk_otg1)) {
+		retval = PTR_ERR(clk_otg1);
+		dev_err(&dev->dev, "Failed to get clock:%d\n", retval);
+		return retval;
+	}
+
+	jz4780_otg->otg_clk = clk_otg1;
+
+	retval = clk_prepare_enable(clk_otg1);
+	if (retval) {
+		dev_err(&dev->dev, "Failed to enable otg1 clock:%d\n", retval);
+		return retval;
+	}
+
+	jz_otg_ctr_reset();
+	jz_otg_phy_init(DUAL_MODE);
+	jz_otg_phy_suspend(0);
+	mdelay(100);
+	/* Switch off VBUS overcurrent detection in OTG PHY. */
+	reg = readl((unsigned int __iomem *)OTG_REG_GUSBCFG);
+	writel(reg | 0xc, (unsigned int __iomem *)OTG_REG_GUSBCFG);
+
+#if defined(CONFIG_USB_DWC2_HOST)
+	hsotg->dr_mode = USB_DR_MODE_HOST;
+#elif defined(CONFIG_USB_DWC2_PERIPHERAL)
+	hsotg->dr_mode = USB_DR_MODE_PERIPHERAL;
+#else
+	hsotg->dr_mode = USB_DR_MODE_OTG;
+#endif
 
 	spin_lock_init(&hsotg->lock);
 	mutex_init(&hsotg->init_mutex);
@@ -265,6 +276,8 @@ static int dwc2_driver_probe(struct platform_device *dev)
 		hsotg->gadget_enabled = 1;
 	}
 
+	platform_set_drvdata(dev, jz4780_otg);
+
 	if (hsotg->dr_mode != USB_DR_MODE_PERIPHERAL) {
 		retval = dwc2_hcd_init(hsotg, irq);
 		if (retval) {
@@ -282,47 +295,10 @@ static int dwc2_driver_probe(struct platform_device *dev)
 	return retval;
 }
 
-static int __maybe_unused dwc2_suspend(struct device *dev)
-{
-	struct dwc2_hsotg *dwc2 = dev_get_drvdata(dev);
-	int ret = 0;
-
-	if (dwc2_is_device_mode(dwc2)) {
-		ret = s3c_hsotg_suspend(dwc2);
-	} else {
-		if (dwc2->lx_state == DWC2_L0)
-			return 0;
-		phy_exit(dwc2->phy);
-		phy_power_off(dwc2->phy);
-
-	}
-	return ret;
-}
-
-static int __maybe_unused dwc2_resume(struct device *dev)
-{
-	struct dwc2_hsotg *dwc2 = dev_get_drvdata(dev);
-	int ret = 0;
-
-	if (dwc2_is_device_mode(dwc2)) {
-		ret = s3c_hsotg_resume(dwc2);
-	} else {
-		phy_power_on(dwc2->phy);
-		phy_init(dwc2->phy);
-
-	}
-	return ret;
-}
-
-static const struct dev_pm_ops dwc2_dev_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(dwc2_suspend, dwc2_resume)
-};
-
 static struct platform_driver dwc2_platform_driver = {
 	.driver = {
 		.name = dwc2_driver_name,
 		.of_match_table = dwc2_of_match_table,
-		.pm = &dwc2_dev_pm_ops,
 	},
 	.probe = dwc2_driver_probe,
 	.remove = dwc2_driver_remove,
@@ -330,6 +306,6 @@ static struct platform_driver dwc2_platform_driver = {
 
 module_platform_driver(dwc2_platform_driver);
 
-MODULE_DESCRIPTION("DESIGNWARE HS OTG Platform Glue");
-MODULE_AUTHOR("Matthijs Kooijman <matthijs@stdin.nl>");
+MODULE_DESCRIPTION("JZ4780 DWC2 controller platform driver");
+MODULE_AUTHOR("Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>");
 MODULE_LICENSE("Dual BSD/GPL");

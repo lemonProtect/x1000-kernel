@@ -22,6 +22,7 @@ obj-y += ddr.o
 
 obj-y += libdmmu.o
 
+obj-$(CONFIG_USB_DWC2) += cpm_usb.o
 obj-$(CONFIG_USB_JZ_DWC2) += cpm_usb.o
 
 obj-$(CONFIG_CPU_FREQ) += cpufreq.o
