@@ -51,12 +51,18 @@ static int phoenix_spk_power(struct snd_soc_dapm_widget *w,
 }
 
 void phoenix_spk_sdown(struct snd_pcm_substream *sps){
-	gpio_direction_output(codec_platform_data->gpio_spk_en.gpio, !(codec_platform_data->gpio_spk_en.active_level));
+
+	if (codec_platform_data && (codec_platform_data->gpio_spk_en.gpio) != -1) {
+		gpio_direction_output(codec_platform_data->gpio_spk_en.gpio, !(codec_platform_data->gpio_spk_en.active_level));
+	}
+
 	return;
 }
 
 int phoenix_spk_sup(struct snd_pcm_substream *sps){
-	gpio_direction_output(codec_platform_data->gpio_spk_en.gpio, codec_platform_data->gpio_spk_en.active_level);
+	if (codec_platform_data && (codec_platform_data->gpio_spk_en.gpio) != -1) {
+		gpio_direction_output(codec_platform_data->gpio_spk_en.gpio, codec_platform_data->gpio_spk_en.active_level);
+	}
 	return 0;
 }
 
@@ -131,7 +137,7 @@ static int phoenix_dlv_dai_link_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	struct snd_soc_card *card = rtd->card;
 	int err;
-	if (codec_platform_data) {
+	if ((codec_platform_data) && ((codec_platform_data->gpio_spk_en.gpio) != -1)) {
 		err = devm_gpio_request(card->dev, codec_platform_data->gpio_spk_en.gpio, "Speaker_en");
 		if (err)
 			return err;

@@ -78,8 +78,13 @@
 #define GPIO_HP_MUTE        -1  /*hp mute gpio*/
 #define GPIO_HP_MUTE_LEVEL  -1  /*vaild level*/
 
+#ifdef CONFIG_HALLEY2_MINI_CORE_V10
 #define GPIO_SPEAKER_EN    GPIO_PC(23)         /*speaker enable gpio*/
 #define GPIO_SPEAKER_EN_LEVEL   0
+#else
+#define GPIO_SPEAKER_EN    -1         /*speaker enable gpio*/
+#define GPIO_SPEAKER_EN_LEVEL   0
+#endif
 
 #define GPIO_HANDSET_EN     -1  /*handset enable gpio*/
 #define GPIO_HANDSET_EN_LEVEL   -1
