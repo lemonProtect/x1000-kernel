@@ -22,8 +22,13 @@
 #include <mach/jzcpm_pwc.h>
 #include <mach/platform.h>
 
-extern void reset_keep_power(void);
+extern int reset_keep_power(void);
+static int g_is_use_rtc;
 
+int rtc_is_enabled(void)
+{
+	return !g_is_use_rtc;
+}
 
 void __init cpm_reset(void)
 {
@@ -45,15 +50,13 @@ void __init cpm_reset(void)
 	cpm_outl(24,CPM_PSWC2ST);
 	cpm_outl(8,CPM_PSWC3ST);
 }
-
 int __init setup_init(void)
 {
 	cpm_reset();
-#ifdef CONFIG_RESET_KEEP_POWER
-	reset_keep_power();
-#endif
+	g_is_use_rtc = reset_keep_power();
 	return 0;
 }
+
 void __cpuinit jzcpu_timer_setup(void);
 void __cpuinit jz_clocksource_init(void);
 void __init init_all_clk(void);

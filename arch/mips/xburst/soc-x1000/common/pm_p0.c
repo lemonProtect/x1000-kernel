@@ -441,6 +441,7 @@ static void load_func_to_tcsm(unsigned int *tcsm_addr,unsigned int *f_addr,unsig
 		tcsm_addr[i] = instr;
 	}
 }
+extern int rtc_is_enabled(void);
 static int x1000_pm_enter(suspend_state_t state)
 {
 	volatile unsigned int lcr,opcr;
@@ -478,9 +479,13 @@ static int x1000_pm_enter(suspend_state_t state)
 	opcr &= ~((1 << 25) | (1 << 22) | (0xfff << 8) | (1 << 7) | (1 << 6) | (1 << 4) | (1 << 3) | (1 << 2));
 	opcr |= (1 << 31) | (1 << 30) | (1 << 25)| (1 << 23) | (0xfff << 8) | (1 << 4);
 #else
-	opcr &= ~((1 << 22) | (0xfff << 8) | (1 << 7) | (1 << 6) | (1 << 2));
+	opcr &= ~((1 << 22) | (0xfff << 8) | (1 << 7) | (1 << 6) | (1 << 4) | (1 << 2));
 	opcr |= (1 << 31) | (1 << 30) | (1 << 25) | (1 << 23) | (0xfff << 8) | (1 << 4) | (1 << 3);
 #endif
+	if(rtc_is_enabled()) {
+		opcr &= ~((1 << 4) | (1 << 2));
+		opcr |= (1 << 2);
+	}
 	cpm_outl(opcr,CPM_OPCR);
 
 	load_func_to_tcsm((unsigned int *)SLEEP_TCSM_BOOT_TEXT,(unsigned int *)cpu_resume_boot,SLEEP_TCSM_BOOT_LEN);

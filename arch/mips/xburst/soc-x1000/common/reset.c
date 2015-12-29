@@ -77,15 +77,14 @@ static void wdt_stop_count(void)
 	outl(1 << 16,TCU_IOBASE + TCU_TSSR);
 }
 
-static void inline rtc_write_reg(int reg,int value)
+static int inline rtc_write_reg(int reg,int value)
 {
 	int timeout = 0x2000;
 	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY) && timeout--);
 	if(!timeout)
 	{
-		printk("ERROR:RTC WRDY FAIL!!!!!\n");
-		printk("please do select CONFIG_RESET_KEEP_POWER\n");
-		return;
+		printk("WARN:NO USE RTC!!!!!\n");
+		return -1;
 	}
 	outl(0xa55a,(RTC_IOBASE + RTC_WENR));
 	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
@@ -93,17 +92,18 @@ static void inline rtc_write_reg(int reg,int value)
 	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
 	outl(value,(RTC_IOBASE + reg));
 	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
+
+	return 0;
 }
 
 /*
  * Function: Keep power for CPU core when reset.
  * So that EPC, tcsm and so on can maintain it's status after reset-key pressed.
  */
-void inline reset_keep_power(int keep_pwr)
+int inline reset_keep_power(void)
 {
-	if (keep_pwr)
-		rtc_write_reg(RTC_PWRONCR,
-			      inl(RTC_IOBASE + RTC_PWRONCR) & ~(1 << 0));
+	return rtc_write_reg(RTC_PWRONCR,
+			     inl(RTC_IOBASE + RTC_PWRONCR) & ~(1 << 0));
 }
 
 #define HWFCR_WAIT_TIME(x) ((x > 0x7fff ? 0x7fff: (0x7ff*(x)) / 2000) << 5)
