@@ -67,8 +67,8 @@ int truly_tft240240_power_init(struct lcd_device *ld)
             return ret;
         }
     }
-    printk("set lcd_power.inited  =======1 \n");
-    lcd_power.inited = 1;
+
+   lcd_power.inited = 1;
     return 0;
 }
 
@@ -77,7 +77,7 @@ int truly_tft240240_power_reset(struct lcd_device *ld)
 	if (!lcd_power.inited)
 		return -EFAULT;
 	gpio_direction_output(GPIO_LCD_RST, 0);
-	mdelay(20);
+	mdelay(10);
 	gpio_direction_output(GPIO_LCD_RST, 1);
 	mdelay(10);
 
@@ -319,7 +319,6 @@ static int backlight_init(struct device *dev)
 		return ret;
 	}
 #endif
-	printk("------------------------------------------------");
 	ret = gpio_request(GPIO_BL_PWR_EN, "BL PWR");
 	if (ret) {
 		printk(KERN_ERR "failed to reqeust BL PWR\n");

@@ -42,6 +42,14 @@ config TEST_SECOND_REFRESH
 		This is a test driver for second refresh, this will remap tlb when system sleep.
 		do not choose this unless you know what you are doing.
 
+config JZ_VP
+	bool "Virtual Privilege device driver"
+	default n
+	help
+	  Say Y here if you want to support Virtual Privilege device. The
+	  Virtual Privilege device supports flush cache and get phyaddr.
+	  When in doubt, say "N".
+
 config MTD_NV_WR
 	bool "mtd Nor/nand nv area write and read"
 	default n

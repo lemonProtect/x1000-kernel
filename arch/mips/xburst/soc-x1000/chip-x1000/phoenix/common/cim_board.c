@@ -34,16 +34,16 @@ static int camera_sensor_reset(struct device *dev) {
 	gpio_direction_output(CAMERA_VDD_EN, 1);
 #endif
 	gpio_direction_output(CAMERA_SENSOR_RESET, 0);
-	mdelay(250);
-	 gpio_direction_output(CAMERA_SENSOR_RESET, 1);
-	mdelay(250);
+	mdelay(10);
+	gpio_direction_output(CAMERA_SENSOR_RESET, 1);
+	mdelay(10);
 
 	return 0;
 }
 static int front_camera_sensor_power(struct device *dev, int on) {
 	/* enable or disable the camera */
-	 gpio_direction_output(CAMERA_FRONT_SENSOR_PWDN, on ? 0 : 1);
-	 mdelay(150);
+	gpio_direction_output(CAMERA_FRONT_SENSOR_PWDN, on ? 0 : 1);
+	mdelay(10);
 
 	return 0;
 }
