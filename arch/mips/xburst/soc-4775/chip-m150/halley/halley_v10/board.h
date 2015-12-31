@@ -3,7 +3,7 @@
 #include <gpio.h>
 #include <soc/gpio.h>
 
-
+/*
 
 #ifdef  CONFIG_BROADCOM_RFKILL
 #define BLUETOOTH_UART_GPIO_PORT        GPIO_PORT_D
@@ -19,51 +19,51 @@
 #define GPIO_BT_INT_BIT     (1 << (GPIO_BT_INT % 32))
 #define BLUETOOTH_UPORT_NAME  "ttyS1"
 #endif
+*/
+#define GPIO_PLAY_KEY          	 GPIO_PC(2)
+#define ACTIVE_LOW_PLAY          1
 
-/* KEY gpio */
+#define GPIO_WKUP_KEY          	 GPIO_PA(30)
+#define ACTIVE_LOW_WKUP          1
+
+/* KEY gpio
 #define GPIO_VOLUMEDOWN_KEY			GPIO_PC(9)
-#define GPIO_VOLUMEUP_KEY			GPIO_PC(2)
-#define GPIO_PLAY_KEY               GPIO_PC(3)
+#define GPIO_VOLUMEUP_KEY			GPIO_PC(3)
+
 #define GPIO_AP_STA_KEY             GPIO_PC(12)
 //#define GPIO_POWER               GPIO_PA(30)
 
 #define ACTIVE_LOW_VOLUMEDOWN    1
 #define ACTIVE_LOW_VOLUMEUP      1
-#define ACTIVE_LOW_PLAY          1
+
 #define ACTIVE_LOW_AP_STA        1
 //#define ACTIVE_LOW_POWER         1
-
+*/
 
 
 /*wifi*/
 #define GPIO_WLAN_PW_EN     -1//GPIO_PD(24)
-#define WL_WAKE_HOST        GPIO_PG(7)
-#define WL_REG_EN       GPIO_PG(8)
+#define WL_WAKE_HOST        -1//GPIO_PG(7)
+#define WL_REG_EN       	-1//GPIO_PG(8)
 
 /*wifi  LED */
 #ifdef CONFIG_LEDS_GPIO
-#define	WL_LED_R	GPIO_PC(5)
-#define	WL_LED_G	GPIO_PC(4)
-#define	WL_LED_B	GPIO_PC(13)
-#endif
-
-#ifdef CONFIG_SPI_GPIO
-#define GPIO_SPI_SCK  GPIO_PA(18)
-#define GPIO_SPI_MOSI GPIO_PA(19)
-#define GPIO_SPI_MISO GPIO_PA(20)
+#define	WL_LED_R	GPIO_PE(20) 		//GPIO_PC(5)
+#define	WL_LED_G	GPIO_PE(21)  		//GPIO_PC(4)
+#define	WL_LED_B	GPIO_PE(22) 		//GPIO_PC(13)
 #endif
 
 /* ****************************GPIO AUDIO START****************************** */
 #define GPIO_HP_MUTE        -1  /*hp mute gpio*/
 #define GPIO_HP_MUTE_LEVEL  -1  /*vaild level*/
 
-#define GPIO_SPEAKER_EN    GPIO_PC(7)         /*speaker enable gpio*/
+#define GPIO_SPEAKER_EN    			-1//GPIO_PC(7)         /*speaker enable gpio*/
 #define GPIO_SPEAKER_EN_LEVEL   1
 
 #define GPIO_HANDSET_EN     -1  /*handset enable gpio*/
 #define GPIO_HANDSET_EN_LEVEL   -1
 
-#define GPIO_HP_DETECT  GPIO_PC(6)      /*hp detect gpio*/
+#define GPIO_HP_DETECT  			-1//GPIO_PC(6)      /*hp detect gpio*/
 #define GPIO_HP_INSERT_LEVEL    1
 #define GPIO_MIC_SELECT     -1  /*mic select gpio*/
 #define GPIO_BUILDIN_MIC_LEVEL  -1  /*builin mic select level*/
@@ -75,29 +75,25 @@
 #define HP_SENSE_ACTIVE_LEVEL   1
 #define HOOK_ACTIVE_LEVEL       -1
 /* ****************************GPIO AUDIO END******************************** */
-
 #ifdef CONFIG_VIDEO_JZ_CIM_HOST_V11
+#define CAMERA_INDEX		0
+#define BACK_CAMERA_INDEX  1
 #define FRONT_CAMERA_INDEX  0
-#define BACK_CAMERA_INDEX   1
 
 #if defined(CONFIG_SOC_JZ_CIM0)
-#define CAMERA_SENSOR_RESET GPIO_PG(17)
-#define CAMERA_FRONT_SENSOR_EN  GPIO_PG(13)
+#define FRONT_CAMERA_SENSOR_EN  		GPIO_PC(4)
+#define FRONT_CAMERA_SENSOR_RESET 		GPIO_PC(7)
 
-#elif defined(CONFIG_SOC_JZ_CIM1)
-
-#define CAMERA_SENSOR_RESET GPIO_PA(27)
-#define CAMERA_FRONT_SENSOR_EN  GPIO_PB(6)
-
-#endif
+#define BACK_CAMERA_SENSOR_EN  			GPIO_PC(11)
+#define BACK_CAMERA_SENSOR_RESET 		GPIO_PC(14)
 #endif
 
 
-/* ****************************GPIO I2C START ******************************** */
-#define GPIO_I2C1_SDA		GPIO_PE(30)
-#define GPIO_I2C1_SCK		GPIO_PE(31)
+#endif
+
 /* ****************************GPIO I2C END  ******************************** */
 
 #define GPIO_EFUSE_VDDQ			-ENODEV		/* EFUSE must be -ENODEV or a gpio */
 
 #endif /* __BOARD_H__ */
+

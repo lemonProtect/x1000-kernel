@@ -147,10 +147,12 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #endif
 
 #if defined(CONFIG_VIDEO_JZ_CIM_HOST_V11)
+#if defined(CONFIG_SOC_JZ_CIM0)
 	CIM0_PORTB,
 #endif
-#if defined(CONFIG_VIDEO_JZ_CIM_HOST_V11)
+#if defined(CONFIG_SOC_JZ_CIM1)
 	CIM1_PORTG,
+#endif
 #endif
 
 #ifdef CONFIG_SPI0_JZ4780_PA
@@ -892,7 +894,7 @@ struct platform_device jz_cim_device = {
 
 
 #define DEF_SOC_CIM(NO)										\
-	static struct resource jz_cim_resources[] = {	\
+	static struct resource jz_cim##NO##_resources[] = {	\
 		[0] = {									\
 			.flags = IORESOURCE_MEM,			\
 			.start = CIM##NO##_IOBASE,			\
@@ -904,19 +906,23 @@ struct platform_device jz_cim_device = {
 			.end   = IRQ_CIM##NO,				\
 		},										\
 	};											\
-struct platform_device jz_cim_device = {	\
+struct platform_device jz_cim##NO##_device = {	\
 	.name = "jz-cim",							\
 	.id = NO,									\
-	.resource = jz_cim_resources,			\
-	.num_resources = ARRAY_SIZE(jz_cim_resources),	\
+	.resource = jz_cim##NO##_resources,			\
+	.num_resources = ARRAY_SIZE(jz_cim##NO##_resources),	\
 };
 
 #if defined(CONFIG_VIDEO_JZ_CIM_HOST_V11)
+
 #if defined(CONFIG_SOC_JZ_CIM0)
 DEF_SOC_CIM(0);
-#elif defined(CONFIG_SOC_JZ_CIM1)
+#endif
+
+#if defined(CONFIG_SOC_JZ_CIM1)
 DEF_SOC_CIM(1);
 #endif
+
 #endif
 
 /* X2D (Extreme 2D module interface controller) */

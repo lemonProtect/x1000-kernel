@@ -75,6 +75,14 @@ static struct ft5336_platform_data ft5336_tsc_pdata = {
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C0_V12_JZ))
 struct i2c_board_info jz_i2c0_devs[] __initdata = {
+#ifdef	CONFIG_SOC_CAMERA_OV7725
+	[FRONT_CAMERA_INDEX] = {
+		I2C_BOARD_INFO("ov772x_fornt", 0x21),
+	},
+#endif
+	[BACK_CAMERA_INDEX] = {
+
+	},
 #ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
 	{
 		I2C_BOARD_INFO("gwtc9xxxb_ts", 0x05),
@@ -130,17 +138,19 @@ static struct pca953x_platform_data dorado_pca953x_pdata = {
 
 #if (defined(CONFIG_I2C_GPIO) || defined(CONFIG_I2C1_V12_JZ))
 struct i2c_board_info jz_i2c1_devs[] __initdata = {
-	[FRONT_CAMERA_INDEX] = {
 #ifdef CONFIG_SOC_CAMERA_OV5640
+	[FRONT_CAMERA_INDEX] = {
 		I2C_BOARD_INFO("ov5640", 0x3C),
+	},
 #endif
-	},
-
+#ifdef	CONFIG_SOC_CAMERA_OV7725
 	[BACK_CAMERA_INDEX] = {
-
+		I2C_BOARD_INFO("ov772x_back", 0x21),
 	},
+#endif
 };
 #endif  /*I2C1*/
+
 
 #if	(defined(CONFIG_SOFT_I2C0_GPIO_V12_JZ) || defined(CONFIG_I2C0_V12_JZ))
 int jz_i2c0_devs_size = ARRAY_SIZE(jz_i2c0_devs);

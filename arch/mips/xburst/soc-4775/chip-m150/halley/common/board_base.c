@@ -99,6 +99,9 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_JZ_EFUSE_V11
 	DEF_DEVICE(&jz_efuse_device, &jz_efuse_pdata, sizeof(struct jz_efuse_platform_data)),
 #endif
+#ifdef	CONFIG_I2C0_V12_JZ
+	DEF_DEVICE(&jz_i2c0_device,0,0),
+#endif
 #ifdef	CONFIG_I2C1_V12_JZ
 	DEF_DEVICE(&jz_i2c1_device,0,0),
 #endif
