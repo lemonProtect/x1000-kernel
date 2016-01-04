@@ -35,9 +35,9 @@
 #define TRACE_LEVEL		520
 #define RELEASE_LEVEL 500
 #define JALY_TRACE(level) do{\
-								if(level > TRACE_LEVEL)\
-								printk("Jaly halley report: %s %s %d %s\r\n", __DATE__, __FILE__, __LINE__, __FUNCTION__);\
-							}while(0)
+	if(level > TRACE_LEVEL)\
+	printk("halley report: %s %s %d %s\r\n", __DATE__, __FILE__, __LINE__, __FUNCTION__);\
+}while(0)
 
 
 
@@ -526,52 +526,6 @@ static const struct ov772x_color_format ov772x_cfmts[] = {
 		.com3		= SWAP_YUV,
 		.com7		= OFMT_YUV,
 	},
-#if 0
-	{
-		.code		= V4L2_MBUS_FMT_RGB555_2X8_PADHI_LE,
-		.colorspace	= V4L2_COLORSPACE_SRGB,
-		.dsp3		= 0x0,
-		.dsp4		= DSP_OFMT_YUV,
-		.com3		= SWAP_RGB,
-		.com7		= FMT_RGB555 | OFMT_RGB,
-	},
-	{
-		.code		= V4L2_MBUS_FMT_RGB555_2X8_PADHI_BE,
-		.colorspace	= V4L2_COLORSPACE_SRGB,
-		.dsp3		= 0x0,
-		.dsp4		= DSP_OFMT_YUV,
-		.com3		= 0x0,
-		.com7		= FMT_RGB555 | OFMT_RGB,
-	},
-	{
-		.code		= V4L2_MBUS_FMT_RGB565_2X8_LE,
-		.colorspace	= V4L2_COLORSPACE_SRGB,
-		.dsp3		= 0x0,
-		.dsp4		= DSP_OFMT_YUV,
-		.com3		= SWAP_RGB,
-		.com7		= FMT_RGB565 | OFMT_RGB,
-	},
-	{
-		.code		= V4L2_MBUS_FMT_RGB565_2X8_BE,
-		.colorspace	= V4L2_COLORSPACE_SRGB,
-		.dsp3		= 0x0,
-		.dsp4		= DSP_OFMT_YUV,
-		.com3		= 0x0,
-		.com7		= FMT_RGB565 | OFMT_RGB,
-	},
-	{
-		/* Setting DSP4 to DSP_OFMT_RAW8 still gives 10-bit output,
-		 * regardless of the COM7 value. We can thus only support 10-bit
-		 * Bayer until someone figures it out.
-		 */
-		.code		= V4L2_MBUS_FMT_SBGGR10_1X10,
-		.colorspace	= V4L2_COLORSPACE_SRGB,
-		.dsp3		= 0x0,
-		.dsp4		= DSP_OFMT_RAW10,
-		.com3		= 0x0,
-		.com7		= SENSOR_RAW | OFMT_BRAW,
-	},
-#endif
 };
 
 
@@ -612,23 +566,7 @@ static struct ov772x_priv *to_ov772x(struct v4l2_subdev *sd)
 
 	return container_of(sd, struct ov772x_priv, subdev);
 }
-/*
-static inline int ov772x_read(struct i2c_client *client, u8 addr)
-{
 
-	JALY_TRACE(DEBUG_LEVEL);
-
-	return i2c_smbus_read_byte_data(client, addr);
-}
-
-static inline int ov772x_write(struct i2c_client *client, u8 addr, u8 value)
-{
-	return i2c_smbus_write_byte_data(client, addr, value);
-}
-
-*/
-
-/* Jaly code */
 static int ov772x_read(struct i2c_client *client, u8 addr)
 {
 	u8 datbuf = addr;
@@ -652,19 +590,6 @@ static int ov772x_read(struct i2c_client *client, u8 addr)
 			val = datbuf;
 	}
 
-	printk("read reg = 0x%x, dat = 0x%x, ret = %d\r\n", addr, val, ret);
-//	int ret;
-//	u8 buf = addr;
-//
-//	printk("ov772x_read: addr:%x", addr);
-//	ret = i2c_master_send(client, &buf, 1);
-//	if (ret < 0)
-//		return -EIO;
-//	ret = i2c_master_recv(client, &buf, 1);
-//	if (ret < 0)
-//		return -EIO;
-//
-//	printk("val: %x\n", buf);
 	return val;
 
 }
@@ -673,9 +598,6 @@ static int ov772x_write(struct i2c_client *client, u8 addr, u8 val)
 {
 	u8 buf[2] = { addr, val };
 	int ret = i2c_master_send(client, buf, 2);
-
-	//JALY_TRACE(DEBUG_LEVEL);
-	printk("write reg = 0x%x, dat = 0x%x, ret = %d\r\n", addr, val, ret);
 	return ret == 2 ? 0 : ret;
 }
 
@@ -685,9 +607,6 @@ static int ov772x_mask_set(struct i2c_client *client, u8  command, u8  mask,
 			   u8  set)
 {
 	s32 val = ov772x_read(client, command);
-
-//	JALY_TRACE(DEBUG_LEVEL);
-
 	if (val < 0)
 		return val;
 	if( (command != COM2) && \
@@ -753,10 +672,6 @@ static int ov772x_s_ctrl(struct v4l2_ctrl *ctrl)		/* config reg here */
 	u8 val;
 
 	JALY_TRACE(DEBUG_LEVEL);
-
-	//printk("priv = %d\n", priv);
-	//printk("priv->info = %d\n", priv->info);
-	//printk("priv->info->flags = %d\r\n", priv->info->flags);
 
 	switch (ctrl->id)
 	{
@@ -896,7 +811,6 @@ static void ov772x_select_params(const struct v4l2_mbus_framefmt *mf,
 	/* Select a format. */
 	for (i = 0; i < ARRAY_SIZE(ov772x_cfmts); i++) {
 		if (mf->code == ov772x_cfmts[i].code) {
-			printk("select = 0x%x in %d\r\n ", mf->code, i);
 			*cfmt = &ov772x_cfmts[i];
 			break;
 		}
@@ -912,33 +826,12 @@ static int ov772x_set_params(struct ov772x_priv *priv,
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&priv->subdev);
 	int ret;
-
-
-#if 0
-
-	int 	index;
-
-	JALY_TRACE(DEBUG_LEVEL);
-
-
-
-
-	for(index = 0; index < sizeof(reg_ov7725) / sizeof(reg_ov7725[0]); index++)
-	{
-		ret = ov772x_write(client, reg_ov7725[index].regAddr, reg_ov7725[index].regVal);
-		if(ret)
-			goto ov772x_set_fmt_error;
-	}
-#else
-
 	/*
 	 * reset hardware
 	 */
-	printk("**************camera soft reset\r\n");
 	ov772x_reset(client);
 
 	/*  Jaly: code clock set =  25M * 8 / 4 */
-	printk("**************camera clock setting\r\n");
 	ret = ov772x_write(client, COM4, PLL_4x | AEC_FULL | 0x01);	/* div = 2 * 2 */
 	if (ret < 0)
 		goto ov772x_set_fmt_error;
@@ -947,64 +840,13 @@ static int ov772x_set_params(struct ov772x_priv *priv,
 		goto ov772x_set_fmt_error;
 
 	/* drive ability */
-	printk("**************camera driver ability \r\n");
 	ret = ov772x_write(client, COM2, OCAP_4x);				/* output ability * 3 */
 	if (ret < 0)
 		goto ov772x_set_fmt_error;
 
-#if 0
-	/*
-	 * Edge Ctrl
-	 */
-	printk("**************camera edge ctrl setting \r\n");
-	if (priv->info->edgectrl.strength & OV772X_MANUAL_EDGE_CTRL) {
-
-		/*
-		 * Manual Edge Control Mode
-		 *
-		 * Edge auto strength bit is set by default.
-		 * Remove it when manual mode.
-		 */
-
-		ret = ov772x_mask_set(client, DSPAUTO, EDGE_ACTRL, 0x00);
-		if (ret < 0)
-			goto ov772x_set_fmt_error;
-
-		ret = ov772x_mask_set(client,
-				      EDGE_TRSHLD, OV772X_EDGE_THRESHOLD_MASK,
-				      priv->info->edgectrl.threshold);
-		if (ret < 0)
-			goto ov772x_set_fmt_error;
-
-		ret = ov772x_mask_set(client,
-				      EDGE_STRNGT, OV772X_EDGE_STRENGTH_MASK,
-				      priv->info->edgectrl.strength);
-		if (ret < 0)
-			goto ov772x_set_fmt_error;
-
-	} else if (priv->info->edgectrl.upper > priv->info->edgectrl.lower) {
-		/*
-		 * Auto Edge Control Mode
-		 *
-		 * set upper and lower limit
-		 */
-		ret = ov772x_mask_set(client,
-				      EDGE_UPPER, OV772X_EDGE_UPPER_MASK,
-				      priv->info->edgectrl.upper);
-		if (ret < 0)
-			goto ov772x_set_fmt_error;
-
-		ret = ov772x_mask_set(client,
-				      EDGE_LOWER, OV772X_EDGE_LOWER_MASK,
-				      priv->info->edgectrl.lower);
-		if (ret < 0)
-			goto ov772x_set_fmt_error;
-	}
-#endif
 
 #define OFFSET_PIX		0x03
 	/* Format and window size */
-	printk("**************camera win size setting \r\n");
 	ret = ov772x_write(client, HSTART, (win->rect.left >> 2) - OFFSET_PIX);
 	if (ret < 0)
 		goto ov772x_set_fmt_error;
@@ -1038,29 +880,8 @@ static int ov772x_set_params(struct ov772x_priv *priv,
 			   ((win->rect.width & 3) << EXHCH_HSIZE_SHIFT));
 	if (ret < 0)
 		goto ov772x_set_fmt_error;
-#if 0
-    /* tempImage expose */
-	printk("**************camera AEC target setting\r\n");
-    ret = ov772x_write(client, AEC, 0x10);       /* default ACE low 8 bit */
-	if (ret < 0)
-		goto ov772x_set_fmt_error;
-    ret = ov772x_write(client, AECH, 0x00);      /* default ACE hight 2 bit  */
-	if (ret < 0)
-		goto ov772x_set_fmt_error;
-
-	/* DSPAuto	*/
-	printk("**************camera special effects setting\r\n");
-	ret = ov772x_write(client, DSPAUTO, 0xFF);
-	if (ret < 0)
-		goto ov772x_set_fmt_error;
-	/* 	COM8 */
-	ret = ov772x_write(client, COM8, 0xCF);
-	if (ret < 0)
-		goto ov772x_set_fmt_error;
-#endif
 
 	/* COM3  CTRL3: YUYV */
-	printk("**************camera format setting\r\n");
 	ret = ov772x_write(client, COM3, 0x10);			/*  0x00	0x10  */
 	if (ret < 0)
 		goto ov772x_set_fmt_error;
@@ -1077,16 +898,12 @@ static int ov772x_set_params(struct ov772x_priv *priv,
 	ret = ov772x_write(client, COM7, win->com7_bit | cfmt->com7);
 	if (ret < 0)
 		goto ov772x_set_fmt_error;
-#endif
-	printk("Jaly: config all reg before api call\r\n");
 
 	return ret;
 
 ov772x_set_fmt_error:
 
-	printk("*************************ov772x_set_fmt_error\r\n");
 	ov772x_reset(client);
-
 	return ret;
 }
 
@@ -1131,14 +948,6 @@ static int ov772x_g_fmt(struct v4l2_subdev *sd,
 	mf->code	= priv->cfmt->code;
 	mf->colorspace	= priv->cfmt->colorspace;
 	mf->field	= V4L2_FIELD_NONE;
-/*
-	printk("ov772x_g_fmt *********************\n");
-	printk("mf->width	= %d;\n", mf->width);
-	printk("mf->height	= %d;\n", mf->height);
-	printk("mf->code	= %d;\n", mf->code);
-	printk("mf->colorspace	= %d;\n", mf->colorspace);
-	printk("mf->field	= %d;\n", mf->field);
-	*/
 	return 0;
 }
 
@@ -1165,14 +974,6 @@ static int ov772x_s_fmt(struct v4l2_subdev *sd, struct v4l2_mbus_framefmt *mf)
 	mf->height = win->rect.height;
 	mf->field = V4L2_FIELD_NONE;
 	mf->colorspace = cfmt->colorspace;
-/*
-	printk("ov772x_s_fmt *********************\n");
-	printk("mf->width	= %d;\n", mf->width);
-	printk("mf->height	= %d;\n", mf->height);
-	printk("mf->code	= %d;\n", mf->code);
-	printk("mf->colorspace	= %d;\n", mf->colorspace);
-	printk("mf->field	= %d;\n", mf->field);
-*/
 	return 0;
 }
 
@@ -1208,26 +1009,19 @@ static int ov772x_video_probe(struct ov772x_priv *priv)
 	ret = ov772x_s_power(&priv->subdev, 1);
 	if (ret < 0)
 		return ret;
-//	while(1){
 	pid = ov772x_read(client, PID);
 	ver = ov772x_read(client, VER);
-//	mdelay(300);
-//	}
 #ifdef JALY_DEBUG		/* 0	*/
 	ov772x_write(client, 0x29, 0x50);
 
 	if(ov772x_read(client, 0x29) != 0x50)
-		printk("dismatch \r\n");
 	else
-		printk("read == write, i2c ov7725 pass \r\n");
 	ov772x_write(client, 0x29, 0xA0);
 
 	if(ov772x_read(client, 0x29) != 0xA0)
-		printk("dismatch \r\n");
 	else
 		printk("read == write, i2c ov7725 pass \r\n");
 #endif
-	printk("ID is 0x%x\n", VERSION(pid, ver));
 	switch (VERSION(pid, ver))
 	{
 		case OV7720:
@@ -1244,20 +1038,8 @@ static int ov772x_video_probe(struct ov772x_priv *priv)
 			ret = -ENODEV;
 			goto done;
 	}
-#if 0
-	int 				index;
-
-	printk("Jaly: config all reg before api call\r\n");
-
-	for(index = 0; index < sizeof(reg_ov7725) / sizeof(reg_ov7725[0]); index++)
-	{
-		ret = ov772x_write(client, reg_ov7725[index].regAddr, reg_ov7725[index].regVal);
-		if(ret)
-			goto done;
-	}
-#endif
 	dev_info(&client->dev,
-							"i2c connect ok, %s Product ID %0x:%0x Manufacturer ID %x:%x\n",
+			"i2c connect ok, %s Product ID %0x:%0x Manufacturer ID %x:%x\n",
 							devname,
 							pid,
 							ver,
@@ -1320,54 +1102,6 @@ static int ov772x_s_mbus_config(struct v4l2_subdev *sd,
 				 const struct v4l2_mbus_config *cfg)
 {
 	JALY_TRACE(1000);
-
-#if 0
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct soc_camera_subdev_desc *ssdd = soc_camera_i2c_to_desc(client);
-	struct ov772x_priv *ov772x = to_ov772x(sd);
-	unsigned long flags = soc_camera_apply_board_flags(ssdd, cfg);
-	unsigned int bps = soc_mbus_get_fmtdesc(ov772x->fmt->code)->bits_per_sample;
-	int ret;
-	u16 pixclk = 0;
-
-	JALY_TRACE(DEBUG_LEVEL);
-
-	if (ssdd->set_bus_param) {
-		ret = ssdd->set_bus_param(ssdd, 1 << (bps - 1));
-		if (ret)
-			return ret;
-	} else if (bps != 10) {
-		/*
-		 * Without board specific bus width settings we only support the
-		 * sensors native bus width
-		 */
-		return -EINVAL;
-	}
-
-	if (flags & V4L2_MBUS_PCLK_SAMPLE_FALLING)
-		pixclk |= 0x10;
-
-	if (!(flags & V4L2_MBUS_HSYNC_ACTIVE_HIGH))
-		pixclk |= 0x1;
-
-	if (!(flags & V4L2_MBUS_VSYNC_ACTIVE_HIGH))
-		pixclk |= 0x2;
-
-	ret = reg_write(client, ov772x->reg->pixclk_fv_lv, pixclk);
-	if (ret < 0)
-		return ret;
-
-	if (!(flags & V4L2_MBUS_MASTER))
-		ov772x->chip_control &= ~0x8;
-
-	ret = reg_write(client, MT9V022_CHIP_CONTROL, ov772x->chip_control);
-	if (ret < 0)
-		return ret;
-
-	dev_dbg(&client->dev, "Calculated pixclk 0x%x, chip control 0x%x\n",
-		pixclk, ov772x->chip_control);
-*/
-#endif
 	return 0;
 }
 
@@ -1405,8 +1139,6 @@ static int ov772x_probe(struct i2c_client *client,
 	struct ov772x_camera_info *ov7725_info = NULL;
 
 	JALY_TRACE(DEBUG_LEVEL);
-	//printk("name = %s, addr= %x\n", client->name, client->addr);
-	//printk("ssdd = %d\t; ssdd->drv_priv = %d\n", (0 == ssdd), (0 == ssdd->drv_priv));
 
 	if (!ssdd) {
 		dev_err(&client->dev, "OV772X: missing platform data!\n");
@@ -1427,7 +1159,7 @@ static int ov772x_probe(struct i2c_client *client,
 	if(ssdd->drv_priv)
 	{
 		priv->info = ssdd->drv_priv;
-		printk("Jaly add platform data success\r\n");
+		printk("add platform data success\r\n");
 	}
 	else
 	{
@@ -1440,7 +1172,7 @@ static int ov772x_probe(struct i2c_client *client,
 
 		priv->info = ov7725_info;
 
-		printk("Jaly platform data fail to add, use malloc instead\r\n");
+		printk("platform data fail to add, use malloc instead\r\n");
 	}
 
 	v4l2_i2c_subdev_init(&priv->subdev, client, &ov772x_subdev_ops);
