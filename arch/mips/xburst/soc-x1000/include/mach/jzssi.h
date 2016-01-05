@@ -142,9 +142,11 @@ struct jz_sfc_nand_info{
 	u32  board_info_size;
 };
 #define SIZEOF_NAME         32
+#define SPL_TYPE_FLAG_LEN 6
+#define SPINAND_PARAMER_ADD 0x3c00
 struct jz_spi_support {
-	u8 id_manufactory;
-	u8 id_device;
+	unsigned int id_manufactory;
+	char id_device;
 	char name[SIZEOF_NAME];
 	int page_size;
 	int oobsize;
@@ -162,6 +164,38 @@ struct jz_spi_support {
 
 	unsigned short column_cmdaddr_bits;/* read from cache ,the bits of cmd + addr */
 
+};
+
+struct jz_spi_support_from_burner {
+        unsigned int chip_id;
+        char id_device;
+        char name[32];
+        int page_size;
+        int oobsize;
+        int sector_size;
+        int block_size;
+        int size;
+        int page_num;
+        uint32_t tRD_maxbusy;
+        uint32_t tPROG_maxbusy;
+        uint32_t tBERS_maxbusy;
+        unsigned short column_cmdaddr_bits;
+
+};
+struct jz_spinand_partition {
+	char name[32];         /* identifier string */
+	uint32_t size;          /* partition size */
+	uint32_t offset;        /* offset within the master MTD space */
+	u_int32_t mask_flags;       /* master MTD flags to mask out for this partition */
+	u_int32_t manager_mode;         /* manager_mode mtd or ubi */
+};
+struct get_chip_param {
+	int version;
+	int flash_type;
+	int para_num;
+	struct jz_spi_support_from_burner *addr;
+	int partition_num;
+	struct jz_spinand_partition *partition;
 };
 struct jz_spi_nand_platform_data {
 	struct jz_spi_support *jz_spi_support;

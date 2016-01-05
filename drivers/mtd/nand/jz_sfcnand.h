@@ -238,7 +238,6 @@ struct jz_sfc_nand {
 	int tPROG;
 	int tBERS;
 };
-
 static void sfc_writel(struct jz_sfc_nand *sfc, unsigned short offset, u32 value)
 {
 	writel(value, sfc->iomem + offset);
