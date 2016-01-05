@@ -343,11 +343,10 @@ static int jz_sfc_pio_txrx(struct jz_sfc_nand *flash, struct sfc_transfer_nand *
 			return ret;
 	}
 	spin_unlock_irqrestore(&flash->lock_rxtx, flags);
-		//dump_sfc_reg(flash);
         err = wait_for_completion_timeout(&flash->done,10*HZ);
-        if (!err) {
-                dump_sfc_reg(flash);
+	if (!err) {
                 dev_err(flash->dev, "Timeout for ACK from SFC device\n");
+                dump_sfc_reg(flash);
                 return -ETIMEDOUT;
         }
     /*fix the cache line problem,when use jffs2 filesystem must be flush cache twice*/
@@ -474,7 +473,7 @@ struct jz_spi_support *jz_sfc_nand_probe(struct jz_sfc_nand *flash)
 	printk("-----------read chip id------------\n");
 	for (i = 0; i < num_spi_flash; i++) {
 		params = &jz_spi_nand_support_table[i];
-		if ( (params->id_manufactory == rx_chipid[0]) && (params->id_device == rx_chipid[1]) )
+		if ( params->id_manufactory == rx_chipid[0]*256+rx_chipid[1] )
 			break;
 	}
 	if (i >= num_spi_flash) {
@@ -482,6 +481,22 @@ struct jz_spi_support *jz_sfc_nand_probe(struct jz_sfc_nand *flash)
 		mutex_unlock(&flash->lock);
 		return NULL;
 	}
+#if 0
+	printk("**************************************************************\n");
+	printk("id_manufactory=0x%08x\n",params->id_manufactory);
+	printk("name=%s\n",params->name);
+	printk("page_size=%d\n",params->page_size);
+	printk("oob_size=%d\n",params->oobsize);
+	printk("sector_size=%d\n",params->sector_size);
+	printk("block_size=%d\n",params->block_size);
+	printk("size=%d\n",params->size);
+	printk("page_num=%d\n",params->page_num);
+	printk("tRD_maxbusy=%d\n",params->tRD_maxbusy);
+	printk("tPROG_maxbusy=%d\n",params->tPROG_maxbusy);
+	printk("tBERS_maxbusy=%d\n",params->tBERS_maxbusy);
+	printk("column_cmdaddr_bits=%d\n",params->column_cmdaddr_bits);
+	printk("**************************************************************\n");
+#endif
 	mutex_unlock(&flash->lock);
 	return params;
 }
@@ -937,7 +952,7 @@ static int jz_sfcnand_read_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_o
         }while((ret & SPINAND_IS_BUSY) && (timeout > 0));
 
         if((ret & 0x30) == 0x20) {
-                pr_info("spi nand read error page %d column = %d ret = %02x !!! %s %s %d \n",page,column,ret,__FILE__,__func__,__LINE__);
+                pr_info("spi nand read oob error page %d column = %d ret = %02x !!! %s %s %d \n",page,column,ret,__FILE__,__func__,__LINE__);
                 memset(ops->oobbuf,0x0,ops->ooblen);
                 mutex_unlock(&flash->lock);
                 return -EBADMSG;
@@ -1036,7 +1051,7 @@ static int jz_sfcnand_write_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_
 
         jz_sfc_nandflash_write_enable(flash);
 
-	transfer[0].sfc_cmd.cmd=SPINAND_CMD_PRO_EN;
+        transfer[0].sfc_cmd.cmd=SPINAND_CMD_PRO_EN;
         transfer[0].sfc_cmd.addr_low=page;
         transfer[0].sfc_cmd.addr_high=0;
         transfer[0].sfc_cmd.dummy_byte=0;
@@ -1054,7 +1069,6 @@ static int jz_sfcnand_write_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_
         transfer[0].rw_mode=0;
         transfer[0].sfc_mode=0;
         jz_sfc_pio_txrx(flash,transfer);
-
         udelay(flash->tPROG);
         do{
 		ret = jz_sfc_nandflash_get_status(flash);
@@ -1227,8 +1241,77 @@ static int jz_sfc_nand_ext_init(struct jz_sfc_nand *flash)
 
 	return 0;
 }
-void test_read_write_erase()
+static int get_pagesize_from_nand(struct jz_sfc_nand *flash,int page,int column)
 {
+        char *buffer=NULL;
+	int page_size=0;
+	int rlen;
+	buffer=kzalloc(100,GFP_KERNEL);
+	if(!buffer)return -ENOMEM;
+	jz_sfc_nandflash_read_ops(flash,buffer,page,column,100,&rlen);
+	page_size=buffer[SPL_TYPE_FLAG_LEN+5]*1024;
+	kfree(buffer);
+	return page_size;
+}
+static int transfer_to_mtddriver_struct(struct get_chip_param *param,struct jz_spi_nand_platform_data **change)
+{
+        *change=kzalloc(sizeof(struct jz_spi_nand_platform_data),GFP_KERNEL);
+        if(!*change)
+                return -ENOMEM;
+        (*change)->num_spi_flash=param->para_num;
+        (*change)->jz_spi_support=kzalloc(param->para_num*sizeof(struct jz_spi_support),GFP_KERNEL);
+        if(!(*change)->jz_spi_support)
+                return -ENOMEM;
+        memcpy((*change)->jz_spi_support,param->addr,param->para_num*sizeof(struct jz_spi_support));
+
+        (*change)->num_partitions=param->partition_num;
+        (*change)->mtd_partition=kzalloc(param->partition_num*sizeof(struct mtd_partition),GFP_KERNEL);
+        if(!(*change)->mtd_partition){
+                                return -ENOMEM;
+        }
+        int i=0;
+        for(i=0;i<(*change)->num_partitions;i++)
+        {
+                (*change)->mtd_partition[i].name=kzalloc(32*sizeof(char),GFP_KERNEL);
+                if(!(*change)->mtd_partition[i].name)
+                        return -ENOMEM;
+                memcpy((*change)->mtd_partition[i].name,param->partition[i].name,32);
+                (*change)->mtd_partition[i].size=param->partition[i].size;
+                (*change)->mtd_partition[i].offset=param->partition[i].offset;
+                (*change)->mtd_partition[i].mask_flags=param->partition[i].mask_flags;
+
+        }
+        return 0;
+}
+static int jz_get_sfcnand_param(struct jz_spi_nand_platform_data **param,struct jz_sfc_nand *flash)
+{
+//first get pagesize
+	int rlen;
+	int page_size;
+	struct get_chip_param param_from_burner;
+	char *buffer=NULL;
+	char *member_addr=NULL;
+	page_size=get_pagesize_from_nand(flash,0,0);
+	if(page_size!=-ENOMEM)
+		buffer=kzalloc(page_size,GFP_KERNEL);
+	if(!buffer)
+		return -ENOMEM;
+	jz_sfc_nandflash_read_ops(flash,buffer,SPINAND_PARAMER_ADD/page_size,SPINAND_PARAMER_ADD%page_size,
+			page_size,&rlen);
+	member_addr=buffer;
+	param_from_burner.version=*(int *)member_addr;
+	member_addr+=sizeof(param_from_burner.version);
+	param_from_burner.flash_type=*(int *)member_addr;
+	member_addr+=sizeof(param_from_burner.flash_type);
+	param_from_burner.para_num=*(int *)member_addr;
+	member_addr+=sizeof(param_from_burner.para_num);
+	param_from_burner.addr=member_addr;
+	member_addr+=param_from_burner.para_num*sizeof(struct jz_spi_support_from_burner);
+	param_from_burner.partition_num=*(int *)(member_addr);
+	member_addr+=sizeof(param_from_burner.partition_num);
+	param_from_burner.partition=member_addr;
+	transfer_to_mtddriver_struct(&param_from_burner,param);
+	return 0;
 }
 static int __init jz_sfc_probe(struct platform_device *pdev)
 {
@@ -1237,10 +1320,10 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 	struct jz_spi_support *spi_flash;
 
 	int err = 0,ret = 0;
-
 	struct nand_chip *chip;
 	struct mtd_partition *mtd_sfcnand_partition;
 	int num_partitions;
+	struct jz_spi_nand_platform_data *param;
 
 	chip = kzalloc(sizeof(struct nand_chip),GFP_KERNEL);
 	if(!chip)
@@ -1252,18 +1335,17 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 	if (!flash) {
 		printk("%s---%s---%d\n", __FILE__, __func__, __LINE__);
 		printk("kzalloc() error !\n");
+		kfree(chip);
 		return -ENOMEM;
 	}
 
 	flash->dev = &pdev->dev;
 	flash->pdata = pdev->dev.platform_data;
-	mtd_sfcnand_partition = ((struct jz_spi_nand_platform_data *)(flash->pdata->board_info))->mtd_partition;
-        num_partitions =((struct jz_spi_nand_platform_data *)(flash->pdata->board_info))->num_partitions;
-	if (flash->pdata == NULL) {
+/*	if (flash->pdata == NULL) {
 		dev_err(&pdev->dev, "No platform data supplied\n");
 		goto err_no_pdata;
 	}
-	flash->threshold = THRESHOLD;
+*/	flash->threshold = THRESHOLD;
 	ret=sfc_nand_plat_resource_init(flash,pdev);
 	if(ret<0)
 	switch (ret)
@@ -1294,7 +1376,29 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
         err = request_irq(flash->irq, jz_sfc_irq, 0, pdev->name, flash);
         if (err) {
 		dev_err(&pdev->dev, "Cannot claim IRQ\n");
-        }
+	}
+	flash->column_cmdaddr_bits=24;
+	jz_get_sfcnand_param(&param,flash);
+	(flash->pdata)->board_info = (void *)param;
+	mtd_sfcnand_partition=param->mtd_partition;
+	num_partitions=param->num_partitions;
+#if 0
+	printk("-----------------test param-------------------------------------\n");
+	printk("param number=%d\n",param->num_spi_flash);
+	printk("partition number=%d\n",param->num_partitions);
+	printk("chip id=%x\n",param->jz_spi_support->id_manufactory);
+	printk("chip name=%s\n",param->jz_spi_support->name);
+	printk("partition0 name=%s\n",param->mtd_partition[0].name);
+	printk("partition1 name=%s\n",param->mtd_partition[1].name);
+	printk("partition2 name=%s\n",param->mtd_partition[2].name);
+	printk("partition3 name=%s\n",param->mtd_partition[3].name);
+	printk("-------------------end------------------------------------------\n");
+#endif
+	if (flash->pdata == NULL) {
+		dev_err(&pdev->dev, "No platform data supplied\n");
+		goto err_no_pdata;
+	}
+
 	spi_flash = jz_sfc_nand_probe(flash);
 	flash->mtd.name = "sfc_nand";
 	flash->mtd.owner = THIS_MODULE;

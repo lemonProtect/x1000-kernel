@@ -772,7 +772,7 @@ struct jz_spi_support *jz_spi_flash_probe(struct spi_device *spi)
 
 	for (i = 0; i < num_spi_flash; i++) {
 		params = &jz_spi_nand_support_table[i];
-		if ( (params->id_manufactory == recv_command[0]) && (params->id_device == recv_command[1]) )
+		if ( params->id_manufactory == recv_command[0]*256 +recv_command[1] )
 			break;
 	}
 
@@ -808,6 +808,80 @@ static int jz_spi_nand_ext_init(struct spi_device *spi)
 	}
 	return 0;
 }
+static int transfer_to_mtddriver_struct(struct get_chip_param *param,struct jz_spi_nand_platform_data **change)
+{
+        *change=kzalloc(sizeof(struct jz_spi_nand_platform_data),GFP_KERNEL);
+        if(!*change)
+                return -ENOMEM;
+        (*change)->num_spi_flash=param->para_num;
+        (*change)->jz_spi_support=kzalloc(param->para_num*sizeof(struct jz_spi_support),GFP_KERNEL);
+        if(!(*change)->jz_spi_support)
+                return -ENOMEM;
+        memcpy((*change)->jz_spi_support,param->addr,param->para_num*sizeof(struct jz_spi_support));
+
+        (*change)->num_partitions=param->partition_num;
+        (*change)->mtd_partition=kzalloc(param->partition_num*sizeof(struct mtd_partition),GFP_KERNEL);
+        if(!(*change)->mtd_partition){
+                                return -ENOMEM;
+        }
+        int i=0;
+        for(i=0;i<(*change)->num_partitions;i++)
+        {
+                (*change)->mtd_partition[i].name=kzalloc(32*sizeof(char),GFP_KERNEL);
+                if(!(*change)->mtd_partition[i].name)
+                        return -ENOMEM;
+                memcpy((*change)->mtd_partition[i].name,param->partition[i].name,32);
+                (*change)->mtd_partition[i].size=param->partition[i].size;
+                (*change)->mtd_partition[i].offset=param->partition[i].offset;
+                (*change)->mtd_partition[i].mask_flags=param->partition[i].mask_flags;
+
+        }
+        return 0;
+}
+static int get_pagesize_from_nand(struct jz_spi_nandflash *flash,int page,int column)
+{
+	char *buffer;
+	int page_size=0;
+	int rlen;
+        buffer=kzalloc(100,GFP_KERNEL);
+        if(!buffer)
+                return -ENOMEM;
+        jz_spi_nandflash_read_ops(flash,buffer,page,column,100,&rlen);
+        page_size=buffer[SPL_TYPE_FLAG_LEN+5]*1024;
+        kfree(buffer);
+	return page_size;
+}
+static int jz_get_spinand_param(struct jz_spi_nand_platform_data **param,struct jz_spi_nandflash *flash)
+{
+        int rlen;
+        int page_size;
+        struct get_chip_param param_from_burner;
+        char *buffer=NULL;
+	char *member_addr;
+	page_size=get_pagesize_from_nand(flash,0,0) ;
+	if(page_size!=-ENOMEM)
+		buffer=kzalloc(page_size,GFP_KERNEL);
+        if(!buffer)
+                return -ENOMEM;
+        jz_spi_nandflash_read_ops(flash,buffer,SPINAND_PARAMER_ADD/page_size,SPINAND_PARAMER_ADD%page_size,
+			page_size,&rlen);
+	member_addr=buffer;
+	param_from_burner.version=*(int *)member_addr;
+	member_addr+=sizeof(param_from_burner.version);
+	param_from_burner.flash_type=*(int *)member_addr;
+	member_addr+=sizeof(param_from_burner.flash_type);
+        param_from_burner.para_num=*(int *)member_addr;
+	member_addr+=sizeof(param_from_burner.para_num);
+        param_from_burner.addr=member_addr;
+	member_addr+=param_from_burner.para_num*sizeof(struct jz_spi_support_from_burner);
+        param_from_burner.partition_num=*((int *)member_addr);
+	member_addr+=sizeof(param_from_burner.partition_num);
+        param_from_burner.partition=member_addr;
+        transfer_to_mtddriver_struct(&param_from_burner,param);
+	kfree(buffer);
+        return 0;
+}
+
 static int jz_spi_nandflash_probe(struct spi_device *spi)
 {
 	struct jz_spi_nand_platform_data *pdata = spi->dev.platform_data;
@@ -830,8 +904,15 @@ static int jz_spi_nandflash_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	spi_nandflash->spi = spi;
+	spi_nandflash->column_cmdaddr_bits=24;
 	mutex_init(&spi_nandflash->lock);
 	dev_set_drvdata(&spi->dev, spi_nandflash);
+	jz_get_spinand_param(&pdata,spi_nandflash);
+	spi->dev.platform_data=pdata;
+	mtd_spinand_partition=pdata->mtd_partition;
+	num_partitions=pdata->num_partitions;
+	spi_flash = jz_spi_flash_probe(spi);
+
 
 	spi_nandflash->mtd.name = dev_name(&spi->dev);
 	spi_nandflash->mtd.owner = THIS_MODULE;
