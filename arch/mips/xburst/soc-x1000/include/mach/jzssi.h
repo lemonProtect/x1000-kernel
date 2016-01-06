@@ -67,14 +67,15 @@ struct spi_nor_block_info {
 };
 
 struct spi_quad_mode {
+	u8 dummy_byte;
 	u8 RDSR_CMD;
-	unsigned int RD_DATE_SIZE;//the data is write the spi status register for QE bit
-	u8 sfc_mode;
 	u8 WRSR_CMD;
+	unsigned int RDSR_DATE;//the data is write the spi status register for QE bit
+	unsigned int RD_DATE_SIZE;//the data is write the spi status register for QE bit
+	unsigned int WRSR_DATE;//this bit should be the flash QUAD mode enable
 	unsigned int WD_DATE_SIZE;//the data is write the spi status register for QE bit
 	u8 cmd_read;
-	unsigned int RDSR_DATE;//the data is write the spi status register for QE bit
-	unsigned int WRSR_DATE;//this bit should be the flash QUAD mode enable
+	u8 sfc_mode;
 };
 
 struct spi_nor_platform_data {

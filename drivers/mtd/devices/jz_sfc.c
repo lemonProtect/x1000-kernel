@@ -110,10 +110,12 @@ int jz_nor_info_num = ARRAY_SIZE(jz_sfc_nor_info);
 /* Max time can take up to 3 seconds! */
 #define MAX_READY_WAIT_TIME 3000    /* the time of erase BE(64KB) */
 
+struct params_spl params;
 struct mtd_partition *jz_mtd_partition;
+struct mtd_partition mtd_partition[10];
 struct spi_nor_platform_data *board_info;
 int quad_mode = 0;
-
+int read_params = 0;
 
 static  struct sfc_nor_info * check_cmd(int cmd)
 {
@@ -333,7 +335,11 @@ static int sfc_pio_transfer(struct jz_sfc *flash)
 	if((flash->nor_info->addr_len !=0)&&(flash->nor_info->daten == 1)){
 		if(flash->rw_mode & R_MODE){
 #ifdef CONFIG_SPI_QUAD
-			sfc_mode(flash,0,flash->board_info->quad_mode->sfc_mode);
+			if(read_params == 0) {
+				sfc_mode(flash,0,flash->sfc_mode);
+			} else {
+				sfc_mode(flash,0,flash->board_info->quad_mode->sfc_mode);
+			}
 #else
 			sfc_mode(flash,0,flash->sfc_mode);
 #endif
@@ -400,9 +406,12 @@ static int jz_sfc_pio_txrx(struct jz_sfc *flash, struct sfc_transfer *t)
 	flash->rlen = 0;
 	flash->rw_mode = 0;
 
-
 #ifdef CONFIG_SPI_QUAD
-	flash->sfc_mode = TRAN_SPI_QUAD;
+	if(read_params == 0) {
+		flash->sfc_mode = 0;
+	} else {
+		flash->sfc_mode = TRAN_SPI_QUAD;
+	}
 #else
 	flash->sfc_mode = 0;
 #endif
@@ -906,6 +915,40 @@ static int jz_spi_norflash_read(struct mtd_info *mtd, loff_t from,
 	return 0;
 }
 
+
+static int jz_spi_norflash_read_params(struct jz_sfc *flash, loff_t from, size_t len, unsigned char *buf)
+{
+	int ret,j;
+	unsigned char command_stage1[5];
+	struct sfc_transfer transfer[1];
+	unsigned int tmp_len = 0;
+	unsigned int rlen = 0;
+	unsigned char *swap_buf = NULL;
+
+	read_params = 0;
+	swap_buf = flash->swap_buf;
+
+	command_stage1[0] = SPINOR_OP_READ;
+	for(j = 1; j <= flash->addr_len; j++){
+		command_stage1[j] = from >> (flash->addr_len - j) * 8;
+	}
+
+	transfer[0].tx_buf = command_stage1;
+	transfer[0].tx_buf1 = NULL;
+	transfer[0].rx_buf = swap_buf;
+	transfer[0].len = len;
+
+	ret = jz_sfc_pio_txrx(flash, transfer);
+	if(ret != transfer[0].len)
+		dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
+
+	memcpy(buf,swap_buf,len);
+
+	read_params = 1;
+
+	return 0;
+}
+
 static int jz_spi_norflash_write(struct mtd_info *mtd, loff_t to, size_t len,
 			size_t *retlen, const unsigned char *buf)
 {
@@ -1044,51 +1087,66 @@ static int jz_spi_norflash_write(struct mtd_info *mtd, loff_t to, size_t len,
 	return 0;
 }
 
+static void dump_sfc_board_info(void)
+{
+	printk("board_info->pagesize					%d \n",board_info->pagesize);
+	printk("board_info->sectorsize					%d \n",board_info->sectorsize);
+	printk("board_info->chipsize					%d \n",board_info->chipsize);
+	printk("board_info->erasesize					%d \n",board_info->erasesize);
+	printk("board_info->id							%x \n",board_info->id);
+	printk("board_info->addrsize					%d \n",board_info->addrsize);
+	printk("board_info->pp_maxbusy					%d \n",board_info->pp_maxbusy);
+	printk("board_info->se_maxbusy					%d \n",board_info->se_maxbusy);
+	printk("board_info->ce_maxbusy					%d \n",board_info->ce_maxbusy);
+	printk("board_info->st_regnum					%d \n",board_info->st_regnum);
 
+#ifdef CONFIG_SPI_QUAD
+	printk("board_info->quad_mode->RDSR_CMD			%x \n",board_info->quad_mode->RDSR_CMD);
+	printk("board_info->quad_mode->RDSR_DATE		%x \n",board_info->quad_mode->RDSR_DATE);
+	printk("board_info->quad_mode->RD_DATE_SIZE		%x \n",board_info->quad_mode->RD_DATE_SIZE);
+	printk("board_info->quad_mode->WRSR_CMD			%x \n",board_info->quad_mode->WRSR_CMD);
+	printk("board_info->quad_mode->WRSR_DATE		%x \n",board_info->quad_mode->WRSR_DATE);
+	printk("board_info->quad_mode->WD_DATE_SIZE		%x \n",board_info->quad_mode->WD_DATE_SIZE);
+	printk("board_info->quad_mode->sfc_mode			%x \n",board_info->quad_mode->sfc_mode);
+	printk("board_info->quad_mode->cmd_read			%x \n",board_info->quad_mode->cmd_read);
+#endif
+}
 
 static int jz_spi_norflash_match_device(struct jz_sfc *flash)
 {
-	int ret;
-	unsigned int id = 0,i = 0;
-	unsigned char command_stage1[1];
-	unsigned char command_stage2[16];
-	struct sfc_transfer transfer[1];
 
+	int i;
 	mutex_lock(&flash->lock);
-	command_stage1[0] = CMD_RDID;
 
-	transfer[0].tx_buf  = command_stage1;
-	transfer[0].tx_buf1 = NULL;
-	transfer[0].rx_buf =  command_stage2;
-	transfer[0].len = 3;//sizeof(command_stage2);
-	ret = jz_sfc_pio_txrx(flash, transfer);
-	if(ret != transfer[0].len)
-		dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
+	flash->addr_len = 3;//default addrsize for read params from norflash
+	jz_spi_norflash_read_params(flash,SPINAND_PARAMER_ADD,sizeof(struct params_spl),(unsigned char *)&params);
 
-	id = (command_stage2[0] << 16) | (command_stage2[1] << 8) | command_stage2[2];
+	board_info = (struct spi_nor_platform_data *)kmalloc(sizeof(struct spi_nor_platform_data),GFP_KERNEL);
+	board_info->pagesize       = params.norflash_params.pagesize;
+	board_info->sectorsize     = params.norflash_params.sectorsize;
+	board_info->chipsize       = params.norflash_params.chipsize;
+	board_info->erasesize      = params.norflash_params.erasesize;
+	board_info->id             = params.norflash_params.id;
 
-	for (i = 0; i < flash->board_info_size; i++) {
-		board_info = &flash->board_info[i];
-		if (board_info->id == id){
-			printk("the id code = %x, the flash name is %s\n",id,board_info->name);
-				break;
-		}
+	board_info->addrsize       = params.norflash_params.addrsize;
+	board_info->pp_maxbusy     = params.norflash_params.pp_maxbusy;
+	board_info->se_maxbusy     = params.norflash_params.se_maxbusy;
+	board_info->ce_maxbusy     = params.norflash_params.ce_maxbusy;
+	board_info->st_regnum      = params.norflash_params.st_regnum;
+
+	for(i = 0; i < params.norflash_partitions.num_partition_info; i++){
+		mtd_partition[i].name = &(params.norflash_partitions.nor_partition[i].name[0]);
+		mtd_partition[i].offset = params.norflash_partitions.nor_partition[i].offset;
+		mtd_partition[i].size = params.norflash_partitions.nor_partition[i].size;
 	}
-
-	if (i == flash->board_info_size) {
-		if ((id != 0)&&(id != 0xff)&&(quad_mode == 0)){
-			board_info = &flash->board_info[0];
-			printk("the id code = %x, the flash name is %s\n",id,board_info->name);
-			printk("#####unsupport ID is %04x if the id not be 0x00,the flash can be ok,but the quad mode may be not support!!!!! \n",id);
-			mdelay(200);
-		}else{
-			mutex_unlock(&flash->lock);
-			printk("error happen !!!!,ingenic: Unsupported ID %04x,the quad mode is not support\n", id);
-			return EINVAL;
-		}
-	}
-
+	board_info->mtd_partition = mtd_partition;
+	board_info->num_partition_info = params.norflash_partitions.num_partition_info;
+#ifdef CONFIG_SPI_QUAD
+	board_info->quad_mode = &params.norflash_params.quad_mode;
+#endif
+//	dump_sfc_board_info();
 	mutex_unlock(&flash->lock);
+
 	return 0;
 }
 
@@ -1121,8 +1179,8 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 	}
 
 	flash->chnl= flash->pdata->chnl;
-	flash->board_info = flash->pdata->board_info;
-	flash->board_info_size = flash->pdata->board_info_size;
+	//flash->board_info = flash->pdata->board_info;
+	//flash->board_info_size = flash->pdata->board_info_size;
 
 	flash->tx_addr_plus = 0;
 	flash->rx_addr_plus = 0;
