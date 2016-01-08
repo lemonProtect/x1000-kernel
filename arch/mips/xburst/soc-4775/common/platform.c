@@ -586,6 +586,22 @@ struct platform_device snd_mensa_device = {
 	.name = "ingenic-mensa",
 };
 
+struct platform_device jz_icdc_device = {	/*jz internal codec*/
+	.name		= "icdc-d2",
+	.id		= -1,
+	.resource	= jz_icdc_resources,
+	.num_resources	= ARRAY_SIZE(jz_icdc_resources),
+};
+#endif
+
+#if defined(CONFIG_SND_ASOC_JZ_DUMP_CDC)
+struct platform_device jz_dump_cdc_device = {   /*jz dump codec*/
+	.name           = "dump",
+	.id             = -1,
+};
+#endif
+
+#if defined(CONFIG_SND_ASOC_JZ_SPDIF_DUMP_CDC)
 struct platform_device jz_spdif_dump_cdc_device = {   /*jz dump codec*/
 	.name           = "spdif dump",
 	.id             = -1,
