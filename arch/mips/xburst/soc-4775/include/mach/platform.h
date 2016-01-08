@@ -199,9 +199,6 @@ extern struct platform_device jz_irda_device;
 #ifdef CONFIG_JZ_EFUSE_V11
 extern struct platform_device jz_efuse_device;
 #endif
-#ifdef CONFIG_I2C_GPIO /*CONFIG_I2C_GPIO*/
-extern struct platform_device i2c0_gpio_device;
-#endif
 
 #ifdef CONFIG_JZ_PWM
 extern struct platform_device jz_pwm_device;
