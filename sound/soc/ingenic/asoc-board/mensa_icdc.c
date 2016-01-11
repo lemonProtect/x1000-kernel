@@ -25,35 +25,54 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 #include <linux/gpio.h>
+#include <mach/jzsnd.h>
 #include "../icodec/icdc_d2.h"
 
-static struct snd_soc_ops mensa_i2s_ops = {
-
-};
-
-#ifndef GPIO_PG
-#define GPIO_PG(n)      (5*32 + 23 + n)
-#endif
+static struct snd_codec_data *codec_platform_data = NULL;
 
 
 unsigned long codec_sysclk = -1;
 
 
-
 static int mensa_spk_power(struct snd_soc_dapm_widget *w,
 				struct snd_kcontrol *kcontrol, int event)
 {
-#ifdef MENSA_HAVE_SPK_EN
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
-		gpio_direction_output(MENSA_SPK_GPIO, MENSA_SPK_EN);
-		printk("gpio speaker enable %d\n", gpio_get_value(MENSA_SPK_GPIO));
+		if (codec_platform_data && (codec_platform_data->gpio_spk_en.gpio) != -1) {
+			gpio_direction_output(codec_platform_data->gpio_spk_en.gpio, codec_platform_data->gpio_spk_en.active_level);
+			printk("gpio speaker enable %d\n", gpio_get_value(codec_platform_data->gpio_spk_en.gpio));
+		} else
+			printk("set speaker enable failed. please check codec_platform_data\n");
 	} else {
-		gpio_direction_output(MENSA_SPK_GPIO, !MENSA_SPK_EN);
-		printk("gpio speaker disable %d\n", gpio_get_value(MENSA_SPK_GPIO));
+		if (codec_platform_data && (codec_platform_data->gpio_spk_en.gpio) != -1) {
+			gpio_direction_output(codec_platform_data->gpio_spk_en.gpio, !(codec_platform_data->gpio_spk_en.active_level));
+			printk("gpio speaker disable %d\n", gpio_get_value(codec_platform_data->gpio_spk_en.gpio));
+		} else
+			printk("set speaker disable failed. please check codec_platform_data\n");
 	}
-#endif
 	return 0;
 }
+
+void mensa_spk_sdown(struct snd_pcm_substream *sps){
+
+	if (codec_platform_data && (codec_platform_data->gpio_spk_en.gpio) != -1) {
+		gpio_direction_output(codec_platform_data->gpio_spk_en.gpio, !(codec_platform_data->gpio_spk_en.active_level));
+	}
+
+	return;
+}
+
+int mensa_spk_sup(struct snd_pcm_substream *sps){
+	if (codec_platform_data && (codec_platform_data->gpio_spk_en.gpio) != -1) {
+		gpio_direction_output(codec_platform_data->gpio_spk_en.gpio, codec_platform_data->gpio_spk_en.active_level);
+	}
+	return 0;
+}
+
+static struct snd_soc_ops mensa_i2s_ops = {
+	.startup = mensa_spk_sup,
+	.shutdown = mensa_spk_sdown,
+};
 
 static const struct snd_soc_dapm_widget mensa_dapm_widgets[] = {
 	SND_SOC_DAPM_HP("Headphone Jack", NULL),
@@ -97,12 +116,16 @@ static int mensa_dlv_dai_link_init(struct snd_soc_pcm_runtime *rtd)
 {
 	struct snd_soc_codec *codec = rtd->codec;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
+	struct snd_soc_card *card = rtd->card;
 	int err;
-#ifdef MENSA_HAVE_SPK_EN
-	err = devm_gpio_request(card->dev, MENSA_SPK_GPIO, "Speaker_en");
-	if (ret)
-		return ret;
-#endif
+	if ((codec_platform_data) && ((codec_platform_data->gpio_spk_en.gpio) != -1)) {
+		err = devm_gpio_request(card->dev, codec_platform_data->gpio_spk_en.gpio, "Speaker_en");
+		if (err)
+			return err;
+	} else {
+		pr_err("codec_platform_data gpio_spk_en is NULL\n");
+		return err;
+	}
 	err = snd_soc_dapm_new_controls(dapm, mensa_dapm_widgets,
 			ARRAY_SIZE(mensa_dapm_widgets));
 	if (err){
@@ -121,9 +144,9 @@ static int mensa_dlv_dai_link_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_jack_add_pins(&mensa_icdc_d2_hp_jack,ARRAY_SIZE(mensa_icdc_d2_hp_jack_pins),mensa_icdc_d2_hp_jack_pins);
 	icdc_d2_hp_detect(codec, &mensa_icdc_d2_hp_jack, SND_JACK_HEADSET);
 
-	snd_soc_dapm_force_enable_pin(dapm, "Speaker");
-	snd_soc_dapm_force_enable_pin(dapm, "Mic Buildin");
-	snd_soc_dapm_force_enable_pin(dapm, "Line In");
+	snd_soc_dapm_enable_pin(dapm, "Speaker");
+	snd_soc_dapm_enable_pin(dapm, "Mic Buildin");
+	snd_soc_dapm_enable_pin(dapm, "Line In");
 
 	snd_soc_dapm_sync(dapm);
 	return 0;
@@ -161,6 +184,7 @@ static int snd_mensa_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	mensa.dev = &pdev->dev;
+	codec_platform_data = (struct snd_codec_data *)mensa.dev->platform_data;
 	ret = snd_soc_register_card(&mensa);
 	if (ret)
 		dev_err(&pdev->dev, "snd_soc_register_card failed %d\n", ret);
@@ -177,7 +201,7 @@ static int snd_mensa_remove(struct platform_device *pdev)
 static struct platform_driver snd_mensa_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
-		.name = "ingenic-mensa",
+		.name = "ingenic-alsa",
 		.pm = &snd_soc_pm_ops,
 	},
 	.probe = snd_mensa_probe,

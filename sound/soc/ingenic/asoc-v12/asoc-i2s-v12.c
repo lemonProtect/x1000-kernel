@@ -58,7 +58,9 @@ static void dump_registers(struct device *aic)
 	pr_info("AIC_SR\t\t%p : 0x%08x\n", (jz_aic->vaddr_base+AICSR),jz_aic_read_reg(aic, AICSR));
 	pr_info("AIC_I2SSR\t%p : 0x%08x\n",(jz_aic->vaddr_base+I2SSR),jz_aic_read_reg(aic, I2SSR));
 	pr_info("AIC_I2SDIV\t%p : 0x%08x\n",(jz_aic->vaddr_base+I2SDIV),jz_aic_read_reg(aic, I2SDIV));
-	pr_info("AIC_DR\t\t%p\n", (jz_aic->vaddr_base+AICDR));
+	pr_info("AIC_DR\t%p : 0x%08x\n",(jz_aic->vaddr_base+AICDR),jz_aic_read_reg(aic, AICDR));
+	pr_info("AIC_I2SCDR\t 0x%08x\n",*(volatile unsigned int*)0xb0000060);
+	pr_info("AICSR\t 0x%08x\n",*(volatile unsigned int*)0xb0020014);
 	return;
 }
 
@@ -154,7 +156,6 @@ static int jz_i2s_startup(struct snd_pcm_substream *substream,
 	}
 
 	if (!jz_i2s->i2s_mode) {
-		__aic_reset(aic);
 		__aic_select_i2s(aic);
 		__i2s_play_lastsample(aic);
 		__i2s_set_transmit_trigger(aic, I2S_TFIFO_DEPTH/4);

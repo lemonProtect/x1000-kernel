@@ -216,7 +216,6 @@ static int jz_aic_probe(struct platform_device *pdev)
 	}
 	clk_set_rate(jz_aic->clk, CODEC_DEF_RATE);
 	jz_aic->clk_rate = CODEC_DEF_RATE;
-
 #if defined(CONFIG_SOC_4775)
 	/* If i2scdr clk source select pll,
 	 * the following I2S registers need to be set up,
@@ -228,8 +227,8 @@ static int jz_aic_probe(struct platform_device *pdev)
 		*(volatile unsigned int *)0xb0020010 |= (1 << 4);
 	}
 #endif
-	clk_enable(jz_aic->clk);
 	clk_enable(jz_aic->clk_gate);
+	clk_enable(jz_aic->clk);
 #endif
 	spin_lock_init(&jz_aic->mode_lock);
 	jz_aic->irqno = -1;

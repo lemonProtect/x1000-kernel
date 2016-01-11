@@ -517,9 +517,6 @@ struct platform_device jz_aic_device = {
 #endif
 
 #if defined(CONFIG_SND_ASOC_JZ_ICDC_D2)
-struct platform_device snd_mensa_device = {
-	.name = "ingenic-mensa",
-};
 
 static struct resource jz_icdc_resources[] = {
 	[0] = {
