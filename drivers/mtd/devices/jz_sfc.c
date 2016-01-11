@@ -1115,7 +1115,7 @@ static void dump_sfc_board_info(void)
 static int jz_spi_norflash_match_device(struct jz_sfc *flash)
 {
 
-	int i;
+	int i,j = 0;
 	mutex_lock(&flash->lock);
 
 	flash->addr_len = 3;//default addrsize for read params from norflash
@@ -1135,12 +1135,15 @@ static int jz_spi_norflash_match_device(struct jz_sfc *flash)
 	board_info->st_regnum      = params.norflash_params.st_regnum;
 
 	for(i = 0; i < params.norflash_partitions.num_partition_info; i++){
-		mtd_partition[i].name = &(params.norflash_partitions.nor_partition[i].name[0]);
-		mtd_partition[i].offset = params.norflash_partitions.nor_partition[i].offset;
-		mtd_partition[i].size = params.norflash_partitions.nor_partition[i].size;
+		if(!(params.norflash_partitions.nor_partition[i].mask_flags & 0x1)){
+			mtd_partition[j].name = &(params.norflash_partitions.nor_partition[i].name[0]);
+			mtd_partition[j].offset = params.norflash_partitions.nor_partition[i].offset;
+			mtd_partition[j].size = params.norflash_partitions.nor_partition[i].size;
+			j++;
+		}
 	}
 	board_info->mtd_partition = mtd_partition;
-	board_info->num_partition_info = params.norflash_partitions.num_partition_info;
+	board_info->num_partition_info = j;
 #ifdef CONFIG_SPI_QUAD
 	board_info->quad_mode = &params.norflash_params.quad_mode;
 #endif
