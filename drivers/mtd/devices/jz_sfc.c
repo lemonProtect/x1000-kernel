@@ -921,8 +921,6 @@ static int jz_spi_norflash_read_params(struct jz_sfc *flash, loff_t from, size_t
 	int ret,j;
 	unsigned char command_stage1[5];
 	struct sfc_transfer transfer[1];
-	unsigned int tmp_len = 0;
-	unsigned int rlen = 0;
 	unsigned char *swap_buf = NULL;
 
 	read_params = 0;
@@ -1119,7 +1117,7 @@ static int jz_spi_norflash_match_device(struct jz_sfc *flash)
 	mutex_lock(&flash->lock);
 
 	flash->addr_len = 3;//default addrsize for read params from norflash
-	jz_spi_norflash_read_params(flash,SPINAND_PARAMER_ADD,sizeof(struct params_spl),(unsigned char *)&params);
+	jz_spi_norflash_read_params(flash,SPIFLASH_PARAMER_OFFSET,sizeof(struct params_spl),(unsigned char *)&params);
 
 	board_info = (struct spi_nor_platform_data *)kmalloc(sizeof(struct spi_nor_platform_data),GFP_KERNEL);
 	board_info->pagesize       = params.norflash_params.pagesize;
@@ -1147,7 +1145,9 @@ static int jz_spi_norflash_match_device(struct jz_sfc *flash)
 #ifdef CONFIG_SPI_QUAD
 	board_info->quad_mode = &params.norflash_params.quad_mode;
 #endif
-//	dump_sfc_board_info();
+#ifdef SFC_DEBUG
+	dump_sfc_board_info();
+#endif
 	mutex_unlock(&flash->lock);
 
 	return 0;

@@ -49,6 +49,9 @@
 #define TRAN_SPI_IO_QUAD   (0x6 )
 
 
+#define SPIFLASH_PARAMER_OFFSET 0x3c00
+#define SPI_NORFLASH_PART_OFFSET 0x3c6c
+
 struct sfc_nor_info {
 	u8 cmd;
 	u8 addr_len;
@@ -189,7 +192,6 @@ struct jz_sfc_nand_info{
 	u32  board_info_size;
 };
 #define SPL_TYPE_FLAG_LEN 6
-#define SPINAND_PARAMER_ADD 0x3c00
 struct jz_spi_support {
 	unsigned int id_manufactory;
 	char id_device;
