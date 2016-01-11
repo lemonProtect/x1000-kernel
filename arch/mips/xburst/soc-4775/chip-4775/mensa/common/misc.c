@@ -61,3 +61,18 @@ struct platform_device jz_led_rgb = {
 	}
 };
 #endif
+
+
+#if defined(CONFIG_SND_ASOC_JZ_AIC_V12)
+static struct snd_codec_data snd_alsa_platform_data = {
+	.gpio_spk_en = {.gpio = GPIO_SPEAKER_EN, .active_level = GPIO_SPEAKER_EN_LEVEL},
+	.gpio_hp_detect = {.gpio = GPIO_HP_DETECT, .active_level = GPIO_HP_INSERT_LEVEL},
+};
+
+struct platform_device snd_alsa_device = {
+	.name = "ingenic-alsa",
+	.dev = {
+		.platform_data = &snd_alsa_platform_data,
+	},
+};
+#endif

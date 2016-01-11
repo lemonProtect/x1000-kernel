@@ -726,8 +726,8 @@ static irqreturn_t dlv_codec_irq(int irq, void *dev_id)
 	struct snd_soc_codec *codec = icdc_d2->codec;
 	if (icdc_d2_test_irq(icdc_d2)) {
 		/*disable interrupt*/
-		icdc_d2->codec_imr = snd_soc_read(codec, DLV_REG_IMR);
-		snd_soc_write(codec, DLV_REG_IMR, ICR_IMR_MASK);
+		icdc_d2->codec_imr = icdc_d2_hw_read(icdc_d2, DLV_REG_IMR);
+		icdc_d2_hw_write(icdc_d2, DLV_REG_IMR, ICR_IMR_MASK);
 		if(!work_pending(&icdc_d2->irq_work))
 			schedule_work(&icdc_d2->irq_work);
 		return IRQ_HANDLED;

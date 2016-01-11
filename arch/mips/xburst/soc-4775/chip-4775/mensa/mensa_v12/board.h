@@ -65,7 +65,7 @@ extern struct xburst_nand_chip_platform_data nand_chip_data;
 #define GPIO_HP_MUTE_LEVEL		-1		/*vaild level*/
 
 #define GPIO_SPEAKER_EN			GPIO_PG(14)/*speaker enable gpio*/
-#define GPIO_SPEAKER_EN_LEVEL	-1
+#define GPIO_SPEAKER_EN_LEVEL	1
 
 #define GPIO_HANDSET_EN		  -1		/*handset enable gpio*/
 #define GPIO_HANDSET_EN_LEVEL -1
