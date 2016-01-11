@@ -1296,7 +1296,7 @@ static int jz_get_sfcnand_param(struct jz_spi_nand_platform_data **param,struct 
 		buffer=kzalloc(page_size,GFP_KERNEL);
 	if(!buffer)
 		return -ENOMEM;
-	jz_sfc_nandflash_read_ops(flash,buffer,SPINAND_PARAMER_ADD/page_size,SPINAND_PARAMER_ADD%page_size,
+	jz_sfc_nandflash_read_ops(flash,buffer,SPIFLASH_PARAMER_OFFSET/page_size,SPIFLASH_PARAMER_OFFSET%page_size,
 			page_size,&rlen);
 	member_addr=buffer;
 	param_from_burner.version=*(int *)member_addr;
