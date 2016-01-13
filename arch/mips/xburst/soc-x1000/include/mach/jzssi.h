@@ -52,6 +52,10 @@
 #define SPIFLASH_PARAMER_OFFSET 0x3c00
 #define SPI_NORFLASH_PART_OFFSET 0x3c6c
 
+#define NORFLASH_PART_RW		0
+#define NORFLASH_PART_WO		1
+#define NORFLASH_PART_RO		2
+
 struct sfc_nor_info {
 	u8 cmd;
 	u8 addr_len;
@@ -112,7 +116,7 @@ struct nor_partition {
 	char name[SIZEOF_NAME];
 	uint32_t size;
 	uint32_t offset;
-	uint32_t mask_flags;//bit0 for ota nv partition flag
+	uint32_t mask_flags;//bit0-1 mask the partition RW mode, 0:RW  1:WO  2:RO
 	uint32_t manager_mode;
 };
 

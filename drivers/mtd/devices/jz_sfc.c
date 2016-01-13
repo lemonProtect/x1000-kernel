@@ -1113,7 +1113,7 @@ static void dump_sfc_board_info(void)
 static int jz_spi_norflash_match_device(struct jz_sfc *flash)
 {
 
-	int i,j = 0;
+	int i;
 	mutex_lock(&flash->lock);
 
 	flash->addr_len = 3;//default addrsize for read params from norflash
@@ -1133,15 +1133,15 @@ static int jz_spi_norflash_match_device(struct jz_sfc *flash)
 	board_info->st_regnum      = params.norflash_params.st_regnum;
 
 	for(i = 0; i < params.norflash_partitions.num_partition_info; i++){
-		if(!(params.norflash_partitions.nor_partition[i].mask_flags & 0x1)){
-			mtd_partition[j].name = &(params.norflash_partitions.nor_partition[i].name[0]);
-			mtd_partition[j].offset = params.norflash_partitions.nor_partition[i].offset;
-			mtd_partition[j].size = params.norflash_partitions.nor_partition[i].size;
-			j++;
-		}
+			mtd_partition[i].name = &(params.norflash_partitions.nor_partition[i].name[0]);
+			mtd_partition[i].offset = params.norflash_partitions.nor_partition[i].offset;
+			mtd_partition[i].size = params.norflash_partitions.nor_partition[i].size;
+			if(params.norflash_partitions.nor_partition[i].mask_flags & NORFLASH_PART_RO){
+				mtd_partition[i].mask_flags = MTD_CAP_NORFLASH;
+			}
 	}
 	board_info->mtd_partition = mtd_partition;
-	board_info->num_partition_info = j;
+	board_info->num_partition_info = params.norflash_partitions.num_partition_info;
 #ifdef CONFIG_SPI_QUAD
 	board_info->quad_mode = &params.norflash_params.quad_mode;
 #endif
@@ -1152,6 +1152,27 @@ static int jz_spi_norflash_match_device(struct jz_sfc *flash)
 
 	return 0;
 }
+
+static ssize_t sfc_norflash_info_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	return sprintf(buf,"the params offset:%x\nthe partiton offset:%x\n",SPIFLASH_PARAMER_OFFSET,SPI_NORFLASH_PART_OFFSET);
+}
+
+static DEVICE_ATTR(sfc_norflash_info, S_IRUGO | S_IWUSR,
+		sfc_norflash_info_show,
+		NULL);
+
+/*add your attr in here*/
+static struct attribute *sfc_norflash_info_attributes[] = {
+	&dev_attr_sfc_norflash_info.attr,
+	NULL
+};
+
+static const struct attribute_group sfc_norflash_info_attr_group = {
+	.attrs = sfc_norflash_info_attributes
+};
 
 static int __init jz_sfc_probe(struct platform_device *pdev)
 {
@@ -1307,6 +1328,15 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 	}
 	printk("SPI NOR MTD LOAD OK\n");
 
+	ret = sysfs_create_group(&pdev->dev.kobj, &sfc_norflash_info_attr_group);
+	if(err){
+		dev_err(&pdev->dev, "failed to register sysfs\n");
+		sysfs_remove_group(&pdev->dev.kobj, &sfc_norflash_info_attr_group);
+		return -EIO;
+	}else{
+		printk("create sfc norflash info sysfs attr_group sucontinues\n");
+	}
+
 	return 0;
 
 err_no_clk:
@@ -1342,6 +1372,7 @@ static int __exit jz_sfc_remove(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, NULL);
 
+	sysfs_remove_group(&pdev->dev.kobj, &sfc_norflash_info_attr_group);
 	return 0;
 }
 
