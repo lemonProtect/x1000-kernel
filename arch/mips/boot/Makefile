@@ -56,5 +56,6 @@ $(obj)/uImage.gz: $(obj)/vmlinux.bin.gz FORCE
 
 targets += uImage
 $(obj)/uImage: $(obj)/uImage.gz FORCE
-	@ln -sf $(notdir $<) $@
+#	@ln -sf $(notdir $<) $@
+	@cp  $< $@
 	@echo '  Image $@ is ready'
