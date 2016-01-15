@@ -1,5 +1,5 @@
 
-
+obj-$(CONFIG_REGULATOR_ACT8600) += regulator.o
 ifdef CONFIG_BM347WV_F_8991FTGF_HX8369
 obj-$(CONFIG_FB_JZ4780_LCDC0)		+= lcd-8991.o
 else

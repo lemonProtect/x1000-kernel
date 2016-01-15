@@ -74,6 +74,13 @@ config REGULATOR_GPIO
 	  and the platform has to provide a mapping of GPIO-states
 	  to target volts/amps.
 
+config REGULATOR_ACT8600
+	depends on MFD_ACT8600
+	tristate "ACT8600 PMU voltage regulator"
+	help
+	  This driver controls PMU ACT8600. It's a mfd cell driver of
+	  act8600-core.c
+
 config REGULATOR_AD5398
 	tristate "Analog Devices AD5398/AD5821 regulators"
 	depends on I2C
