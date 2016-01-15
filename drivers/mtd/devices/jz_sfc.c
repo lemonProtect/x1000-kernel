@@ -1153,20 +1153,32 @@ static int jz_spi_norflash_match_device(struct jz_sfc *flash)
 	return 0;
 }
 
-static ssize_t sfc_norflash_info_show(struct device *dev,
+static ssize_t sfc_nor_partition_offset_show(struct device *dev,
 		struct device_attribute *attr,
 		char *buf)
 {
-	return sprintf(buf,"the params offset:%x\nthe partiton offset:%x\n",SPIFLASH_PARAMER_OFFSET,SPI_NORFLASH_PART_OFFSET);
+	return sprintf(buf,"0x%x\n",SPI_NORFLASH_PART_OFFSET);
 }
 
-static DEVICE_ATTR(sfc_norflash_info, S_IRUGO | S_IWUSR,
-		sfc_norflash_info_show,
+static DEVICE_ATTR(sfc_nor_partition_offset, S_IRUGO | S_IWUSR,
+		sfc_nor_partition_offset_show,
+		NULL);
+
+static ssize_t sfc_nor_params_offset_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	return sprintf(buf,"0x%x\n",SPIFLASH_PARAMER_OFFSET);
+}
+
+static DEVICE_ATTR(sfc_nor_params_offset, S_IRUGO | S_IWUSR,
+		sfc_nor_params_offset_show,
 		NULL);
 
 /*add your attr in here*/
 static struct attribute *sfc_norflash_info_attributes[] = {
-	&dev_attr_sfc_norflash_info.attr,
+	&dev_attr_sfc_nor_partition_offset.attr,
+	&dev_attr_sfc_nor_params_offset.attr,
 	NULL
 };
 
