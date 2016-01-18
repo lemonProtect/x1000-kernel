@@ -56,6 +56,13 @@
 #define NORFLASH_PART_WO		1
 #define NORFLASH_PART_RO		2
 
+#define NOR_MAJOR_VERSION_NUMBER	1
+#define NOR_MINOR_VERSION_NUMBER	0
+#define NOR_REVERSION_NUMBER	0
+#define NOR_VERSION		(NOR_MAJOR_VERSION_NUMBER | (NOR_MINOR_VERSION_NUMBER << 8) | (NOR_REVERSION_NUMBER << 16))
+
+#define NOR_MAGIC	0x726f6e	//ascii "nor"
+
 struct sfc_nor_info {
 	u8 cmd;
 	u8 addr_len;
@@ -122,10 +129,12 @@ struct nor_partition {
 
 struct norflash_partitions {
 	struct nor_partition nor_partition[NOR_PART_NUM];
-	int num_partition_info;
+	uint32_t num_partition_info;
 };
 
-struct params_spl {
+struct nor_sharing_params {
+	uint32_t magic;
+	uint32_t version;
 	struct norflash_params norflash_params;
 	struct norflash_partitions norflash_partitions;
 };

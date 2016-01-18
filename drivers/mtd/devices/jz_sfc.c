@@ -110,7 +110,7 @@ int jz_nor_info_num = ARRAY_SIZE(jz_sfc_nor_info);
 /* Max time can take up to 3 seconds! */
 #define MAX_READY_WAIT_TIME 3000    /* the time of erase BE(64KB) */
 
-struct params_spl params;
+struct nor_sharing_params params;
 struct mtd_partition *jz_mtd_partition;
 struct mtd_partition mtd_partition[10];
 struct spi_nor_platform_data *board_info;
@@ -1113,43 +1113,91 @@ static void dump_sfc_board_info(void)
 static int jz_spi_norflash_match_device(struct jz_sfc *flash)
 {
 
-	int i;
 	mutex_lock(&flash->lock);
 
 	flash->addr_len = 3;//default addrsize for read params from norflash
-	jz_spi_norflash_read_params(flash,SPIFLASH_PARAMER_OFFSET,sizeof(struct params_spl),(unsigned char *)&params);
+	jz_spi_norflash_read_params(flash,SPIFLASH_PARAMER_OFFSET,sizeof(struct nor_sharing_params),(unsigned char *)&params);
 
-	board_info = (struct spi_nor_platform_data *)kmalloc(sizeof(struct spi_nor_platform_data),GFP_KERNEL);
-	board_info->pagesize       = params.norflash_params.pagesize;
-	board_info->sectorsize     = params.norflash_params.sectorsize;
-	board_info->chipsize       = params.norflash_params.chipsize;
-	board_info->erasesize      = params.norflash_params.erasesize;
-	board_info->id             = params.norflash_params.id;
+	if(params.magic == NOR_MAGIC) {
+		if(params.version == NOR_VERSION){
+			int i;
+			board_info = (struct spi_nor_platform_data *)kmalloc(sizeof(struct spi_nor_platform_data),GFP_KERNEL);
+			board_info->pagesize       = params.norflash_params.pagesize;
+			board_info->sectorsize     = params.norflash_params.sectorsize;
+			board_info->chipsize       = params.norflash_params.chipsize;
+			board_info->erasesize      = params.norflash_params.erasesize;
+			board_info->id             = params.norflash_params.id;
 
-	board_info->addrsize       = params.norflash_params.addrsize;
-	board_info->pp_maxbusy     = params.norflash_params.pp_maxbusy;
-	board_info->se_maxbusy     = params.norflash_params.se_maxbusy;
-	board_info->ce_maxbusy     = params.norflash_params.ce_maxbusy;
-	board_info->st_regnum      = params.norflash_params.st_regnum;
+			board_info->addrsize       = params.norflash_params.addrsize;
+			board_info->pp_maxbusy     = params.norflash_params.pp_maxbusy;
+			board_info->se_maxbusy     = params.norflash_params.se_maxbusy;
+			board_info->ce_maxbusy     = params.norflash_params.ce_maxbusy;
+			board_info->st_regnum      = params.norflash_params.st_regnum;
 
-	for(i = 0; i < params.norflash_partitions.num_partition_info; i++){
-			mtd_partition[i].name = &(params.norflash_partitions.nor_partition[i].name[0]);
-			mtd_partition[i].offset = params.norflash_partitions.nor_partition[i].offset;
-			mtd_partition[i].size = params.norflash_partitions.nor_partition[i].size;
-			if(params.norflash_partitions.nor_partition[i].mask_flags & NORFLASH_PART_RO){
-				mtd_partition[i].mask_flags = MTD_CAP_NORFLASH;
+			for(i = 0; i < params.norflash_partitions.num_partition_info; i++){
+				mtd_partition[i].name = &(params.norflash_partitions.nor_partition[i].name[0]);
+				mtd_partition[i].offset = params.norflash_partitions.nor_partition[i].offset;
+				mtd_partition[i].size = params.norflash_partitions.nor_partition[i].size;
+				if(params.norflash_partitions.nor_partition[i].mask_flags & NORFLASH_PART_RO){
+					mtd_partition[i].mask_flags = MTD_CAP_NORFLASH;
+				}
 			}
-	}
-	board_info->mtd_partition = mtd_partition;
-	board_info->num_partition_info = params.norflash_partitions.num_partition_info;
+			board_info->mtd_partition = mtd_partition;
+			board_info->num_partition_info = params.norflash_partitions.num_partition_info;
 #ifdef CONFIG_SPI_QUAD
-	board_info->quad_mode = &params.norflash_params.quad_mode;
+			board_info->quad_mode = &params.norflash_params.quad_mode;
 #endif
 #ifdef SFC_DEBUG
-	dump_sfc_board_info();
+			dump_sfc_board_info();
 #endif
-	mutex_unlock(&flash->lock);
+		}else{
+			mutex_unlock(&flash->lock);
+			printk("ERROR: norflash version miss match,the current version is %d.%d.%d,but the burner version is %d.%d.%d\n"\
+					,NOR_MAJOR_VERSION_NUMBER,NOR_MINOR_VERSION_NUMBER,NOR_REVERSION_NUMBER\
+					,params.version & 0xff,(params.version & 0xff00) >> 8,(params.version & 0xff0000) >> 16);
+			return -1;
+		}
+	} else {
+		int ret;
+		unsigned int id = 0,i = 0;
+		unsigned char command_stage1[1];
+		unsigned char command_stage2[16];
+		struct sfc_transfer transfer[1];
 
+		command_stage1[0] = CMD_RDID;
+
+		transfer[0].tx_buf  = command_stage1;
+		transfer[0].tx_buf1 = NULL;
+		transfer[0].rx_buf =  command_stage2;
+		transfer[0].len = 3;//sizeof(command_stage2);
+		ret = jz_sfc_pio_txrx(flash, transfer);
+		if(ret != transfer[0].len)
+			dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
+
+		id = (command_stage2[0] << 16) | (command_stage2[1] << 8) | command_stage2[2];
+
+		for (i = 0; i < flash->board_info_size; i++) {
+			board_info = &flash->board_info[i];
+			if (board_info->id == id){
+				printk("the id code = %x, the flash name is %s\n",id,board_info->name);
+				break;
+			}
+		}
+
+		if (i == flash->board_info_size) {
+			if ((id != 0)&&(id != 0xff)&&(quad_mode == 0)){
+				board_info = &flash->board_info[0];
+				printk("the id code = %x, the flash name is %s\n",id,board_info->name);
+				printk("#####unsupport ID is %04x if the id not be 0x00,the flash can be ok,but the quad mode may be not support!!!!! \n",id);
+				mdelay(200);
+			}else{
+				mutex_unlock(&flash->lock);
+				printk("error happen !!!!,ingenic: Unsupported ID %04x,the quad mode is not support\n", id);
+				return EINVAL;
+			}
+		}
+	}
+	mutex_unlock(&flash->lock);
 	return 0;
 }
 
@@ -1215,8 +1263,8 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 	}
 
 	flash->chnl= flash->pdata->chnl;
-	//flash->board_info = flash->pdata->board_info;
-	//flash->board_info_size = flash->pdata->board_info_size;
+	flash->board_info = flash->pdata->board_info;
+	flash->board_info_size = flash->pdata->board_info_size;
 
 	flash->tx_addr_plus = 0;
 	flash->rx_addr_plus = 0;
