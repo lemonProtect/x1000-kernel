@@ -142,15 +142,44 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_JZ4775_EFUSE
 	DEF_DEVICE(&jz_efuse_device, &jz_efuse_pdata, sizeof(struct jz_efuse_platform_data)),
 #endif
-#ifdef	CONFIG_I2C1_JZ4775
+#ifdef  CONFIG_I2C0_V12_JZ
+    DEF_DEVICE(&jz_i2c0_device,0,0),
+#endif
+#ifdef	CONFIG_I2C1_V12_JZ
 	DEF_DEVICE(&jz_i2c1_device,0,0),
 #endif
-#ifdef	CONFIG_I2C2_JZ4775
+#ifdef	CONFIG_I2C2_V12_JZ
 	DEF_DEVICE(&jz_i2c2_device,0,0),
 #endif
+#ifdef	CONFIG_I2C3_V12_JZ
+	DEF_DEVICE(&jz_i2c3_device,0,0),
+#endif
+
+#ifdef CONFIG_I2C_GPIO
+#ifdef CONFIG_SOFT_I2C0_GPIO_V12_JZ
+	DEF_DEVICE(&i2c0_gpio_device, 0, 0),
+#endif
+#ifdef CONFIG_SOFT_I2C1_GPIO_V12_JZ
+	DEF_DEVICE(&i2c1_gpio_device, 0, 0),
+#endif
+#ifdef CONFIG_SOFT_I2C2_GPIO_V12_JZ
+	DEF_DEVICE(&i2c2_gpio_device, 0, 0),
+#endif
+#ifdef CONFIG_SOFT_I2C3_GPIO_V12_JZ
+	DEF_DEVICE(&i2c3_gpio_device, 0, 0),
+#endif
+#endif  /* CONFIG_I2C_GPIO */
+
 #ifdef	CONFIG_MFD_JZ_SADC_V12
 	DEF_DEVICE(&jz_adc_device, 0, 0),
 #endif
+#ifdef CONFIG_LCD_BYD_8991FTGF
+    DEF_DEVICE(&byd_8991_device,0,0),
+#endif
+#ifdef CONFIG_FB_JZ_V11
+	DEF_DEVICE(&jz_fb0_device, &jzfb0_pdata, sizeof(struct jzfb_platform_data)),
+#endif
+
 };
 
 static int __init board_base_init(void)
@@ -169,6 +198,17 @@ static int __init board_base_init(void)
 	spi_register_board_info(jz_spi0_board_info, jz_spi0_devs_size);
 #endif
 
+#if (defined(CONFIG_SOFT_I2C0_GPIO_V12_JZ) || defined(CONFIG_I2C0_V12_JZ))
+	i2c_register_board_info(0, jz_i2c0_devs, jz_i2c0_devs_size);
+#endif
+
+#if (defined(CONFIG_SOFT_I2C2_GPIO_V12_JZ) || defined(CONFIG_I2C2_V12_JZ))
+	i2c_register_board_info(2, jz_i2c2_devs, jz_i2c2_devs_size);
+#endif
+
+#if (defined(CONFIG_SOFT_I2C3_GPIO_V12_JZ) || defined(CONFIG_I2C3_V12_JZ))
+	i2c_register_board_info(3, jz_i2c3_devs, jz_i2c3_devs_size);
+#endif
 
 
 	return 0;

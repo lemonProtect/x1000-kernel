@@ -13,23 +13,22 @@
 #include <linux/delay.h>
 #include <media/soc_camera.h>
 #include <mach/platform.h>
-#include <mach/jz4780_camera.h>
+#include <mach/jz_camera.h>
 #include <linux/regulator/machine.h>
 #include <gpio.h>
 #include "board.h"
 
-extern struct i2c_board_info mensa_i2c1_devs_v4l2[];
 
-#ifdef CONFIG_VIDEO_JZ4780_CIM_HOST
-struct jz4780_camera_pdata mensa_camera_pdata = {
+extern struct i2c_board_info jz_i2c1_devs[];
+
+#ifdef CONFIG_VIDEO_JZ_CIM_HOST_V11
+struct jz_camera_pdata mensa_camera_pdata = {
 	.mclk_10khz = 2400,
-	.flags = 0,
-#ifdef CONFIG_FRONT_CAMERA
+	.flags = 0 ,
 	.cam_sensor_pdata[FRONT_CAMERA_INDEX] = {
 		.gpio_rst = CAMERA_SENSOR_RESET,
 		.gpio_power = CAMERA_FRONT_SENSOR_EN,
 	},
-#endif
 };
 
 static int camera_sensor_reset(struct device *dev) {
@@ -41,7 +40,6 @@ static int camera_sensor_reset(struct device *dev) {
 	return 0;
 }
 
-#ifdef CONFIG_SOC_CAMERA_OV5640_FRONT
 
 static int front_camera_sensor_power(struct device *dev, int on) {
 	/* enable or disable the camera */
@@ -52,8 +50,8 @@ static int front_camera_sensor_power(struct device *dev, int on) {
 }
 
 static struct soc_camera_link iclink_front = {
-	.bus_id		= 0,		/* Must match with the camera ID */
-	.board_info	= &mensa_i2c1_devs_v4l2[FRONT_CAMERA_INDEX],
+	.bus_id		= 1,		/* Must match with the camera ID */
+	.board_info	= &jz_i2c1_devs[FRONT_CAMERA_INDEX],
 	.i2c_adapter_id	= 1,
 	.power = front_camera_sensor_power,
 	.reset = camera_sensor_reset,
@@ -67,20 +65,19 @@ struct platform_device mensa_front_camera_sensor = {
 	},
 };
 #endif
-#endif
 
 static int __init mensa_board_cim_init(void) {
 	/* camera host */
 
-#ifdef CONFIG_VIDEO_JZ4780_CIM_HOST
-	jz_device_register(&jz_cim_device, &mensa_camera_pdata);
+#ifdef CONFIG_VIDEO_JZ_CIM_HOST_V11
+	jz_device_register(&jz_cim1_device, &mensa_camera_pdata);
 #endif
 	/* camera sensor */
-#ifdef CONFIG_FRONT_CAMERA
+#ifdef CONFIG_SOC_JZ_CIM1
 	platform_device_register(&mensa_front_camera_sensor);
 #endif
 
 	return 0;
 }
 
-arch_initcall(mensa_board_cim_init);
+core_initcall(mensa_board_cim_init);

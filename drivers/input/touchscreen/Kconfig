@@ -28,7 +28,7 @@ config TOUCHSCREEN_FT5336
 	  FocalTech FT5336GQQ TouchSreen Driver implemented by Ingenic.
 config TOUCHSCREEN_FT6X06
 	tristate "FocalTech FT6X06 TouchScreen driver"
-	depends on I2C && M200_SUPPORT_TSC && I2C0_V12_JZ
+	depends on I2C && I2C0_V12_JZ
 	default n
 	help
 	  pisecs FocalTech FT6X06 TouchSreen Driver implemented by Ingenic.

@@ -48,13 +48,14 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_JZMMC_V11_MMC2_PE_4BIT
 	MSC2_PORTE,
 #endif
-#if	(defined(CONFIG_I2C0_JZ4775) || defined(CONFIG_I2C0_DMA_JZ4775))
+
+#ifdef CONFIG_I2C0_V12_JZ
 	I2C0_PORTD,
 #endif
-#if	(defined(CONFIG_I2C1_JZ4775) || defined(CONFIG_I2C1_DMA_JZ4775))
+#ifdef CONFIG_I2C1_V12_JZ
 	I2C1_PORTE,
 #endif
-#if	(defined(CONFIG_I2C2_JZ4775) || defined(CONFIG_I2C2_DMA_JZ4775))
+#ifdef CONFIG_I2C2_V12_JZ
 	I2C2_PORTE,
 #endif
 #ifdef CONFIG_SERIAL_JZ47XX_UART0
@@ -298,10 +299,10 @@ DEF_MSC(0);
 DEF_MSC(1);
 DEF_MSC(2);
 
-#if (defined(CONFIG_I2C0_JZ4775) || defined(CONFIG_I2C1_JZ4775) ||	\
-		defined(CONFIG_I2C2_JZ4775))
-
+#if (defined(CONFIG_I2C0_V12_JZ) || defined(CONFIG_I2C1_V12_JZ) ||	\
+		defined(CONFIG_I2C2_V12_JZ))
 static u64 jz_i2c_dmamask =  ~(u32)0;
+
 #define DEF_I2C(NO)								\
 	static struct resource jz_i2c##NO##_resources[] = {			\
 		[0] = {								\
@@ -333,13 +334,13 @@ struct platform_device jz_i2c##NO##_device = {					\
 	.num_resources  = ARRAY_SIZE(jz_i2c##NO##_resources),			\
 	.resource       = jz_i2c##NO##_resources,				\
 };
-#ifdef CONFIG_I2C0_JZ4775
+#ifdef CONFIG_I2C0_V12_JZ
 DEF_I2C(0);
 #endif
-#ifdef CONFIG_I2C1_JZ4775
+#ifdef CONFIG_I2C1_V12_JZ
 DEF_I2C(1);
 #endif
-#ifdef CONFIG_I2C2_JZ4775
+#ifdef CONFIG_I2C2_V12_JZ
 DEF_I2C(2);
 #endif
 #endif
@@ -883,7 +884,7 @@ DEF_CIM(0);
 DEF_CIM(1);
 #endif
 
-#if defined(CONFIG_VIDEO_JZ4780_CIM_HOST)
+#if defined(CONFIG_VIDEO_JZ_CIM_HOST_V11)
 static struct resource jz_cim_resources[] = {
 	[0] = {
 		.flags = IORESOURCE_MEM,

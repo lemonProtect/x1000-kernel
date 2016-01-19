@@ -59,7 +59,7 @@ EXCLUSIVE_REGULATOR_DEF(
 
 EXCLUSIVE_REGULATOR_DEF(
 	vlcd,
-	"Vlcd",	"vlcd",		NULL,
+	"Vlcd",	"vlcd_1v8",		NULL,
 	NULL,	3300000,	0);
 
 #ifndef CONFIG_NAND

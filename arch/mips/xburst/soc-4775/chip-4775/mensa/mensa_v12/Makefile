@@ -1,10 +1,6 @@
-
 obj-$(CONFIG_REGULATOR_ACT8600) += regulator.o
-ifdef CONFIG_BM347WV_F_8991FTGF_HX8369
-obj-$(CONFIG_FB_JZ4780_LCDC0)		+= lcd-8991.o
-else
-obj-$(CONFIG_FB_JZ4780_LCDC0)		+= lcd.o
-endif
+
+obj-$(CONFIG_LCD_BYD_8991FTGF)		+= lcd-8991.o
 obj-$(CONFIG_FB_JZ4775_ANDROID_EPD)	+= mensa-epd.o
 obj-$(CONFIG_MTD_NAND_JZ4775)		+= nand-mtd.o
 obj-$(CONFIG_MMC)		+= mmc.o
@@ -14,5 +10,5 @@ obj-y += pm_slcd.o
 else
 obj-y += pm.o
 endif
-obj-$(CONFIG_VIDEO_JZ4780_CIM_HOST)     += mensa-cim.o
 obj-$(CONFIG_MTD_NAND_MIRCON_ACA)	+= nand_aca.o
+obj-$(CONFIG_SOC_CAMERA)     += mensa-cim.o

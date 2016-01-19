@@ -19,7 +19,6 @@ config VIDEO_JZ_CIM_HOST_V11
 	depends on VIDEO_DEV && VIDEO_V4L2 && SOC_CAMERA
 	select VIDEOBUF_DMA_CONTIG
 	select V4L2_MEM2MEM_DEV
-	select SOC_JZ_CIM0
 	help
 		This is a v4l2 driver for OV camera(jz4775/4780).
 

@@ -17,27 +17,7 @@
 #define GPIO_SD0_VCC_EN_N	GPIO_PB(3)
 #define GPIO_SD0_CD_N		GPIO_PB(2)
 
-extern struct jzmmc_platform_data inand_pdata;
-extern struct jzmmc_platform_data tf_pdata;
-extern struct jzmmc_platform_data sdio_pdata;
 
-#ifdef CONFIG_FB_JZ4780_LCDC0
-extern struct jzfb_platform_data jzfb0_pdata;
-#endif
-#ifdef CONFIG_FB_JZ4780_LCDC1
-extern struct jzfb_platform_data jzfb1_pdata;
-#endif
-/* panel and bl platform device */
-#ifdef CONFIG_LCD_KFM701A21_1A
-extern struct platform_device kfm701a21_1a_device;
-#endif
-
-#ifdef CONFIG_MTD_NAND_JZ
-extern struct platform_device jz_mtd_nand_device;
-#ifdef CONFIG_MTD_NAND_JZ_NORMAL
-extern struct xburst_nand_chip_platform_data nand_chip_data;
-#endif
-#endif	/*CONFIG_MTD_NAND_JZ*/
 
 
 /**
@@ -58,7 +38,7 @@ extern struct xburst_nand_chip_platform_data nand_chip_data;
 /**
  * TP gpio
  **/
-#define GPIO_TP_WAKE		GPIO_PB(28)
+#define GPIO_TP_RESET		GPIO_PB(28)
 #define GPIO_TP_INT		GPIO_PB(29)
 
 #define GPIO_HP_MUTE		-1	/*hp mute gpio*/
@@ -135,42 +115,5 @@ extern struct xburst_nand_chip_platform_data nand_chip_data;
 #define JZ_PMEM_ADSP_BASE   0x0         // 0x3e000000
 #define JZ_PMEM_ADSP_SIZE   0x02000000
 
-/**
- * sound platform data
- **/
-//extern struct snd_codec_data codec_data;
-
-extern struct platform_device backlight_device;
-
-#ifdef CONFIG_LCD_BYD_BM8766U
-extern struct platform_device byd_bm8766u_device;
-#endif
-
-#ifdef CONFIG_BM347WV_F_8991FTGF_HX8369
-extern struct platform_device byd_8991_device;
-#endif
-
-#ifdef CONFIG_BCM4330_RFKILL
-extern struct platform_device bcm4330_bt_power_device;
-#endif
-
-#ifdef CONFIG_LCD_KD50G2_40NM_A2
-extern struct platform_device kd50g2_40nm_a2_device;
-#endif
-
-/**
- * Digital pulse backlight
- **/
-#ifdef CONFIG_BACKLIGHT_DIGITAL_PULSE
-extern struct platform_device digital_pulse_backlight_device;
-extern struct platform_digital_pulse_backlight_data bl_data;
-#endif
-
-
-#ifdef CONFIG_FB_JZ4775_ANDROID_EPD
-extern struct platform_device jz_epdce_device;
-extern struct platform_device jz_epd_device;
-extern struct jz_epd_platform_data jz_epd_pdata;
-#endif
 
 #endif /* __BOARD_H__ */

@@ -765,47 +765,6 @@ config I2C_RCAR
 	  This driver can also be built as a module.  If so, the module
 	  will be called i2c-rcar.
 
-config I2C1_DMA_JZ4775
-	tristate "jz4775 i2c controler 1 dma Interface support"
-	depends on SOC_4775
-
-config I2C1_SPEED
-	int "Jz4775 i2c1 speed in KHZ"
-	range 100 400
-	default 100
-    depends on I2C1_JZ4775 || I2C1_DMA_JZ4775
-	help
-	  Select Jz4775 i2c speed.
-	  Examples:
-                 300 =>  300 KHZ
-
-config I2C2_JZ4775
-	tristate "jz4775 i2c controler 2 Interface support"
-	depends on SOC_4775
-
-config I2C2_DMA_JZ4775
-	tristate "jz4775 i2c controler 2 dma Interface support"
-	depends on SOC_4775
-
-config I2C2_SPEED
-	int "Jz4775 i2c2 speed in KHZ"
-	range 100 400
-	default 100
-    depends on I2C2_JZ4775 || I2C2_DMA_JZ4775
-	help
-	  Select Jz4775 i2c speed.
-	  Examples:
-                 300 =>  300 KHZ
-
-config I2C_JZ4775_WAIT_MS
-	int "Jz4775 i2c bus wait time in ms"
-	range 10 1000
-	default 200
-    depends on I2C0_JZ4775 || I2C1_JZ4775 || I2C2_JZ4775 || I2C0_DMA_JZ4775 || I2C1_DMA_JZ4775 || I2C2_DMA_JZ4775
-	help
-	  Select Jz4775 bus wait time in ms.
-	  Examples:
-		100 => 100 ms
 
 comment "Xburst soc 4780 internal i2c controller"
 	depends on SOC_4780

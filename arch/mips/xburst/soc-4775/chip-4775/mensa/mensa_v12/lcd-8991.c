@@ -7,7 +7,7 @@
 
 #include "board.h"
 
-#ifdef CONFIG_BM347WV_F_8991FTGF_HX8369
+#ifdef CONFIG_LCD_BYD_8991FTGF
 #include <linux/byd_8991.h>
 static struct platform_byd_8991_data byd_8991_pdata= {
 	.gpio_lcd_disp  = GPIO_PB(30),
