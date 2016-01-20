@@ -37,8 +37,7 @@
 
 #include"jz_sfcnand.h"
 
-#define SWAP_BUF_SIZE (4 * 1024)
-//#define SFC_DEBUG
+#define SFC_SWAP_BUF_SIZE (2 * 1024)
 #define GET_PHYADDR(a)                                          \
 ({                                              \
 	 unsigned int v;                                        \
@@ -58,132 +57,19 @@
 #endif
 
 #define MAX_ADDR_LEN 4
-#define JZ_NOR_INIT(cmd1,addr_len1,daten1,pollen1,M7_01,dummy_byte1,dma_mode1) \
-{										\
-	.cmd = cmd1,                \
-	.addr_len = addr_len1,        \
-	.daten = daten1,               \
-	.pollen = pollen1,           \
-	.M7_0 = M7_01,              \
-	.dummy_byte = dummy_byte1,   \
-	.dma_mode = dma_mode1,      \
-}
-
-#define JZ_NOR_REG   \
-	JZ_NOR_INIT(CMD_WREN,0,0,0,0,0,0), \
-	JZ_NOR_INIT(CMD_WRDI,0,0,0,0,0,0), \
-	JZ_NOR_INIT(CMD_RDSR,0,1,0,0,0,1),\
-	JZ_NOR_INIT(CMD_RDSR_1,0,1,0,0,0,1),\
-	JZ_NOR_INIT(CMD_RDSR_2,0,1,0,0,0,1),\
-	JZ_NOR_INIT(CMD_WRSR,0,1,0,0,0,0),\
-	JZ_NOR_INIT(CMD_WRSR_1,0,1,0,0,0,0),\
-	JZ_NOR_INIT(CMD_WRSR_2,0,1,0,0,0,0),\
-	JZ_NOR_INIT(CMD_READ,3,1,0,0,0,1),\
-	JZ_NOR_INIT(CMD_DUAL_READ,3,1,0,0,8,1),\
-	JZ_NOR_INIT(CMD_QUAD_READ,3,1,0,0,8,1),\
-	JZ_NOR_INIT(CMD_QUAD_IO_FAST_READ,4,1,0,1,4,1),\
-	JZ_NOR_INIT(CMD_QUAD_IO_WORD_FAST_READ,4,1,0,1,2,1),\
-	JZ_NOR_INIT(CMD_PP,3,1,0,0,0,1),\
-	JZ_NOR_INIT(CMD_QPP,3,1,0,0,0,1),\
-	JZ_NOR_INIT(CMD_BE_32K,3,0,0,0,0,0),\
-	JZ_NOR_INIT(CMD_BE_64K,3,0,0,0,0,0),\
-	JZ_NOR_INIT(CMD_SE,3,0,0,0,0,0),\
-	JZ_NOR_INIT(CMD_CE,0,0,0,0,0,0),\
-	JZ_NOR_INIT(CMD_DP,0,0,0,0,0,0),\
-	JZ_NOR_INIT(CMD_RES,0,0,0,0,0,0),\
-	JZ_NOR_INIT(CMD_REMS,0,0,0,0,0,0),\
-	JZ_NOR_INIT(CMD_RDID,0,1,0,0,0,0), \
-	JZ_NOR_INIT(CMD_FAST_READ,3,1,0,0,8,1), \
-	JZ_NOR_INIT(CMD_NON,0,0,0,0,0,0)
 #define THRESHOLD                       31
 
+#define STATUS_SUSPND    (1<<0)
+#define R_MODE                  0x1
+#define W_MODE                  0x2
+#define RW_MODE                 (R_MODE | W_MODE)
+#define THRESHOLD                       31
 
-struct sfc_nor_info jz_sfc_nor_info[] = {
-//	JZ_NAND_REG,
-	JZ_NOR_REG,
-};
-
-static  u_char *command_write;
-int jz_nor_info_num = ARRAY_SIZE(jz_sfc_nor_info);
-/* Max time can take up to 3 seconds! */
-#define MAX_READY_WAIT_TIME 3000    /* the time of erase BE(64KB) */
 
 struct mtd_partition *jz_mtd_partition;
 struct spi_nor_platform_data *board_info;
 int quad_mode = 0;
 
-static unsigned int cpu_write_txfifo(struct jz_sfc_nand *flash)
-{
-	int i;
-	unsigned long  len = (flash->sfc_tran->len + 3) / 4;
-	unsigned int write_tofifo_num = 0;
-	if ((len - flash->sfc_tran->finally_len) > THRESHOLD)
-		write_tofifo_num = THRESHOLD;
-	else {
-		write_tofifo_num = len - flash->sfc_tran->finally_len;
-	}
-	for(i = 0; i < write_tofifo_num; i++) {
-		sfc_write_data(flash, (flash->sfc_tran->tx_buf));
-		flash->sfc_tran->tx_buf++;
-		flash->sfc_tran->finally_len ++;
-	}
-	if(len == flash->sfc_tran->finally_len){
-		print_dbg("transfer ok\n");
-		flash->sfc_tran->finally_len = flash->sfc_tran->len;
-		return flash->sfc_tran->finally_len;
-	}
-	return -1;
-}
-static unsigned int cpu_read_rxfifo(struct jz_sfc_nand *flash)
-{
-	int i;
-	unsigned long  len = (flash->sfc_tran->len + 3) / 4 ;
-	unsigned int fifo_num = 0;
-	fifo_num = sfc_fifo_num(flash);
-	if (fifo_num > THRESHOLD)
-		fifo_num = THRESHOLD;
-	for(i = 0; i < fifo_num; i++) {
-		sfc_read_data(flash, (flash->sfc_tran->rx_buf));
-		flash->sfc_tran->rx_buf++;
-		flash->sfc_tran->finally_len ++;
-	}
-	if(len == flash->sfc_tran->finally_len){
-		print_dbg("recive ok\n");
-		//              sfc_flush_fifo(flash);
-		flash->sfc_tran->finally_len = flash->sfc_tran->len;
-		return flash->sfc_tran->finally_len;
-	}
-	return -1;
-}
-static  struct sfc_nor_info * check_cmd(int cmd)
-{
-	int i = 0;
-	for(i = 0;i < jz_nor_info_num ;i++){
-		if(jz_sfc_nor_info[i].cmd == cmd){
-			return &jz_sfc_nor_info[i];
-		}
-	}
-
-	return &jz_sfc_nor_info[i - 1];
-}
-
-#define SPI_BITS_8		8
-#define SPI_BITS_16		16
-#define SPI_BITS_24		24
-#define SPI_BITS_32		32
-#define SPI_8BITS		1
-#define SPI_16BITS		2
-#define SPI_32BITS		4
-#define STATUS_SUSPND    (1<<0)
-#define STATUS_BUSY   (1<<1)
-#define R_MODE			0x1
-#define W_MODE			0x2
-#define RW_MODE			(R_MODE | W_MODE)
-#define MODEBITS			(SPI_CPOL | SPI_CPHA | SPI_CS_HIGH)
-#define SPI_BITS_SUPPORT		(SPI_BITS_8 | SPI_BITS_16 | SPI_BITS_24 | SPI_BITS_32)
-#define NUM_CHIPSELECT			8
-#define BUS_NUM				0
-#define THRESHOLD			31
 
 
 struct jz_sfc_nand *to_jz_spi_nand(struct mtd_info *mtd_info)
@@ -293,44 +179,29 @@ static int sfc_pio_transfer(struct jz_sfc_nand *flash)
 		sfc_transfer_direction(flash, GLB_TRAN_DIR_WRITE);
 	}
 	sfc_mode(flash,0,flash->sfc_tran->sfc_cmd.transmode);   //现好使再说一会再提控制器I/O传输模式
-/*	if(flash->nor_info->pollen){
-		if(flash->nor_info->cmd == CMD_RDSR){
-			//sfc_set_length(flash, 0);
-			sfc_set_length(flash, 0);
-			sfc_dev_sta_exp(flash,0);
-			sfc_dev_sta_msk(flash,0x1);
-		}
-		if(flash->nor_info->cmd == CMD_RDSR_1){
-			//sfc_set_length(flash, 0);
-			sfc_set_length(flash, 0);
-			sfc_dev_sta_exp(flash,2);
-			sfc_dev_sta_msk(flash,0x2);
-		}
-	}
-*/
 	sfc_enable_all_intc(flash);
 	sfc_start(flash);
 	return 0;
 }
+
 static int jz_sfc_pio_txrx(struct jz_sfc_nand *flash, struct sfc_transfer_nand *t)
 {
 	int ret;
 	unsigned long flags;
-	int tmp_cmd = 0;
 	int err = 0;
 	print_dbg("function : %s, line : %d\n", __func__, __LINE__);
 	if((t->tx_buf == NULL) && (t->rx_buf == NULL)&&(t->date_en)) {
 		dev_info(flash->dev, "the tx and rx buf of spi_transfer is NULL !\n");
-		return 0;
+		return -EINVAL;
 	}
 	if((!t->rx_buf)&&(t->rw_mode==R_MODE)){
 		printk("please check the read buf is NULL\n");
-		return 0;
+		return -EINVAL;
 	}
 	if((t->tx_buf==NULL)&&(t->rw_mode==W_MODE))
 	{
 		printk("please check the write buf is NULL\n");
-		return 0;
+		return -EINVAL;
 	}
 	spin_lock_irqsave(&flash->lock_rxtx, flags);
 	flash->sfc_tran=t;
@@ -356,16 +227,7 @@ static int jz_sfc_pio_txrx(struct jz_sfc_nand *flash, struct sfc_transfer_nand *
         if(flash->use_dma == 1)
 	{
                 flash->sfc_tran->finally_len=flash->sfc_tran->len;
-		return 0;
 	}
-        if(flash->sfc_tran->finally_len != flash->sfc_tran->len){
-             printk("the length is not mach,flash->rlen = %d,flash->len = %d,return !\n",flash->sfc_tran->finally_len,flash->sfc_tran->len);
-                if(flash->sfc_tran->finally_len < flash->sfc_tran->len)
-                            flash->sfc_tran->finally_len = flash->sfc_tran->len;
-                else
-                        return EINVAL;
-
-        }
         return 0;
 }
 
@@ -386,38 +248,16 @@ static irqreturn_t jz_sfc_pio_irq_callback(struct jz_sfc_nand *flash)
 	}
 	if (rxfifo_rreq(flash)) {
 		sfc_clear_rreq_intc(flash);
-		//flush_work(&flash->rw_work);
-		//queue_work(flash->workqueue, &flash->rw_work);
-		cpu_read_rxfifo(flash);
 		return IRQ_HANDLED;
 	}
 	if (txfifo_treq(flash)) {
 		sfc_clear_treq_intc(flash);
-		//flush_work(&flash->rw_work);
-		//queue_work(flash->workqueue, &flash->rw_work);
-		cpu_write_txfifo(flash);
 		return IRQ_HANDLED;
 	}
 	if(sfc_end(flash)){
 		sfc_clear_end_intc(flash);
-		/*this is a bug that the sfc_real_time_register
-		* not be the value we want
-		* to get , so we have to
-		* fource a value to the spi device driver
-		*
-		* */
-	/*if(flash->nor_info->pollen){
-		if(flash->rx){
-			if(flash->nor_info->cmd == CMD_RDSR)
-				*(flash->rx) = 0x0;
-			if(flash->nor_info->cmd == CMD_RDSR_1)
-				*(flash->rx) = 0x2;
-				flash->sfc_transfer_nand->finally_len = flash->sfc_transfer_nand->len;
-		}
-	}
-*/
-	complete(&flash->done);
-	return IRQ_HANDLED;
+		complete(&flash->done);
+		return IRQ_HANDLED;
 	}
 /*err_no_clk:
         clk_put(flash->clk_gate);
@@ -444,13 +284,13 @@ static irqreturn_t jz_sfc_irq(int irq, void *dev)
 struct jz_spi_support *jz_sfc_nand_probe(struct jz_sfc_nand *flash)
 {
 	int ret,i;
-	unsigned int id = 0;
 	unsigned char rx_chipid[4];
 	struct sfc_transfer_nand transfer[1];
 	struct jz_spi_support *params;
 	struct jz_spi_support *jz_spi_nand_support_table;
 	mutex_lock(&flash->lock);
-	int num_spi_flash=((struct jz_spi_nand_platform_data *)(flash->pdata->board_info))->num_spi_flash;
+	int number_spi_flash;
+	number_spi_flash=((struct jz_spi_nand_platform_data *)(flash->pdata->board_info))->num_spi_flash;
 	jz_spi_nand_support_table=((struct jz_spi_nand_platform_data *)(flash->pdata->board_info))->jz_spi_support;
 	transfer[0].sfc_cmd.cmd=CMD_RDID;
 	transfer[0].sfc_cmd.addr_low=0;
@@ -469,17 +309,21 @@ struct jz_spi_support *jz_sfc_nand_probe(struct jz_sfc_nand *flash)
 	transfer[0].pollen=0;
 	transfer[0].rw_mode=R_MODE;
 	transfer[0].sfc_mode=0;
-	jz_sfc_pio_txrx(flash,transfer);
+	ret=jz_sfc_pio_txrx(flash,transfer);
+	if(ret<0){
+		printk("error in spi transfer.%s %s %d \n",__FILE__,__func__,__LINE__);
+		params=NULL;
+		goto probe_exit;
+	}
 	printk("-----------read chip id------------\n");
-	for (i = 0; i < num_spi_flash; i++) {
+	for (i = 0; i < number_spi_flash; i++) {
 		params = &jz_spi_nand_support_table[i];
 		if ( params->id_manufactory == rx_chipid[0]*256+rx_chipid[1] )
 			break;
 	}
-	if (i >= num_spi_flash) {
+	if (i >= number_spi_flash) {
 		printk("ingenic: Unsupported ID %02x,%02x\n", rx_chipid[0],rx_chipid[1]);
-		mutex_unlock(&flash->lock);
-		return NULL;
+		goto probe_exit;
 	}
 #if 0
 	printk("**************************************************************\n");
@@ -497,6 +341,7 @@ struct jz_spi_support *jz_sfc_nand_probe(struct jz_sfc_nand *flash)
 	printk("column_cmdaddr_bits=%d\n",params->column_cmdaddr_bits);
 	printk("**************************************************************\n");
 #endif
+probe_exit:
 	mutex_unlock(&flash->lock);
 	return params;
 }
@@ -521,7 +366,7 @@ static int jz_sfc_init_setup(struct jz_sfc_nand *flash)
 		//              printk("############## the cpm = %x\n",*(volatile unsigned int*)(0xb0000074));
 		sfc_smp_delay(flash,DEV_CONF_HALF_CYCLE_DELAY);
 	}
-	flash->swap_buf = kmalloc(SWAP_BUF_SIZE + PAGE_SIZE,GFP_KERNEL);
+	flash->swap_buf = kmalloc(SFC_SWAP_BUF_SIZE + PAGE_SIZE,GFP_KERNEL);
 	if(flash->swap_buf == NULL){
 		dev_err(flash->dev,"alloc mem error\n");
 		return ENOMEM;
@@ -535,9 +380,7 @@ static int jz_sfc_init_setup(struct jz_sfc_nand *flash)
 static int jz_sfc_nandflash_write_enable(struct jz_sfc_nand *flash)
 {
 
-        int ret,i;
-        unsigned int id = 0;
-        unsigned char rx_chipid[4];
+        int ret;
         struct sfc_transfer_nand transfer[1];
         transfer[0].sfc_cmd.cmd=SPINAND_CMD_WREN;
         transfer[0].sfc_cmd.addr_low=0;
@@ -556,16 +399,13 @@ static int jz_sfc_nandflash_write_enable(struct jz_sfc_nand *flash)
         transfer[0].pollen=0;
         transfer[0].rw_mode=0;
         transfer[0].sfc_mode=0;
-        jz_sfc_pio_txrx(flash,transfer);
-	return 0;
+        ret=jz_sfc_pio_txrx(flash,transfer);
+	return ret;
 }
-static int jz_sfc_nandflash_get_status(struct jz_sfc_nand *flash)
+static int jz_sfc_nandflash_get_status(struct jz_sfc_nand *flash,u8 *status)
 {
         int ret;
-        unsigned int id = 0;
-        unsigned char rx_chipid[4];
         struct sfc_transfer_nand transfer[1];
-	u8 status;
         transfer[0].sfc_cmd.cmd=SPINAND_CMD_GET_FEATURE;
         transfer[0].sfc_cmd.addr_low=SPINAND_FEATURE_ADDR;
         transfer[0].sfc_cmd.addr_high=0;
@@ -576,7 +416,7 @@ static int jz_sfc_nandflash_get_status(struct jz_sfc_nand *flash)
         flash->use_dma=1;
 
         transfer[0].tx_buf  = NULL;
-        transfer[0].rx_buf =  &status;
+        transfer[0].rx_buf =  status;
         transfer[0].len=1;
         transfer[0].date_en=1;
         transfer[0].dma_mode=DMA_MODE;
@@ -584,25 +424,18 @@ static int jz_sfc_nandflash_get_status(struct jz_sfc_nand *flash)
         transfer[0].rw_mode=R_MODE;
         transfer[0].sfc_mode=0;
         transfer[0].finally_len=0;
-        jz_sfc_pio_txrx(flash,transfer);
-
-	ret=flash->sfc_tran->finally_len;
-        if(ret != transfer[0].len){
-                dev_err(flash->dev,"the transfer length is error,%d,%s\n",__LINE__,__func__);
-		return -1;
-	}
-	return status;
+        ret=jz_sfc_pio_txrx(flash,transfer);
+	return ret;
 }
 static int jz_sfc_nandflash_erase_blk(struct jz_sfc_nand *flash,uint32_t addr)
 {
 	 int ret;
+	 u8 status;
         struct sfc_transfer_nand transfer[1];
         int page = addr / flash->mtd.writesize;
         int timeout = 2000;
 
-        ret = jz_sfc_nandflash_write_enable(flash);
-	if(ret)
-		return ret;
+        jz_sfc_nandflash_write_enable(flash);
 	switch(flash->mtd.erasesize){
 		case SPINAND_OP_BL_128K:
 			transfer[0].sfc_cmd.cmd = SPINAND_CMD_ERASE_128K;
@@ -628,62 +461,60 @@ static int jz_sfc_nandflash_erase_blk(struct jz_sfc_nand *flash,uint32_t addr)
         transfer[0].pollen=0;
         transfer[0].rw_mode=0;
         transfer[0].sfc_mode=0;
-        jz_sfc_pio_txrx(flash,transfer);
+        ret=jz_sfc_pio_txrx(flash,transfer);
+	if(ret<0)
+		return ret;
 //	msleep((flash->tBERS + 999) / 1000);
         do{
-                ret = jz_sfc_nandflash_get_status(flash);
+                ret=jz_sfc_nandflash_get_status(flash,&status);
+		if(ret<0)return ret;
                 timeout--;
-        }while((ret & SPINAND_IS_BUSY) && (timeout > 0));
-        if(ret & E_FALI){
+        }while((status & SPINAND_IS_BUSY) && (timeout > 0));
+	if(timeout<=0)return -ETIMEDOUT;
+        if(status & E_FALI){
                 pr_info("Erase error,get state error ! %s %s %d \n",__FILE__,__func__,__LINE__);
-                return -1;
+                return -EIO;
         }
-
         return 0;
 
 }
 static int jz_sfc_nandflash_erase(struct mtd_info *mtd, struct erase_info *instr)
 {
-        int ret,i;
+        int ret;
         uint32_t addr, end;
         int check_addr;
         struct jz_sfc_nand *flash;
 	flash=to_jz_spi_nand(mtd);
-        mutex_lock(&flash->lock);
         check_addr = ((unsigned int)instr->addr) % (mtd->erasesize);
         if (check_addr) {
                 pr_info("%s line %d eraseaddr no align\n", __func__,__LINE__);
-		mutex_unlock(&flash->lock);
                 return -EINVAL;
         }
         addr = (uint32_t)instr->addr;
         end = addr + (uint32_t)instr->len;
-        if(end > mtd->size){
-                pr_info("ERROR: the erase addr over the spi_nand size !!! %s %s %d \n",__FILE__,__func__,__LINE__);
-                return -EINVAL;
-        }
-        while (addr < end) {
+	instr->state = MTD_ERASING;;
+        mutex_lock(&flash->lock);
+	while (addr < end) {
                 ret = jz_sfc_nandflash_erase_blk(flash, addr);
                 if (ret) {
                         pr_info("spi nand erase error blk id  %d !\n",addr / mtd->erasesize);
-			mutex_unlock(&flash->lock);
                         instr->state = MTD_ERASE_FAILED;
+			goto erase_exit;
                 }
-
                 addr += mtd->erasesize;
         }
         mutex_unlock(&flash->lock);
-
         instr->state = MTD_ERASE_DONE;
+erase_exit:
         mtd_erase_callback(instr);
-
-	return 0;
+	return ret;
 }
 size_t jz_sfc_nandflash_read_ops(struct jz_sfc_nand *flash,u_char *buffer,int page, int column,size_t rlen,size_t *rel_rlen)
 {
         int ret,timeout = 2000;
+	int read_ret=0;
 	struct sfc_transfer_nand transfer[1];
-
+	u8 status;
 	memset(transfer,0,sizeof(struct sfc_transfer_nand));
 	transfer[0].sfc_cmd.cmd=SPINAND_CMD_PARD;
 	transfer[0].sfc_cmd.addr_low=page;
@@ -702,17 +533,23 @@ size_t jz_sfc_nandflash_read_ops(struct jz_sfc_nand *flash,u_char *buffer,int pa
 	transfer[0].pollen=0;
 	transfer[0].rw_mode=0;
 	transfer[0].sfc_mode=0;
-	jz_sfc_pio_txrx(flash,transfer);
+	ret=jz_sfc_pio_txrx(flash,transfer);
+	if(ret<0)
+		return ret;
 //	udelay(flash->tRD);
         do{
-                ret = jz_sfc_nandflash_get_status(flash);
+                ret = jz_sfc_nandflash_get_status(flash,&status);
+		if(ret<0)
+			return ret;
                 timeout--;
-        }while((ret & SPINAND_IS_BUSY) && (timeout > 0));
-        if((ret & 0x30) == 0x20) {
-		mutex_unlock(&flash->lock);
+        }while((status & SPINAND_IS_BUSY) && (timeout > 0));
+	if(timeout <=0)return -ETIMEDOUT;
+	status=(status>>4)&0x03;
+        if(status == 0x2) {
                 pr_info("spi nand read error page %d column = %d ret = %02x !!! %s %s %d \n",page,column,ret,__FILE__,__func__,__LINE__);
                 return -EBADMSG;
         }
+	if(status==3)status--;
         switch(flash->column_cmdaddr_bits){
                 case 24:
 			memset(transfer,0,sizeof(struct sfc_transfer_nand));
@@ -728,7 +565,7 @@ size_t jz_sfc_nandflash_read_ops(struct jz_sfc_nand *flash,u_char *buffer,int pa
                         break;
                 default:
                         pr_info("can't support the format of column addr ops !!\n");
-                        break;
+			return -EINVAL;
         }
         transfer[0].sfc_cmd.dummy_byte=0;
         transfer[0].sfc_cmd.cmd_len=1;
@@ -744,176 +581,142 @@ size_t jz_sfc_nandflash_read_ops(struct jz_sfc_nand *flash,u_char *buffer,int pa
         transfer[0].rw_mode=R_MODE;
 	transfer[0].sfc_mode=0;
 
-	flash->sfc_tran->finally_len=jz_sfc_pio_txrx(flash,transfer);
+	ret=jz_sfc_pio_txrx(flash,transfer);
 	*rel_rlen=flash->sfc_tran->finally_len;
-        return 0;
+	if(ret<0)
+		return ret;
+	else
+		return status;
 }
-static int jz_sfc_nandflash_read(struct mtd_info *mtd,loff_t addr,int column,size_t len,u_char *buf,size_t *retlen)
+
+static int jz_sfc_nandflash_read(struct mtd_info *mtd,loff_t addr,size_t len,u_char *buf,size_t *retlen)
 {
-	int ret,read_num,i,rlen,page=0;
-        int page_size = mtd->writesize;
         struct jz_sfc_nand *flash;
+        int ret;
+	int column;
+        unsigned int rlen,page=0;
+        int page_size = mtd->writesize;
         u_char *buffer = buf;
-        size_t page_overlength;
-        size_t ops_addr;
-        size_t ops_len,rel_rlen = 0;
-        if(addr > mtd->size){
-                pr_info("ERROR:the read addr over the spi_nand size !!! %s %s %d \n",__FILE__,__func__,__LINE__);
-                return -EINVAL;
-        }
-	flash=to_jz_spi_nand(mtd);
+        unsigned int  ops_addr=(unsigned int)addr;
+        size_t rel_rlen = 0;
+        size_t ops_len = len;
+
+        flash=to_jz_spi_nand(mtd);
         mutex_lock(&flash->lock);
-
-
-        if(column){
-                ops_addr = (unsigned int)addr;
-                ops_len = len;
-                if(len <= (page_size - column))
-                        page_overlength = len;
-                else
-                        page_overlength = page_size - column;/*random read but len over a page */
-                while(ops_addr < addr + len){
-                        page = ops_addr / page_size;
-                        if(page_overlength){
-                                ret = jz_sfc_nandflash_read_ops(flash,buffer,page,column,page_overlength,&rel_rlen);
-				if(ret<0)
-				{
-					mutex_unlock(&flash->lock);
-					return ret;
-				}
-                                ops_len -= page_overlength;
-                                buffer += page_overlength;
-                                ops_addr += page_overlength;
-                                page_overlength = 0;
-                        }else{
-                                column = 0;
-                                if(ops_len >= page_size)
-                                        rlen = page_size;
-                                else
-                                        rlen = ops_len;
-                                ret = jz_sfc_nandflash_read_ops(flash,buffer,page,column,rlen,&rel_rlen);
-				if(ret<0)
-				{
-					mutex_unlock(&flash->lock);
-					return ret;
-				}
-                                buffer += rlen;
-                                ops_len -= rlen;
-                                ops_addr += rlen;
-                        }
-                        *retlen += rel_rlen;
-                }
-        }else{
-			read_num = (len + page_size - 1) / page_size;
-                page = ((unsigned int)addr) / mtd->writesize;
-                for(i = 0; i < read_num; i++){
-                        if(len >= page_size)
-                                rlen = page_size;
-                        else
-                                rlen = len;
-                        ret = jz_sfc_nandflash_read_ops(flash,buffer,page,column,rlen,&rel_rlen);
-			if(ret<0)
-			{
-				mutex_unlock(&flash->lock);
-				return ret;
-			}
-                        buffer += rlen;
-                        len -= rlen;
-                        page++;
-                        *retlen += rel_rlen;
-                }
+        while(1)
+        {
+                column=ops_addr%page_size;
+                page=ops_addr/page_size;
+                rlen=min_t(unsigned int,ops_len,page_size-column);
+                ret = jz_sfc_nandflash_read_ops(flash,flash->swap_buf,page,column,rlen,&rel_rlen);
+                memcpy(buffer,flash->swap_buf,rlen);
+                if(ret<0)break;
+                ops_len=ops_len-rlen;
+                ops_addr=ops_addr+rlen;
+                buffer=buffer+rlen;
+                *retlen+=rlen;                  //check use ret_rlen
+                if(ops_len==0)break;
+                else if (ops_len<0){printk("text read error!\n");break;}
         }
         mutex_unlock(&flash->lock);
         return ret;
 }
-static size_t jz_sfc_nandflash_write(struct mtd_info *mtd,loff_t addr,int column,size_t len,u_char *buf)
+
+static size_t jz_sfc_nandflash_write(struct mtd_info *mtd,loff_t addr,size_t len,u_char *buf,int *retlen)
 {
-	size_t retlen = 0;
-        int write_num,page_size,wlen = 0,i;
+        int page_size=mtd->writesize;
+	int wlen = 0;
         struct jz_sfc_nand *flash;
-        int page = ((unsigned int )addr) / mtd->writesize;
+	int column;
+	int ops_addr=(unsigned int) addr;
+	int ops_len=len;
         u_char *buffer = buf;
+	int page=0;
 	int ret,timeout = 2000;
+	u8 status;
 	struct sfc_transfer_nand transfer[1];
 	if(addr & (mtd->writesize - 1)){
                 pr_info("wirte add don't align ,error ! %s %s %d \n",__FILE__,__func__,__LINE__);
                 return -EINVAL;
         }
-
-        if(addr > mtd->size){
-                pr_info("ERROR:the Write addr over the spi_nand size !!! %s %s %d \n",__FILE__,__func__,__LINE__);
-                return -EINVAL;
-        }
+	*retlen=0;
 	flash = to_jz_spi_nand(mtd);
         mutex_lock(&flash->lock);
 
-        page_size = mtd->writesize;
-        write_num = (len + page_size - 1) / (page_size);
+        while(1){
+		page=ops_addr/page_size;
+		column=ops_addr%page_size;
+		wlen=min_t(int,page_size-column,ops_len);
+		memcpy(flash->swap_buf,buffer,wlen);
+        	memset(transfer,0,sizeof(struct sfc_transfer_nand));
+        	transfer[0].sfc_cmd.cmd=SPINAND_CMD_PRO_LOAD;
+        	transfer[0].sfc_cmd.addr_low=column;
+        	transfer[0].sfc_cmd.addr_high=0;
+        	transfer[0].sfc_cmd.dummy_byte=0;
+        	transfer[0].sfc_cmd.addr_len=2;
+        	transfer[0].sfc_cmd.cmd_len=1;
+        	transfer[0].sfc_cmd.transmode=0;
+        	transfer[0].finally_len=0;
 
-        for(i = 0; i < write_num; i++){
+        	transfer[0].tx_buf = flash->swap_buf;
+        	transfer[0].rx_buf = NULL;
+        	transfer[0].len=wlen;
+        	transfer[0].date_en=1;
+        	transfer[0].dma_mode=DMA_MODE;
+        	transfer[0].pollen=0;
+        	transfer[0].rw_mode=W_MODE;
+        	transfer[0].sfc_mode=0;
+		ret=jz_sfc_pio_txrx(flash,transfer);
+		if(ret<0){
+			goto write_exit;
+		}
+		jz_sfc_nandflash_write_enable(flash);
 
-                if(len >= page_size)
-                        wlen = page_size;
-                else
-                        wlen = len;
+	        memset(transfer,0,sizeof(struct sfc_transfer_nand));
+	        transfer[0].sfc_cmd.cmd=SPINAND_CMD_PRO_EN;
+	        transfer[0].sfc_cmd.addr_low=page;
+	        transfer[0].sfc_cmd.addr_high=0;
+	        transfer[0].sfc_cmd.dummy_byte=0;
+	        transfer[0].sfc_cmd.addr_len=3;
+	        transfer[0].sfc_cmd.cmd_len=1;
+	        transfer[0].sfc_cmd.transmode=0;
+	        transfer[0].finally_len=0;
 
-        memset(transfer,0,sizeof(struct sfc_transfer_nand));
-        transfer[0].sfc_cmd.cmd=SPINAND_CMD_PRO_LOAD;
-        transfer[0].sfc_cmd.addr_low=column;
-        transfer[0].sfc_cmd.addr_high=0;
-        transfer[0].sfc_cmd.dummy_byte=0;
-        transfer[0].sfc_cmd.addr_len=2;
-        transfer[0].sfc_cmd.cmd_len=1;
-        transfer[0].sfc_cmd.transmode=0;
-        transfer[0].finally_len=0;
-
-        transfer[0].tx_buf = buffer;
-        transfer[0].rx_buf = NULL;
-        transfer[0].len=wlen;
-        transfer[0].date_en=1;
-        transfer[0].dma_mode=DMA_MODE;
-        transfer[0].pollen=0;
-        transfer[0].rw_mode=W_MODE;
-        transfer[0].sfc_mode=0;
-	ret=jz_sfc_pio_txrx(flash,transfer);
-	retlen += wlen;/* delete the len of command */
-	jz_sfc_nandflash_write_enable(flash);
-
-        memset(transfer,0,sizeof(struct sfc_transfer_nand));
-        transfer[0].sfc_cmd.cmd=SPINAND_CMD_PRO_EN;
-        transfer[0].sfc_cmd.addr_low=page;
-        transfer[0].sfc_cmd.addr_high=0;
-        transfer[0].sfc_cmd.dummy_byte=0;
-        transfer[0].sfc_cmd.addr_len=3;
-        transfer[0].sfc_cmd.cmd_len=1;
-        transfer[0].sfc_cmd.transmode=0;
-        transfer[0].finally_len=0;
-
-        transfer[0].tx_buf = NULL;
-        transfer[0].rx_buf = NULL;
-        transfer[0].len=0;
-        transfer[0].date_en=0;
-        transfer[0].dma_mode=SLAVE_MODE;
-        transfer[0].pollen=0;
-        transfer[0].rw_mode=0;
-        transfer[0].sfc_mode=0;
-	jz_sfc_pio_txrx(flash,transfer);
-//	udelay(flash->tPROG);
-        do{
-		ret = jz_sfc_nandflash_get_status(flash);
-                timeout--;
-        }while((ret & SPINAND_IS_BUSY) && (timeout > 0));
-	if(ret & p_FAIL){
-		pr_info("spi nand write fail %s %s %d\n",__FILE__,__func__,__LINE__);
-		mutex_unlock(&flash->lock);
-		return (len - retlen);
-	}
-                len -= wlen;
+	        transfer[0].tx_buf = NULL;
+	        transfer[0].rx_buf = NULL;
+	        transfer[0].len=0;
+	        transfer[0].date_en=0;
+	        transfer[0].dma_mode=SLAVE_MODE;
+	        transfer[0].pollen=0;
+	        transfer[0].rw_mode=0;
+	        transfer[0].sfc_mode=0;
+		ret=jz_sfc_pio_txrx(flash,transfer);
+		if(ret<0){
+			goto write_exit;
+		}
+		udelay(flash->tPROG);
+        	do{
+			ret = jz_sfc_nandflash_get_status(flash,&status);
+			if(ret<0)goto write_exit;
+                	timeout--;
+        	}while((status & SPINAND_IS_BUSY) && (timeout > 0));
+		if(status & p_FAIL){
+			pr_info("spi nand write fail %s %s %d\n",__FILE__,__func__,__LINE__);
+			return -EINVAL;
+			goto write_exit;
+		}
+		*retlen += wlen;
+                ops_len -= wlen;
+		ops_addr+=wlen;
                 buffer += wlen;
-                page++;
+		if(ops_len<=0){
+			ret=0;
+			break;
+		}
         }
+write_exit:
         mutex_unlock(&flash->lock);
-        return retlen;
+        return ret;
 }
 static int jz_sfcnand_read_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_ops *ops)
 {
@@ -923,6 +726,7 @@ static int jz_sfcnand_read_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_o
         struct sfc_transfer_nand transfer[1];
         int ret,timeout = 2000;
 
+	u8 status;
 	flash = to_jz_spi_nand(mtd);
 	mutex_lock(&flash->lock);
 	memset(transfer,0,sizeof(struct sfc_transfer_nand));
@@ -943,20 +747,28 @@ static int jz_sfcnand_read_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_o
 	transfer[0].pollen=0;
 	transfer[0].rw_mode=0;
 	transfer[0].sfc_mode=0;
-	jz_sfc_pio_txrx(flash,transfer);
+	ret=jz_sfc_pio_txrx(flash,transfer);
+	if(ret<0)
+		goto read_oob_exit;
 
- //       udelay(flash->tRD);
         do{
-                ret = jz_sfc_nandflash_get_status(flash);
+                ret = jz_sfc_nandflash_get_status(flash,&status);
+		if(ret<0)goto read_oob_exit;
                 timeout--;
-        }while((ret & SPINAND_IS_BUSY) && (timeout > 0));
-
-        if((ret & 0x30) == 0x20) {
+        }while((status & SPINAND_IS_BUSY) && (timeout > 0));
+	if(timeout<=0){
+		ret=-ETIMEDOUT;
+		goto read_oob_exit;
+	}
+	status=(status>>4)&0x03;
+        if(status == 0x20) {
                 pr_info("spi nand read oob error page %d column = %d ret = %02x !!! %s %s %d \n",page,column,ret,__FILE__,__func__,__LINE__);
                 memset(ops->oobbuf,0x0,ops->ooblen);
-                mutex_unlock(&flash->lock);
-                return -EBADMSG;
+                ret=-EBADMSG;
+		goto read_oob_exit;
         }
+	if(status==3)status--;
+
         memset(transfer,0,sizeof(struct sfc_transfer_nand));
         switch(flash->column_cmdaddr_bits){
                 case 24:
@@ -972,6 +784,8 @@ static int jz_sfcnand_read_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_o
                         break;
                 default:
                         pr_info("can't support the format of column addr ops !!\n");
+			return -EINVAL;
+			goto read_oob_exit;
                         break;
         }
         transfer[0].sfc_cmd.addr_low=(column<<8)& 0xffffff00;
@@ -981,7 +795,7 @@ static int jz_sfcnand_read_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_o
         transfer[0].sfc_cmd.transmode=0;
         transfer[0].finally_len=0;
 	transfer[0].tx_buf = NULL;
-        transfer[0].rx_buf = ops->oobbuf;
+        transfer[0].rx_buf = flash->swap_buf;
         transfer[0].len=ops->ooblen;
         transfer[0].date_en=1;
         transfer[0].dma_mode=DMA_MODE;
@@ -989,23 +803,30 @@ static int jz_sfcnand_read_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_o
         transfer[0].rw_mode=R_MODE;
         transfer[0].sfc_mode=0;
 	ret=jz_sfc_pio_txrx(flash,transfer);
-	ops->retlen=ret;
+	if(ret<0)
+		goto read_oob_exit;
+	memcpy(ops->oobbuf,flash->swap_buf,ops->ooblen);
+	ops->retlen=ops->ooblen;
+read_oob_exit:
 	mutex_unlock(&flash->lock);
-        return ret;
-
-
+	if(ret<0)
+        	return ret;
+	else
+		return status;
 }
+
+
 static int jz_sfcnand_write_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_ops *ops)
 {
-        struct spi_message message;
         struct sfc_transfer_nand transfer[1];
         struct jz_sfc_nand *flash;
         int ret,timeout=2000;
         int column = mtd->writesize;
         int page = ((unsigned int)addr) / mtd->writesize;
         flash = to_jz_spi_nand(mtd);
-
+	u8 status;
         mutex_lock(&flash->lock);
+	memcpy(flash->swap_buf,ops->oobbuf,ops->ooblen);
         memset(transfer,0,sizeof(struct sfc_transfer_nand));
 
         transfer[0].sfc_cmd.cmd=SPINAND_CMD_PARD;
@@ -1025,9 +846,9 @@ static int jz_sfcnand_write_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_
         transfer[0].pollen=0;
         transfer[0].rw_mode=0;
         transfer[0].sfc_mode=0;
-        jz_sfc_pio_txrx(flash,transfer);
-
-//	udelay(flash->tRD);
+        ret=jz_sfc_pio_txrx(flash,transfer);
+	if(ret<0)
+		goto write_oob_exit;
         memset(transfer,0,sizeof(struct sfc_transfer_nand));
 
         transfer[0].sfc_cmd.cmd=SPINAND_CMD_PLRd;
@@ -1039,7 +860,7 @@ static int jz_sfcnand_write_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_
         transfer[0].sfc_cmd.transmode=0;
         transfer[0].finally_len=0;
 
-        transfer[0].tx_buf = ops->oobbuf;
+        transfer[0].tx_buf = flash->swap_buf;
         transfer[0].rx_buf = NULL;
         transfer[0].len=ops->ooblen;
         transfer[0].date_en=1;
@@ -1047,7 +868,9 @@ static int jz_sfcnand_write_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_
         transfer[0].pollen=0;
         transfer[0].rw_mode=W_MODE;
         transfer[0].sfc_mode=0;
-        jz_sfc_pio_txrx(flash,transfer);
+        ret=jz_sfc_pio_txrx(flash,transfer);
+	if(ret<0)
+		goto write_oob_exit;
 
         jz_sfc_nandflash_write_enable(flash);
 
@@ -1068,37 +891,36 @@ static int jz_sfcnand_write_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_
         transfer[0].pollen=0;
         transfer[0].rw_mode=0;
         transfer[0].sfc_mode=0;
-        jz_sfc_pio_txrx(flash,transfer);
-        udelay(flash->tPROG);
+        ret=jz_sfc_pio_txrx(flash,transfer);
+	if(ret<0)
+		goto write_oob_exit;
         do{
-		ret = jz_sfc_nandflash_get_status(flash);
+		ret = jz_sfc_nandflash_get_status(flash,&status);
+		if(ret<0)goto write_oob_exit;
 		timeout--;
-        }while((ret & SPINAND_IS_BUSY) && (timeout > 0));
-		if(ret & p_FAIL){
-                	pr_info("spi nand write fail %s %s %d\n",__FILE__,__func__,__LINE__);
-			mutex_unlock(&flash->lock);
-                	return -EIO;
-		}
-	ops->retlen=ret;
+        }while((status & SPINAND_IS_BUSY) && (timeout > 0));
+	if(status & p_FAIL){
+                pr_info("spi nand write fail %s %s %d\n",__FILE__,__func__,__LINE__);
+                ret=-EINVAL;
+		goto write_oob_exit;
+	}
+	ops->retlen=ops->ooblen;
+write_oob_exit:
         mutex_unlock(&flash->lock);
-        return 0;
+        return ret;
 }
 
 static int jz_sfcnand_read(struct mtd_info *mtd, loff_t from,size_t len, size_t *retlen, unsigned char *buf)
 {
         int ret;
-        size_t column = ((unsigned int)from) % mtd->writesize;
-        ret = jz_sfc_nandflash_read(mtd,from,column,len,buf,retlen);
+        ret = jz_sfc_nandflash_read(mtd,from,len,buf,retlen);
         return ret;
 }
-static int jz_sfcnand_write(struct mtd_info *mtd, loff_t to, size_t len,size_t *retlen, u_char *buf)
+static int jz_sfcnand_write(struct mtd_info *mtd, loff_t to, size_t len,size_t *retlen,u_char *buf)
 {
         size_t ret;
-        size_t column = ((unsigned int)to) % mtd->writesize;
-        ret = jz_sfc_nandflash_write(mtd,to,column,len,buf);
-
-        *retlen = ret;
-        return 0;
+        ret = jz_sfc_nandflash_write(mtd,to,len,buf,retlen);
+        return ret;
 }
 
 static int jz_sfc_nandflash_block_checkbad(struct mtd_info *mtd, loff_t ofs,int getchip,int allowbbt)
@@ -1218,7 +1040,8 @@ static int jz_sfc_nandflash_block_markbad(struct mtd_info *mtd, loff_t ofs)
 }
 static int jz_sfc_nand_ext_init(struct jz_sfc_nand *flash)
 {
-        int ret,i;
+        int ret;
+	u8 status;
         struct sfc_transfer_nand transfer[1];
         transfer[0].sfc_cmd.cmd=0x1f;
         transfer[0].sfc_cmd.addr_low=0xb010;
@@ -1237,9 +1060,9 @@ static int jz_sfc_nand_ext_init(struct jz_sfc_nand *flash)
         transfer[0].pollen=0;
         transfer[0].rw_mode=0;
         transfer[0].sfc_mode=0;
-        jz_sfc_pio_txrx(flash,transfer);
+        ret=jz_sfc_pio_txrx(flash,transfer);
 
-	return 0;
+	return ret;
 }
 static int get_pagesize_from_nand(struct jz_sfc_nand *flash,int page,int column)
 {
@@ -1305,11 +1128,11 @@ static int jz_get_sfcnand_param(struct jz_spi_nand_platform_data **param,struct 
 	member_addr+=sizeof(param_from_burner.flash_type);
 	param_from_burner.para_num=*(int *)member_addr;
 	member_addr+=sizeof(param_from_burner.para_num);
-	param_from_burner.addr=member_addr;
+	param_from_burner.addr=(struct jz_spi_support_from_burner *)member_addr;
 	member_addr+=param_from_burner.para_num*sizeof(struct jz_spi_support_from_burner);
 	param_from_burner.partition_num=*(int *)(member_addr);
 	member_addr+=sizeof(param_from_burner.partition_num);
-	param_from_burner.partition=member_addr;
+	param_from_burner.partition=(struct jz_spinand_partition *)member_addr;
 	transfer_to_mtddriver_struct(&param_from_burner,param);
 	return 0;
 }
@@ -1441,7 +1264,7 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
         flash->mtd._block_isbad = jz_sfcnand_block_isbab;
         flash->mtd._block_markbad = jz_sfcnand_block_markbad;
 
-	jz_sfc_nand_ext_init(flash);
+	//jz_sfc_nand_ext_init(flash);
 	chip->scan_bbt(&flash->mtd);
 	ret = mtd_device_parse_register(&flash->mtd,jz_probe_types,NULL, mtd_sfcnand_partition, num_partitions);
 	if (ret) {
