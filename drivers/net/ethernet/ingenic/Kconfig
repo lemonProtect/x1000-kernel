@@ -10,10 +10,10 @@ choice
 	default CONFIG_JZ_MAC_V13
 
 config JZ_MAC_V12
-	depends on JZ_MAC
+        depends on JZ_MAC
 	bool "V12"
 	help
-	  Select for jz4775
+	  Select for JZ4775
 
 config JZ_MAC_V13
         depends on JZ_MAC

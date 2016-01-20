@@ -1,8 +1,8 @@
-#ifndef __JZ4755_MAC_H__
-#define __JZ4755_MAC_H__
+#ifndef __JZ_MAC_H__
+#define __JZ_MAC_H__
 
 
-#include "synopGMAC_Dev.h"
+#include "../synopGMAC_Dev.h"
 
 /* wrapper around a pointer to a socket buffer,
  * so a DMA handle can be stored along with the buffer */
@@ -107,4 +107,4 @@ struct jz_mac_local {
 	struct mii_if_info mii;
 };
 
-#endif	/* __JZ4755_MAC_H__ */
+#endif	/* __JZ_MAC_H__ */

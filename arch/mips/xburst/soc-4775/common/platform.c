@@ -138,7 +138,7 @@ struct jz_gpio_func_def platform_devio_array[] = {
 #ifdef CONFIG_JZ_PWM_GPIO_D11
 #endif
 
-#ifdef CONFIG_JZ4775_MAC
+#ifdef CONFIG_JZ_MAC
 	MII_PORTBDF,
 #endif
 
