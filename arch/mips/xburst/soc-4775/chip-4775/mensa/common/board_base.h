@@ -64,6 +64,12 @@ extern struct platform_device jz_i2c3_device;
 #ifdef CONFIG_MFD_JZ_SADC_V12
 extern struct platform_device jz_adc_device;
 #endif
+
+#ifdef CONFIG_JZ_MAC
+extern struct platform_device jz_mii_bus;
+extern struct platform_device jz_mac_device;
+#endif
+
 #if defined(CONFIG_SND_ASOC_JZ_AIC_V12)
 extern struct platform_device snd_alsa_device;
 #endif

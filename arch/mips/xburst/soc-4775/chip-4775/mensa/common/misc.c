@@ -27,6 +27,44 @@ struct jz_efuse_platform_data jz_efuse_pdata = {
 };
 #endif
 
+#if defined(CONFIG_JZ_MAC)
+#ifndef CONFIG_MDIO_GPIO
+#ifdef CONFIG_JZGPIO_PHY_RESET
+static struct jz_gpio_phy_reset gpio_phy_reset = {
+	.port	=	GPIO_PORT_B,
+	.pin	=	7,
+	.start_func	=	GPIO_OUTPUT0,
+	.end_func	=	GPIO_OUTPUT1,
+	.delaytime_usec	=	100000,
+};
+#endif
+struct platform_device jz_mii_bus = {
+        .name = "jz_mii_bus",
+#ifdef CONFIG_JZGPIO_PHY_RESET
+	.dev.platform_data = &gpio_phy_reset,
+#endif
+};
+#else
+static struct mdio_gpio_platform_data mdio_gpio_data = {
+        .mdc = GPF(13),
+        .mdio = GPF(14),
+        .phy_mask = 0,
+        .irqs = { 0 },
+};
+struct platform_device jz_mii_bus = {
+        .name = "mdio-gpio",
+        .dev.platform_data = &mdio_gpio_data,
+};
+#endif
+
+struct platform_device jz_mac_device = {
+        .name = "jz_mac",
+        .dev.platform_data = &jz_mii_bus,
+};
+#endif
+
+
+
 #ifdef CONFIG_LEDS_GPIO
 struct gpio_led jz_leds[] = {
 	[0]={
