@@ -207,7 +207,7 @@ struct jz_sfc_nand_info{
 #define SPL_TYPE_FLAG_LEN 6
 struct jz_spi_support {
 	unsigned int id_manufactory;
-	char id_device;
+	unsigned char id_device;
 	char name[SIZEOF_NAME];
 	int page_size;
 	int oobsize;
@@ -229,7 +229,7 @@ struct jz_spi_support {
 
 struct jz_spi_support_from_burner {
         unsigned int chip_id;
-        char id_device;
+        unsigned char id_device;
         char name[32];
         int page_size;
         int oobsize;

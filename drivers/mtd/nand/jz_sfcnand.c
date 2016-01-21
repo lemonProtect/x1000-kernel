@@ -315,10 +315,10 @@ struct jz_spi_support *jz_sfc_nand_probe(struct jz_sfc_nand *flash)
 		params=NULL;
 		goto probe_exit;
 	}
-	printk("-----------read chip id------------\n");
+	printk("sfcnand num=%d\n",number_spi_flash);
 	for (i = 0; i < number_spi_flash; i++) {
 		params = &jz_spi_nand_support_table[i];
-		if ( params->id_manufactory == rx_chipid[0]*256+rx_chipid[1] )
+		if ( (params->id_manufactory == rx_chipid[0])&&(params->id_device==rx_chipid[1]) )
 			break;
 	}
 	if (i >= number_spi_flash) {
@@ -1076,6 +1076,26 @@ static int get_pagesize_from_nand(struct jz_sfc_nand *flash,int page,int column)
 	kfree(buffer);
 	return page_size;
 }
+static void convert_burner_to_driver_use(struct jz_spi_support *spinand,struct jz_spi_support_from_burner *burner,int param_num)
+{
+        int i=0;
+        for(i=0;i<param_num;i++){
+                spinand[i].id_manufactory=(burner[i].chip_id>>8)&0xff;
+                spinand[i].id_device=(burner[i].chip_id)&0x000000ff;
+                memcpy(spinand[i].name,burner[i].name,SIZEOF_NAME);
+                spinand[i].page_size=burner[i].page_size;
+                spinand[i].oobsize=burner[i].oobsize;
+                spinand[i].sector_size=burner[i].sector_size;
+                spinand[i].block_size=burner[i].block_size;
+                spinand[i].size=burner[i].size;
+                spinand[i].page_num=burner[i].page_num;
+                spinand[i].tRD_maxbusy=burner[i].tRD_maxbusy;
+                spinand[i].tPROG_maxbusy=burner[i].tPROG_maxbusy;
+                spinand[i].tBERS_maxbusy=burner[i].tBERS_maxbusy;
+                spinand[i].column_cmdaddr_bits=burner[i].column_cmdaddr_bits;
+        }
+}
+
 static int transfer_to_mtddriver_struct(struct get_chip_param *param,struct jz_spi_nand_platform_data **change)
 {
         *change=kzalloc(sizeof(struct jz_spi_nand_platform_data),GFP_KERNEL);
@@ -1086,6 +1106,7 @@ static int transfer_to_mtddriver_struct(struct get_chip_param *param,struct jz_s
         if(!(*change)->jz_spi_support)
                 return -ENOMEM;
         memcpy((*change)->jz_spi_support,param->addr,param->para_num*sizeof(struct jz_spi_support));
+        convert_burner_to_driver_use((*change)->jz_spi_support,param->addr,param->para_num);
 
         (*change)->num_partitions=param->partition_num;
         (*change)->mtd_partition=kzalloc(param->partition_num*sizeof(struct mtd_partition),GFP_KERNEL);
@@ -1106,7 +1127,7 @@ static int transfer_to_mtddriver_struct(struct get_chip_param *param,struct jz_s
         }
         return 0;
 }
-static int jz_get_sfcnand_param(struct jz_spi_nand_platform_data **param,struct jz_sfc_nand *flash)
+static int jz_get_sfcnand_param(struct jz_spi_nand_platform_data **param,struct jz_sfc_nand *flash,int *nand_magic)
 {
 //first get pagesize
 	int rlen;
@@ -1114,6 +1135,7 @@ static int jz_get_sfcnand_param(struct jz_spi_nand_platform_data **param,struct 
 	struct get_chip_param param_from_burner;
 	char *buffer=NULL;
 	char *member_addr=NULL;
+	*nand_magic=0;
 	page_size=get_pagesize_from_nand(flash,0,0);
 	if(page_size!=-ENOMEM)
 		buffer=kzalloc(page_size,GFP_KERNEL);
@@ -1121,7 +1143,12 @@ static int jz_get_sfcnand_param(struct jz_spi_nand_platform_data **param,struct 
 		return -ENOMEM;
 	jz_sfc_nandflash_read_ops(flash,buffer,SPIFLASH_PARAMER_OFFSET/page_size,SPIFLASH_PARAMER_OFFSET%page_size,
 			page_size,&rlen);
-	member_addr=buffer;
+	*nand_magic=*(int32_t *)(buffer);
+	if(*nand_magic!=0x6e616e64){
+		kfree(buffer);
+		return 0;
+	}
+	member_addr=buffer+sizeof(int32_t);
 	param_from_burner.version=*(int *)member_addr;
 	member_addr+=sizeof(param_from_burner.version);
 	param_from_burner.flash_type=*(int *)member_addr;
@@ -1147,7 +1174,7 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 	struct mtd_partition *mtd_sfcnand_partition;
 	int num_partitions;
 	struct jz_spi_nand_platform_data *param;
-
+	int nand_magic= 0;
 	chip = kzalloc(sizeof(struct nand_chip),GFP_KERNEL);
 	if(!chip)
 		return -ENOMEM;
@@ -1201,8 +1228,12 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Cannot claim IRQ\n");
 	}
 	flash->column_cmdaddr_bits=24;
-	jz_get_sfcnand_param(&param,flash);
-	(flash->pdata)->board_info = (void *)param;
+	jz_get_sfcnand_param(&param,flash,&nand_magic);
+	if(nand_magic==0x6e616e64){
+		(flash->pdata)->board_info = (void *)param;
+	}else{
+		param=(flash->pdata)->board_info;
+	}
 	mtd_sfcnand_partition=param->mtd_partition;
 	num_partitions=param->num_partitions;
 #if 0

@@ -739,7 +739,6 @@ static int jz_spinand_erase(struct mtd_info *mtd, struct erase_info *instr)
 struct jz_spi_support *jz_spi_flash_probe(struct spi_device *spi)
 {
 	int ret,i;
-	unsigned int id = 0;
 	unsigned char send_command[2], recv_command[4];
 	struct spi_message message;
 	struct spi_transfer transfer[2];
@@ -767,13 +766,12 @@ struct jz_spi_support *jz_spi_flash_probe(struct spi_device *spi)
 		pr_info("error reading spi nand device id\n");
 		return NULL;
 	}
-
-	id = (recv_command[0] << 16) | (recv_command[1] << 8) | recv_command[2];
-
+	printk("pinand number=%d\n",num_spi_flash);
 	for (i = 0; i < num_spi_flash; i++) {
 		params = &jz_spi_nand_support_table[i];
-		if ( params->id_manufactory == recv_command[0]*256 +recv_command[1] )
+		if (( (params->id_manufactory) == recv_command[0] ) && ( (params->id_device)== recv_command[1] )){
 			break;
+		}
 	}
 
 	if (i >= num_spi_flash) {
@@ -808,6 +806,25 @@ static int jz_spi_nand_ext_init(struct spi_device *spi)
 	}
 	return 0;
 }
+static void convert_burner_to_driver_use(struct jz_spi_support *spinand,struct jz_spi_support_from_burner *burner,int param_num)
+{
+        int i=0;
+        for(i=0;i<param_num;i++){
+                spinand[i].id_manufactory=(burner[i].chip_id>>8)&0xff;
+                spinand[i].id_device=(burner[i].chip_id)&0x000000ff;
+                memcpy(spinand[i].name,burner[i].name,SIZEOF_NAME);
+                spinand[i].page_size=burner[i].page_size;
+                spinand[i].oobsize=burner[i].oobsize;
+                spinand[i].sector_size=burner[i].sector_size;
+                spinand[i].block_size=burner[i].block_size;
+                spinand[i].size=burner[i].size;
+                spinand[i].page_num=burner[i].page_num;
+                spinand[i].tRD_maxbusy=burner[i].tRD_maxbusy;
+                spinand[i].tPROG_maxbusy=burner[i].tPROG_maxbusy;
+                spinand[i].tBERS_maxbusy=burner[i].tBERS_maxbusy;
+                spinand[i].column_cmdaddr_bits=burner[i].column_cmdaddr_bits;
+        }
+}
 static int transfer_to_mtddriver_struct(struct get_chip_param *param,struct jz_spi_nand_platform_data **change)
 {
         *change=kzalloc(sizeof(struct jz_spi_nand_platform_data),GFP_KERNEL);
@@ -818,6 +835,7 @@ static int transfer_to_mtddriver_struct(struct get_chip_param *param,struct jz_s
         if(!(*change)->jz_spi_support)
                 return -ENOMEM;
         memcpy((*change)->jz_spi_support,param->addr,param->para_num*sizeof(struct jz_spi_support));
+	convert_burner_to_driver_use((*change)->jz_spi_support,param->addr,param->para_num);
 
         (*change)->num_partitions=param->partition_num;
         (*change)->mtd_partition=kzalloc(param->partition_num*sizeof(struct mtd_partition),GFP_KERNEL);
@@ -851,13 +869,14 @@ static int get_pagesize_from_nand(struct jz_spi_nandflash *flash,int page,int co
         kfree(buffer);
 	return page_size;
 }
-static int jz_get_spinand_param(struct jz_spi_nand_platform_data **param,struct jz_spi_nandflash *flash)
+static int jz_get_spinand_param(struct jz_spi_nand_platform_data **param,struct jz_spi_nandflash *flash,int32_t *nand_magic)
 {
         int rlen;
         int page_size;
         struct get_chip_param param_from_burner;
         char *buffer=NULL;
 	char *member_addr;
+	*nand_magic=0;
 	page_size=get_pagesize_from_nand(flash,0,0) ;
 	if(page_size!=-ENOMEM)
 		buffer=kzalloc(page_size,GFP_KERNEL);
@@ -865,7 +884,12 @@ static int jz_get_spinand_param(struct jz_spi_nand_platform_data **param,struct 
                 return -ENOMEM;
         jz_spi_nandflash_read_ops(flash,buffer,SPIFLASH_PARAMER_OFFSET/page_size,SPIFLASH_PARAMER_OFFSET%page_size,
 			page_size,&rlen);
-	member_addr=buffer;
+	*nand_magic=*(int32_t *)(buffer);
+	if(*nand_magic!=0x6e616e64){
+		kfree(buffer);
+		return 0;
+	}
+	member_addr=buffer+sizeof(int32_t);
 	param_from_burner.version=*(int *)member_addr;
 	member_addr+=sizeof(param_from_burner.version);
 	param_from_burner.flash_type=*(int *)member_addr;
@@ -889,12 +913,12 @@ static int jz_spi_nandflash_probe(struct spi_device *spi)
 	struct jz_spi_nandflash *spi_nandflash;
 	struct jz_spi_support *spi_flash;
 	int num_partitions,ret;
+	int32_t nand_magic;
 	struct mtd_partition *mtd_spinand_partition;
 
 	mtd_spinand_partition = pdata->mtd_partition;
 	num_partitions = pdata->num_partitions;
 
-	spi_flash = jz_spi_flash_probe(spi);
 
 	chip = kzalloc(sizeof(struct nand_chip),GFP_KERNEL);
 	if(!chip)
@@ -907,7 +931,7 @@ static int jz_spi_nandflash_probe(struct spi_device *spi)
 	spi_nandflash->column_cmdaddr_bits=24;
 	mutex_init(&spi_nandflash->lock);
 	dev_set_drvdata(&spi->dev, spi_nandflash);
-	jz_get_spinand_param(&pdata,spi_nandflash);
+	jz_get_spinand_param(&pdata,spi_nandflash,&nand_magic);
 	spi->dev.platform_data=pdata;
 	mtd_spinand_partition=pdata->mtd_partition;
 	num_partitions=pdata->num_partitions;
