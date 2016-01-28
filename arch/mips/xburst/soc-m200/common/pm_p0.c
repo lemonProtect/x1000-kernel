@@ -431,13 +431,29 @@ LABLE1:
 	 * (2) AH0/2 source clock changes MPLL to EXCLK
 	 * (3) set PDIV H2DIV H0DIV L2CDIV CDIV = 0
 	 */
-	REG32(0xb0000000) = 0x95f00000;
+	val = REG32(0xb0000000);
+	val &= ~(0xfff << 20);
+	val |= (0x95 << 24);
+	REG32(0xb0000000) = val;
+
+	val = REG32(0xb0000000);
+	val &= ~(0xfffff);
+	REG32(0xb0000000) = val;
+
+	val = REG32(0xb0000000);
+	val |= 7 << 20;
+	REG32(0xb0000000) = val;
+
 	while((REG32(0xB00000D4) & 7))
-		TCSM_PCHAR('w');
+		TCSM_PCHAR('H');
+
+	REG32(0xb0000000) &= ~(0xf << 20);
+
 
 	if(pmu_slp_gpio_info != -1) {
 		set_gpio_func(pmu_slp_gpio_info & 0xffff,
 				pmu_slp_gpio_info >> 16);
+		TCSM_DELAY(0x1fff);
 	}
 
 #ifdef CONFIG_JZ_DMIC_WAKEUP
@@ -562,6 +578,12 @@ static noinline void cpu_resume(void)
 	REG32(0xb0000020) &= ~(1<<31);
 #endif
 
+	val=resume_data->pmu_slp_gpio_info;
+	if(val != -1){
+		set_gpio_func(val & 0xffff, val >> 16);
+		TCSM_DELAY(0x1fff);
+	}
+
 	/* restore  CPM CPCCR */
 	val=resume_data->reg_cpm_cpccr;
 	val |= (7 << 20);
@@ -569,9 +591,8 @@ static noinline void cpu_resume(void)
 	while((REG32(0xB00000D4) & 7))
 		TCSM_PCHAR('w');
 
-	val=resume_data->pmu_slp_gpio_info;
-	if(val != -1)
-		set_gpio_func(val & 0xffff, val >> 16);
+	REG32(0xb0000000) &= ~(7 << 20);
+
 
 	bypassmode = ddr_readl(DDRP_PIR) & DDRP_PIR_DLLBYP;
 	if(!bypassmode) {
@@ -857,7 +878,7 @@ int __init m200_pm_init(void)
         /* init opcr and lcr for idle */
         lcr = cpm_inl(CPM_LCR);
         lcr &= ~(0x7);		/* LCR.SLEEP.DS=1'b0,LCR.LPM=2'b00*/
-        lcr |= 0xff << 8;	/* power stable time */
+        lcr |= 0xfff << 8;	/* power stable time */
         cpm_outl(lcr,CPM_LCR);
 
         opcr = cpm_inl(CPM_OPCR);

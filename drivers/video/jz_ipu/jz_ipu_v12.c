@@ -1673,6 +1673,8 @@ static int ipu_suspend(struct device *dev)
 		reg_write(ipu, IPU_TRIG, IPU_STOP);
 	}
 
+	clk_disable(ipu->clk);
+
 	return 0;
 }
 
@@ -1683,6 +1685,7 @@ static int ipu_resume(struct device *dev)
 	spin_lock(&ipu->suspend_lock);
 	ipu->suspend_entered = 0;
 	spin_unlock(&ipu->suspend_lock);
+	clk_enable(ipu->clk);
 
 	return 0;
 }
