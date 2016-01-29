@@ -503,10 +503,11 @@ static int jz_sfc_nandflash_erase(struct mtd_info *mtd, struct erase_info *instr
                 }
                 addr += mtd->erasesize;
         }
-        mutex_unlock(&flash->lock);
-        instr->state = MTD_ERASE_DONE;
+
+		instr->state = MTD_ERASE_DONE;
 erase_exit:
         mtd_erase_callback(instr);
+        mutex_unlock(&flash->lock);
 	return ret;
 }
 size_t jz_sfc_nandflash_read_ops(struct jz_sfc_nand *flash,u_char *buffer,int page, int column,size_t rlen,size_t *rel_rlen)
@@ -702,7 +703,7 @@ static size_t jz_sfc_nandflash_write(struct mtd_info *mtd,loff_t addr,size_t len
         	}while((status & SPINAND_IS_BUSY) && (timeout > 0));
 		if(status & p_FAIL){
 			pr_info("spi nand write fail %s %s %d\n",__FILE__,__func__,__LINE__);
-			return -EINVAL;
+			ret= -EINVAL;
 			goto write_exit;
 		}
 		*retlen += wlen;
@@ -784,7 +785,7 @@ static int jz_sfcnand_read_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_o
                         break;
                 default:
                         pr_info("can't support the format of column addr ops !!\n");
-			return -EINVAL;
+			ret = -EINVAL;
 			goto read_oob_exit;
                         break;
         }
