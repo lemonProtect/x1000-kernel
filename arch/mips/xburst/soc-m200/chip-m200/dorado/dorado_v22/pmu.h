@@ -47,7 +47,7 @@
 #define LDORTC2_INIT_UV 1100
 /* ****************************PMU DC/LDO DEFAULT V END********************** */
 /* ****************************PMU DC/LDO SLP DEFAULT V********************** */
-#define DC1_INIT_SLP_UV     975
+#define DC1_INIT_SLP_UV     1000
 #define DC2_INIT_SLP_UV     1200
 #define DC3_INIT_SLP_UV     1200
 #ifdef CONFIG_JZ_EPD_V12

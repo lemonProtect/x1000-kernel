@@ -82,7 +82,17 @@ typedef unsigned int	u32;
 
 #define _cpu_switch_24MHZ()				\
 	do {								\
-		REG32(0xb0000000) = 0x95f00000;	\
+		int val = 0;				\
+		val = REG32(0xb0000000);	\
+		val &= ~(0xfff << 20);		\
+		val |= (0x95 << 24);		\
+		REG32(0xb0000000) = val;	\
+		val = REG32(0xb0000000);	\
+		val &= ~(0xfffff);			\
+		REG32(0xb0000000) = val;	\
+		val = REG32(0xb0000000);	\
+		val |= 7 << 20;				\
+		REG32(0xb0000000) = val;	\
 		while((REG32(0xB00000D4) & 7))	\
 			    TCSM_PCHAR('w');		\
 	} while(0)
