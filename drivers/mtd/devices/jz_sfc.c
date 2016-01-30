@@ -926,6 +926,8 @@ static int jz_spi_norflash_read_params(struct jz_sfc *flash, loff_t from, size_t
 	read_params = 0;
 	swap_buf = flash->swap_buf;
 
+	jz_spi_norflash_write_enable(flash);
+
 	command_stage1[0] = SPINOR_OP_READ;
 	for(j = 1; j <= flash->addr_len; j++){
 		command_stage1[j] = from >> (flash->addr_len - j) * 8;
