@@ -68,8 +68,7 @@
 
 struct mtd_partition *jz_mtd_partition;
 struct spi_nor_platform_data *board_info;
-int quad_mode = 0;
-
+static int quad_mode = 0;
 
 
 struct jz_sfc_nand *to_jz_spi_nand(struct mtd_info *mtd_info)
@@ -178,7 +177,7 @@ static int sfc_pio_transfer(struct jz_sfc_nand *flash)
 		sfc_transfer_mode(flash, SLAVE_MODE);
 		sfc_transfer_direction(flash, GLB_TRAN_DIR_WRITE);
 	}
-	sfc_mode(flash,0,flash->sfc_tran->sfc_cmd.transmode);   //现好使再说一会再提控制器I/O传输模式
+	sfc_mode(flash,0,flash->sfc_tran->sfc_cmd.transmode);
 	sfc_enable_all_intc(flash);
 	sfc_start(flash);
 	return 0;
@@ -363,7 +362,6 @@ static int jz_sfc_init_setup(struct jz_sfc_nand *flash)
 	sfc_ce_invalid_value(flash, 1);
 	sfc_transfer_mode(flash, SLAVE_MODE);
 	if(flash->src_clk >= 100000000){
-		//              printk("############## the cpm = %x\n",*(volatile unsigned int*)(0xb0000074));
 		sfc_smp_delay(flash,DEV_CONF_HALF_CYCLE_DELAY);
 	}
 	flash->swap_buf = kmalloc(SFC_SWAP_BUF_SIZE + PAGE_SIZE,GFP_KERNEL);
@@ -402,12 +400,78 @@ static int jz_sfc_nandflash_write_enable(struct jz_sfc_nand *flash)
         ret=jz_sfc_pio_txrx(flash,transfer);
 	return ret;
 }
+
+#ifdef CONFIG_SPI_QUAD
+static int jz_sfc_nandflash_get_feature(struct jz_sfc_nand *flash, u8 addr, u8 *status)
+{
+	int ret = 0;
+	struct sfc_transfer_nand transfer[1];
+
+	transfer[0].sfc_cmd.cmd=SPINAND_CMD_GET_FEATURE;
+    transfer[0].sfc_cmd.addr_low=addr;
+    transfer[0].sfc_cmd.addr_high=0;
+    transfer[0].sfc_cmd.dummy_byte=0;
+    transfer[0].sfc_cmd.addr_len=1;
+    transfer[0].sfc_cmd.cmd_len=1;
+    transfer[0].sfc_cmd.transmode=0;
+    flash->use_dma=1;
+
+    transfer[0].tx_buf  = NULL;
+    transfer[0].rx_buf =  status;
+    transfer[0].len=1;
+    transfer[0].date_en=1;
+    transfer[0].dma_mode=DMA_MODE;
+    transfer[0].pollen=0;
+    transfer[0].rw_mode=R_MODE;
+    transfer[0].sfc_mode=0;
+    transfer[0].finally_len=0;
+    ret = jz_sfc_pio_txrx(flash,transfer);
+	return ret;
+}
+
+static int jz_sfc_nandflash_set_quad_mode(struct jz_sfc_nand *flash)
+{
+	u8 status;
+	int ret;
+	struct sfc_transfer_nand transfer[1];
+
+	jz_sfc_nandflash_get_feature(flash, SPINAND_ADDR_FEATURE, &status);
+	status |= 0x01; // set FEATURE_REG QE bit
+	transfer[0].sfc_cmd.cmd=SPINAND_CMD_SET_FEATURE;
+	transfer[0].sfc_cmd.addr_low=0xb000|status; //SPINAND_FEATURE_ADDR + value;
+	transfer[0].sfc_cmd.addr_high=0;
+	transfer[0].sfc_cmd.dummy_byte=0;
+	transfer[0].sfc_cmd.addr_len=2;
+	transfer[0].sfc_cmd.cmd_len=1;
+	transfer[0].sfc_cmd.transmode=0;
+
+	transfer[0].tx_buf = NULL;
+	transfer[0].rx_buf = NULL;
+	transfer[0].len=0;
+	transfer[0].date_en=0;
+	transfer[0].dma_mode=SLAVE_MODE;
+	transfer[0].pollen=0;
+	transfer[0].rw_mode=0;
+	transfer[0].sfc_mode=0;
+	transfer[0].finally_len=0;
+	ret=jz_sfc_pio_txrx(flash,transfer);
+
+#if 0 //debug
+    jz_sfc_nandflash_get_feature(flash, SPINAND_ADDR_FEATURE, &status);
+	if(status & 0x01)
+		quad_mode = 1;
+#endif
+	quad_mode = 1;
+	return ret;
+}
+#endif
+
 static int jz_sfc_nandflash_get_status(struct jz_sfc_nand *flash,u8 *status)
 {
         int ret;
         struct sfc_transfer_nand transfer[1];
         transfer[0].sfc_cmd.cmd=SPINAND_CMD_GET_FEATURE;
-        transfer[0].sfc_cmd.addr_low=SPINAND_FEATURE_ADDR;
+        transfer[0].sfc_cmd.addr_low=SPINAND_ADDR_STATUS;
         transfer[0].sfc_cmd.addr_high=0;
         transfer[0].sfc_cmd.dummy_byte=0;
         transfer[0].sfc_cmd.addr_len=1;
@@ -554,13 +618,21 @@ size_t jz_sfc_nandflash_read_ops(struct jz_sfc_nand *flash,u_char *buffer,int pa
         switch(flash->column_cmdaddr_bits){
                 case 24:
 			memset(transfer,0,sizeof(struct sfc_transfer_nand));
+		#ifdef CONFIG_SPI_QUAD
+			transfer[0].sfc_cmd.cmd=SPINAND_CMD_FRCH;
+		#else
 			transfer[0].sfc_cmd.cmd=SPINAND_CMD_RDCH;
+		#endif
 			transfer[0].sfc_cmd.addr_low=(column<<8)&0xffffff00;
 			transfer[0].sfc_cmd.addr_len=3;
 
 			break;
                 case 32:
-                        transfer[0].sfc_cmd.cmd = SPINAND_CMD_FRCH;//SPINAND_CMD_RDCH;/* SPINAND_CMD_RDCH read odd addr may be error */
+		#ifdef CONFIG_SPI_QUAD
+			transfer[0].sfc_cmd.cmd=SPINAND_CMD_FRCH;
+		#else
+			transfer[0].sfc_cmd.cmd=SPINAND_CMD_RDCH; /* SPINAND_CMD_RDCH read odd addr may be error */
+		#endif
 			transfer[0].sfc_cmd.addr_low=(column<<8)&0xffffff00;
 			transfer[0].sfc_cmd.addr_len=4;
                         break;
@@ -570,8 +642,12 @@ size_t jz_sfc_nandflash_read_ops(struct jz_sfc_nand *flash,u_char *buffer,int pa
         }
         transfer[0].sfc_cmd.dummy_byte=0;
         transfer[0].sfc_cmd.cmd_len=1;
-        transfer[0].sfc_cmd.transmode=0;
-        transfer[0].finally_len=0;
+#ifdef CONFIG_SPI_QUAD
+	transfer[0].sfc_cmd.transmode=TRAN_SPI_QUAD;
+#else
+	transfer[0].sfc_cmd.transmode=0;
+#endif
+	transfer[0].finally_len=0;
 
         transfer[0].tx_buf = NULL;
         transfer[0].rx_buf = buffer;
@@ -643,20 +719,24 @@ static size_t jz_sfc_nandflash_write(struct mtd_info *mtd,loff_t addr,size_t len
 	*retlen=0;
 	flash = to_jz_spi_nand(mtd);
         mutex_lock(&flash->lock);
-
         while(1){
 		page=ops_addr/page_size;
 		column=ops_addr%page_size;
 		wlen=min_t(int,page_size-column,ops_len);
 		memcpy(flash->swap_buf,buffer,wlen);
         	memset(transfer,0,sizeof(struct sfc_transfer_nand));
-        	transfer[0].sfc_cmd.cmd=SPINAND_CMD_PRO_LOAD;
+	#ifdef CONFIG_SPI_QUAD
+		transfer[0].sfc_cmd.cmd=SPINAND_CMD_PRO_LOAD_X4;
+		transfer[0].sfc_cmd.transmode=TRAN_SPI_QUAD;
+	#else
+        transfer[0].sfc_cmd.cmd=SPINAND_CMD_PRO_LOAD;
+		transfer[0].sfc_cmd.transmode=0;
+	#endif
         	transfer[0].sfc_cmd.addr_low=column;
         	transfer[0].sfc_cmd.addr_high=0;
         	transfer[0].sfc_cmd.dummy_byte=0;
         	transfer[0].sfc_cmd.addr_len=2;
         	transfer[0].sfc_cmd.cmd_len=1;
-        	transfer[0].sfc_cmd.transmode=0;
         	transfer[0].finally_len=0;
 
         	transfer[0].tx_buf = flash->swap_buf;
@@ -773,12 +853,20 @@ static int jz_sfcnand_read_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_o
         memset(transfer,0,sizeof(struct sfc_transfer_nand));
         switch(flash->column_cmdaddr_bits){
                 case 24:
+		#ifdef CONFIG_SPI_QUAD
+			transfer[0].sfc_cmd.cmd=SPINAND_CMD_FRCH;
+		#else
 			transfer[0].sfc_cmd.cmd=SPINAND_CMD_RDCH;
+		#endif
 			transfer[0].sfc_cmd.addr_len=3;
 
                         break;
                 case 32:
+		#ifdef CONFIG_SPI_QUAD
 			transfer[0].sfc_cmd.cmd=SPINAND_CMD_FRCH;
+		#else
+			transfer[0].sfc_cmd.cmd=SPINAND_CMD_RDCH;
+		#endif
 			transfer[0].sfc_cmd.addr_len=4;
 
 
@@ -792,8 +880,12 @@ static int jz_sfcnand_read_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_o
         transfer[0].sfc_cmd.addr_low=(column<<8)& 0xffffff00;
         transfer[0].sfc_cmd.addr_high=0;
         transfer[0].sfc_cmd.dummy_byte=0;
-        transfer[0].sfc_cmd.cmd_len=1;
-        transfer[0].sfc_cmd.transmode=0;
+#ifdef CONFIG_SPI_QUAD
+	transfer[0].sfc_cmd.transmode=TRAN_SPI_QUAD;
+#else
+	transfer[0].sfc_cmd.transmode=0;
+#endif
+	transfer[0].sfc_cmd.cmd_len=1;;
         transfer[0].finally_len=0;
 	transfer[0].tx_buf = NULL;
         transfer[0].rx_buf = flash->swap_buf;
@@ -851,14 +943,18 @@ static int jz_sfcnand_write_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_
 	if(ret<0)
 		goto write_oob_exit;
         memset(transfer,0,sizeof(struct sfc_transfer_nand));
-
-        transfer[0].sfc_cmd.cmd=SPINAND_CMD_PLRd;
+#ifdef CONFIG_SPI_QUAD
+        transfer[0].sfc_cmd.cmd=SPINAND_CMD_PLRd_X4;
+	transfer[0].sfc_cmd.transmode=TRAN_SPI_QUAD;
+#else
+	transfer[0].sfc_cmd.cmd=SPINAND_CMD_PLRd;
+	transfer[0].sfc_cmd.transmode=0;
+#endif
         transfer[0].sfc_cmd.addr_low=column;
         transfer[0].sfc_cmd.addr_high=0;
         transfer[0].sfc_cmd.dummy_byte=0;
         transfer[0].sfc_cmd.addr_len=2;
         transfer[0].sfc_cmd.cmd_len=1;
-        transfer[0].sfc_cmd.transmode=0;
         transfer[0].finally_len=0;
 
         transfer[0].tx_buf = flash->swap_buf;
@@ -1297,6 +1393,9 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
         flash->mtd._block_markbad = jz_sfcnand_block_markbad;
 
 	//jz_sfc_nand_ext_init(flash);
+#ifdef CONFIG_SPI_QUAD
+	jz_sfc_nandflash_set_quad_mode(flash);
+#endif
 	chip->scan_bbt(&flash->mtd);
 	ret = mtd_device_parse_register(&flash->mtd,jz_probe_types,NULL, mtd_sfcnand_partition, num_partitions);
 	if (ret) {
