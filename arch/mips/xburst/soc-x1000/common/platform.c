@@ -181,8 +181,8 @@ static struct jzdma_platform_data jzdma_pdata = {
 	.irq_base = IRQ_MCU_BASE,
 	.irq_end = IRQ_MCU_END,
 	.map = {
-                JZDMA_REQ_AUTO_TXRX,
-                JZDMA_REQ_AUTO_TXRX,
+/*                JZDMA_REQ_AUTO_TXRX,*/
+/*                JZDMA_REQ_AUTO_TXRX,*/
 		JZDMA_REQ_I2S1,
 		JZDMA_REQ_I2S0,
 		JZDMA_REQ_I2S0,
@@ -198,8 +198,8 @@ static struct jzdma_platform_data jzdma_pdata = {
 /* 		JZDMA_REQ_UART0, */
 /* 		JZDMA_REQ_UART0, */
 /* #endif */
-		/* JZDMA_REQ_SSI0, */
-		/* JZDMA_REQ_SSI0, */
+		JZDMA_REQ_SSI0,
+		JZDMA_REQ_SSI0,
 		/* JZDMA_REQ_SSI1, */
 		/* JZDMA_REQ_SSI1, */
 		JZDMA_REQ_PCM0,

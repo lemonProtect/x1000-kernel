@@ -50,6 +50,7 @@ static struct jz_spi_nandflash {
 	u32 tBERS;	/* Block Erase Time */
 	unsigned short column_cmdaddr_bits;/* read from cache ,the bits of cmd + addr */
 };
+static	u_char *command_read;
 static	u_char *command_write;
 
 //#define DEBUG_WRITE
@@ -275,11 +276,12 @@ static size_t jz_spi_nandflash_read_ops(struct jz_spi_nandflash *flash,u_char *b
 	}
 	spi_message_add_tail(&transfer[0], &message);
 
-	transfer[1].rx_buf = buffer;
+	transfer[1].rx_buf = command_read;
 	transfer[1].len = rlen;
 	spi_message_add_tail(&transfer[1], &message);
 
 	ret = spi_sync(flash->spi, &message);
+	memcpy(buffer,command_read,rlen);
 	if(ret) {
 		pr_info("%s -- %s --%d  spi_sync() error !\n",__FILE__,__func__,__LINE__);
 		return ret;
@@ -951,11 +953,18 @@ static int jz_spi_nandflash_probe(struct spi_device *spi)
 	spi_nandflash->column_cmdaddr_bits=24;
 	mutex_init(&spi_nandflash->lock);
 	dev_set_drvdata(&spi->dev, spi_nandflash);
+	spi_flash = jz_spi_flash_probe(spi);
+
+	command_read = kzalloc(spi_flash->page_size,GFP_KERNEL);
+	if(!command_read){
+		pr_info("mlloc command_read error !!!!\n");
+		return -1;
+	}
+
 	jz_get_spinand_param(&pdata,spi_nandflash,&nand_magic);
 	spi->dev.platform_data=pdata;
 	mtd_spinand_partition=pdata->mtd_partition;
 	num_partitions=pdata->num_partitions;
-	spi_flash = jz_spi_flash_probe(spi);
 
 
 	spi_nandflash->mtd.name = dev_name(&spi->dev);
