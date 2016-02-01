@@ -185,6 +185,11 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_FB_JZ_V11
 	DEF_DEVICE(&jz_fb0_device, &jzfb0_pdata, sizeof(struct jzfb_platform_data)),
 #endif
+/* nand */
+#ifdef CONFIG_NAND_DRIVER
+    DEF_DEVICE(&jz_nand_device,0,0),
+#endif
+
 
 };
 
