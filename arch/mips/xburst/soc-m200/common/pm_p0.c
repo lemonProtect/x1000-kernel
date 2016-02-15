@@ -713,6 +713,13 @@ static void load_func_to_tcsm(unsigned int *tcsm_addr,unsigned int *f_addr,unsig
 	}
 }
 
+/* debug with allow suspend printk().
+   diff --git a/kernel/printk.c b/kernel/printk.c
+   -bool console_suspend_enabled = 1;
+   +bool console_suspend_enabled = 0;
+ */
+extern int jz_clocks_show(void* args);
+
 static int m200_pm_enter(suspend_state_t state)
 {
 	unsigned int  lcr_tmp;
@@ -734,6 +741,10 @@ static int m200_pm_enter(suspend_state_t state)
 #ifdef DDR_MEM_TEST
 	test_ddr_data_init();
 #endif
+
+#ifdef PRINT_DEBUG
+	jz_clocks_show(NULL);
+#endif /* PRINT_DEBUG */
 
 	for(i = 0;i < SLEEP_TCSM_DATA_LEN;i += 4)
 		REG32(SLEEP_TCSM_RESUME_DATA + i) = 0;
