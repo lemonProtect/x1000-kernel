@@ -26,7 +26,6 @@
 #define USBPCR1_WORD_IF1		18
 #define SRBC_USB_SR			12
 
-#if 0
 int cpm_start_ohci(void)
 {
 	int tmp;
@@ -34,30 +33,57 @@ int cpm_start_ohci(void)
 
 	/* The PLL uses CLKCORE as reference */
 	tmp = cpm_inl(CPM_USBPCR1);
-	tmp &= ~(0x1<<31);
-	cpm_outl(tmp,CPM_USBPCR1);
-
-	tmp = cpm_inl(CPM_USBPCR1);
 	tmp |= (0x3<<26);
 	cpm_outl(tmp,CPM_USBPCR1);
 
 	/* selects the reference clock frequency 48M */
 	tmp = cpm_inl(CPM_USBPCR1);
 	tmp &= ~(0x3<<24);
-
-	tmp |=(2<<24);
+	switch(JZ_EXTAL) {
+		case 24000000:
+			tmp |= (1<<24);break;
+		case 48000000:
+			tmp |= (2<<24);break;
+		case 19200000:
+			tmp |= (3<<24);break;
+		case 12000000:
+		default:
+			tmp |= (0<<24);break;
+	}
 	cpm_outl(tmp,CPM_USBPCR1);
 
-	cpm_set_bit(23,CPM_USBPCR1);
-	cpm_set_bit(22,CPM_USBPCR1);
+	/* Configurate UHC IBSOP */
+	tmp = cpm_inl(CPM_USBPCR1);
+	tmp &= ~(7 << 14);
+	tmp |= (1 << 14);
+	cpm_outl(tmp,CPM_USBPCR1);
 
-	cpm_set_bit(18,CPM_USBPCR1);
-	cpm_set_bit(19,CPM_USBPCR1);
+	/* Configurate UHC XP */
+	tmp = cpm_inl(CPM_USBPCR1);
+	tmp &= ~(3 << 12);
+	cpm_outl(tmp,CPM_USBPCR1);
 
-	cpm_set_bit(7, CPM_OPCR);
+	/* Configurate UHC SP */
+	tmp = cpm_inl(CPM_USBPCR1);
+	tmp &= ~(7 << 9);
+	tmp |= (1 << 9);
+	cpm_outl(tmp,CPM_USBPCR1);
+
+	/* Configurate UHC SM */
+	tmp = cpm_inl(CPM_USBPCR1);
+	tmp &= ~(7 << 6);
+	tmp |= (1 << 6);
+	cpm_outl(tmp,CPM_USBPCR1);
+
+	/* Disable overcurrent */
+	cpm_clear_bit(4,CPM_USBPCR1);
+
+	/* Enable OHCI clock */
+	cpm_set_bit(5,CPM_USBPCR1);
+
+	cpm_set_bit(17,CPM_USBPCR1);
+
 	cpm_set_bit(6, CPM_OPCR);
-
-	cpm_set_bit(24, CPM_USBPCR);
 
 	/* OTG PHY reset */
 	cpm_set_bit(22, CPM_USBPCR);
@@ -67,20 +93,15 @@ int cpm_start_ohci(void)
 
 	/* UHC soft reset */
 	if(!has_reset) {
-		cpm_set_bit(20, CPM_USBPCR1);
-		cpm_set_bit(21, CPM_USBPCR1);
-		cpm_set_bit(13, CPM_SRBC);
-		cpm_set_bit(12, CPM_SRBC);
-		cpm_set_bit(11, CPM_SRBC);
+		cpm_set_bit(14, CPM_SRBC);
 		udelay(300);
-		cpm_clear_bit(20, CPM_USBPCR1);
-		cpm_clear_bit(21, CPM_USBPCR1);
-		cpm_clear_bit(13, CPM_SRBC);
-		cpm_clear_bit(12, CPM_SRBC);
-		cpm_clear_bit(11, CPM_SRBC);
+		cpm_clear_bit(14, CPM_SRBC);
 		udelay(300);
 		has_reset = 1;
 	}
+
+	printk(KERN_DEBUG __FILE__
+	": Clock to USB host has been enabled \n");
 
 	return 0;
 }
@@ -89,29 +110,27 @@ EXPORT_SYMBOL(cpm_start_ohci);
 int cpm_stop_ohci(void)
 {
 	/* disable ohci phy power */
-	cpm_clear_bit(18,CPM_USBPCR1);
-	cpm_clear_bit(19,CPM_USBPCR1);
+	cpm_clear_bit(17,CPM_USBPCR1);
 
 	cpm_clear_bit(6, CPM_OPCR);
-	cpm_clear_bit(7, CPM_OPCR);
 
+	printk(KERN_DEBUG __FILE__
+	       ": stop JZ OHCI USB Controller\n");
 	return 0;
 }
 EXPORT_SYMBOL(cpm_stop_ohci);
-#endif
-#if 0
+
 int cpm_start_ehci(void)
 {
-	return cpm_start_ohci();
+	return 0;
 }
 EXPORT_SYMBOL(cpm_start_ehci);
 
 int cpm_stop_ehci(void)
 {
-	return cpm_stop_ohci();
+	return 0;
 }
 EXPORT_SYMBOL(cpm_stop_ehci);
-#endif
 void jz_otg_ctr_reset(void)
 {
 	cpm_set_bit(SRBC_USB_SR, CPM_SRBC);

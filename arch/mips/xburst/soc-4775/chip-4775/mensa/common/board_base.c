@@ -149,7 +149,7 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 	DEF_DEVICE(&jz_efuse_device, &jz_efuse_pdata, sizeof(struct jz_efuse_platform_data)),
 #endif
 #ifdef  CONFIG_I2C0_V12_JZ
-    DEF_DEVICE(&jz_i2c0_device,0,0),
+	DEF_DEVICE(&jz_i2c0_device,0,0),
 #endif
 #ifdef	CONFIG_I2C1_V12_JZ
 	DEF_DEVICE(&jz_i2c1_device,0,0),
@@ -189,8 +189,6 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_NAND_DRIVER
     DEF_DEVICE(&jz_nand_device,0,0),
 #endif
-
-
 };
 
 static int __init board_base_init(void)
@@ -209,9 +207,6 @@ static int __init board_base_init(void)
 	spi_register_board_info(jz_spi0_board_info, jz_spi0_devs_size);
 #endif
 
-#if (defined(CONFIG_SOFT_I2C0_GPIO_V12_JZ) || defined(CONFIG_I2C0_V12_JZ))
-	i2c_register_board_info(0, jz_i2c0_devs, jz_i2c0_devs_size);
-#endif
 
 #if (defined(CONFIG_SOFT_I2C3_GPIO_V12_JZ) || defined(CONFIG_I2C3_V12_JZ))
 	i2c_register_board_info(3, jz_i2c3_devs, jz_i2c3_devs_size);

@@ -1600,7 +1600,8 @@ static int ov5640_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id ov5640_id[] = {
-	{ "ov5640-front",  0 },
+	{ "ov5640-back",  0 },
+	{ "ov5640-front",  1 },
 	{ }
 };
 

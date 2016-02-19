@@ -81,7 +81,7 @@ struct i2c_board_info jz_i2c0_devs[] __initdata = {
 	},
 #endif
 	[BACK_CAMERA_INDEX] = {
-
+		I2C_BOARD_INFO("ov5640-back", 0x3C),
 	},
 #ifdef CONFIG_TOUCHSCREEN_GWTC9XXXB
 	{
