@@ -18,23 +18,24 @@
 #include <gpio.h>
 #include "board.h"
 
-
+extern struct i2c_board_info jz_i2c0_devs[];
 extern struct i2c_board_info jz_i2c1_devs[];
 
 #ifdef CONFIG_VIDEO_JZ_CIM_HOST_V11
-struct jz_camera_pdata mensa_camera_pdata = {
+#ifdef CONFIG_SOC_JZ_CIM1
+struct jz_camera_pdata front_mensa_camera_pdata = {
 	.mclk_10khz = 2400,
 	.flags = 0 ,
 	.cam_sensor_pdata[FRONT_CAMERA_INDEX] = {
-		.gpio_rst = CAMERA_SENSOR_RESET,
-		.gpio_power = CAMERA_FRONT_SENSOR_EN,
+		.gpio_rst = FRONT_CAMERA_SENSOR_RESET,
+		.gpio_power = FRONT_CAMERA_SENSOR_EN,
 	},
 };
 
-static int camera_sensor_reset(struct device *dev) {
-	gpio_set_value(CAMERA_SENSOR_RESET, 0);
+static int front_camera_sensor_reset(struct device *dev) {
+	gpio_set_value(FRONT_CAMERA_SENSOR_RESET, 0);
 	msleep(150);
-	gpio_set_value(CAMERA_SENSOR_RESET, 1);
+	gpio_set_value(FRONT_CAMERA_SENSOR_RESET, 1);
 	msleep(150);
 
 	return 0;
@@ -43,7 +44,8 @@ static int camera_sensor_reset(struct device *dev) {
 
 static int front_camera_sensor_power(struct device *dev, int on) {
 	/* enable or disable the camera */
-	gpio_set_value(CAMERA_FRONT_SENSOR_EN, on ? 0 : 1);
+	printk("this is on is %d\n\n", on);
+	gpio_set_value(FRONT_CAMERA_SENSOR_EN, on ? 0 : 1);
 	msleep(150);
 
 	return 0;
@@ -54,27 +56,81 @@ static struct soc_camera_link iclink_front = {
 	.board_info	= &jz_i2c1_devs[FRONT_CAMERA_INDEX],
 	.i2c_adapter_id	= 1,
 	.power = front_camera_sensor_power,
-	.reset = camera_sensor_reset,
+	.reset = front_camera_sensor_reset,
 };
 
 struct platform_device mensa_front_camera_sensor = {
 	.name	= "soc-camera-pdrv",
-	.id	= -1,
+	.id	= 1,
 	.dev	= {
 		.platform_data = &iclink_front,
 	},
 };
 #endif
 
+#ifdef CONFIG_SOC_JZ_CIM0
+struct jz_camera_pdata back_mensa_camera_pdata = {
+	.mclk_10khz = 2400,
+	.flags = 0 ,
+	.cam_sensor_pdata[BACK_CAMERA_INDEX] = {
+		.gpio_rst = BACK_CAMERA_SENSOR_RESET,
+		.gpio_power = BACK_CAMERA_SENSOR_EN,
+	},
+};
+
+static int back_camera_sensor_reset(struct device *dev) {
+	gpio_set_value(BACK_CAMERA_SENSOR_RESET, 0);
+	msleep(150);
+	gpio_set_value(BACK_CAMERA_SENSOR_RESET, 1);
+	msleep(150);
+
+	return 0;
+}
+
+
+static int back_camera_sensor_power(struct device *dev, int on) {
+	/* enable or disable the camera */
+	printk("this is on is %d\n\n", on);
+	gpio_set_value(BACK_CAMERA_SENSOR_EN, on ? 0 : 1);
+	msleep(150);
+
+	return 0;
+}
+
+static struct soc_camera_link iclink_back = {
+	.bus_id		= 0,		/* Must match with the camera ID */
+	.board_info	= &jz_i2c0_devs[BACK_CAMERA_INDEX],
+	.i2c_adapter_id	= 0,
+	.power = back_camera_sensor_power,
+	.reset = back_camera_sensor_reset,
+};
+
+struct platform_device mensa_back_camera_sensor = {
+	.name	= "soc-camera-pdrv",
+	.id	= 0,
+	.dev	= {
+		.platform_data = &iclink_back,
+	},
+};
+#endif
+#endif
 static int __init mensa_board_cim_init(void) {
 	/* camera host */
 
 #ifdef CONFIG_VIDEO_JZ_CIM_HOST_V11
-	jz_device_register(&jz_cim1_device, &mensa_camera_pdata);
+#ifdef CONFIG_SOC_JZ_CIM1
+	jz_device_register(&jz_cim1_device, &front_mensa_camera_pdata);
+#endif
+#ifdef CONFIG_SOC_JZ_CIM0
+	jz_device_register(&jz_cim0_device, &back_mensa_camera_pdata);
+#endif
 #endif
 	/* camera sensor */
 #ifdef CONFIG_SOC_JZ_CIM1
 	platform_device_register(&mensa_front_camera_sensor);
+#endif
+#ifdef CONFIG_SOC_JZ_CIM0
+	platform_device_register(&mensa_back_camera_sensor);
 #endif
 
 	return 0;
