@@ -91,4 +91,5 @@
 #define NEMC_CS6_IOBASE 0X16000000
 
 #define AUX_IOBASE	0x132a0000
+#define DDRC_BASE   0xb3010000
 #endif
