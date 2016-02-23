@@ -73,6 +73,11 @@ config SND_ASOC_JZ_DMIC_V13
 	tristate
 	select SND_ASOC_JZ_DMIC_DUMP_CDC
 
+config SND_ASOC_JZ_DMIC_MODULE
+	tristate "ALSA DMIC Driver work with wakeup module"
+	select WAKEUP_MODULE_V13
+
+
 config SND_ASOC_JZ_DMIC_V12
 	tristate
 	select SND_ASOC_JZ_DMIC_DUMP_CDC
@@ -155,8 +160,6 @@ config SND_ASOC_INGENIC_PHOENIX_SPDIF
 
 endchoice
 
-config SND_ASOC_INGENIC_DMIC
-	bool "Support DMIC for record"
 endmenu
 
 

@@ -20,16 +20,24 @@ config JZ_DMIC_WAKEUP
 	help
 		Say Y here if you want to use voice wakeup function. The Voice Wakeup
 		Driver support voice wakeup. when in doubt , Say N here.
+
+config WAKEUP_MODULE_V13
+	bool "Ingenic Voice Wakeup Module"
+	depends on SOC_X1000
+	default n
+	help
+		Say Y here if you want to enable vocie wakeup module, The Voice wakeup
+		module used by DMIC recorder, or DMIC Voice Wakeup.
 config JZ_DMIC_V13
 	bool "Ingenic Dmic Driveri v13"
-	depends on SOC_X1000
+	depends on WAKEUP_MODULE_V13
 	default n
 	help
 		Say Y here if you want to support DMIC on your board. The Dmic Driver
 		support record and wakeup function. When in doubt, Say N here.
 config JZ_DMIC_WAKEUP_V13
 	bool "Ingenic Voice Wakeup Driver V13"
-	depends on JZ_DMIC_V13
+	depends on WAKEUP_MODULE_V13
 	default n
 	help
 		Say Y here if you want to use voice wakeup function. The Voice Wakeup

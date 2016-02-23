@@ -197,6 +197,17 @@ static struct snd_soc_dai_link phoenix_dais[] = {
 		.codec_dai_name = "pcm dump dai",
 		.codec_name = "pcm dump",
 	},
+
+#ifdef CONFIG_SND_ASOC_JZ_DMIC_MODULE
+	[2] = {
+		.name = "PHOENIX DMIC",
+		.stream_name = "PHOENIX DMIC",
+		.platform_name = "jz-asoc-dmic-module-dma",
+		.cpu_dai_name = "jz-asoc-dmic-module",
+		.codec_dai_name = "dmic dump dai",
+		.codec_name = "dmic dump",
+	},
+#else
 	[2] = {
 		.name = "PHOENIX DMIC",
 		.stream_name = "PHOENIX DMIC",
@@ -205,6 +216,8 @@ static struct snd_soc_dai_link phoenix_dais[] = {
 		.codec_dai_name = "dmic dump dai",
 		.codec_name = "dmic dump",
 	},
+
+#endif
 
 };
 

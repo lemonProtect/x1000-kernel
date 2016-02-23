@@ -1,9 +1,9 @@
 /*
  *  sound/soc/ingenic/asoc-dmic.c
- *  ALSA Soc Audio Layer -- ingenic dmic (part of aic controller) driver
+ *  ALSA Soc Audio Layer -- ingenic dmic driver , work with wakeup module.
  *
  *  Copyright 2014 Ingenic Semiconductor Co.,Ltd
- *	cscheng <shicheng.cheng@ingenic.com>
+ *	qipengzhen <aric.pzqi@ingenic.com>
  *
  *  This program is free software; you can redistribute  it and/or modify it
  *  under  the terms of  the GNU General  Public License as published by the
@@ -25,8 +25,14 @@
 #include <sound/soc-dai.h>
 #include <linux/slab.h>
 #include <linux/regulator/consumer.h>
+ #include <linux/circ_buf.h>
+
+
 #include "asoc-dmic-v13.h"
 #include "asoc-aic-v13.h"
+
+
+#include <linux/voice_wakeup_module.h>
 
 static int jz_dmic_debug = 0;
 module_param(jz_dmic_debug, int, 0644);
@@ -42,77 +48,59 @@ module_param(jz_dmic_debug, int, 0644);
 
 static void dump_registers(struct device *dev)
 {
-	struct jz_dmic *jz_dmic = dev_get_drvdata(dev);
-	pr_info("DMICCR0  %p : 0x%08x\n", (jz_dmic->vaddr_base+DMICCR0),dmic_read_reg(dev, DMICCR0));
-	pr_info("DMICGCR  %p : 0x%08x\n", (jz_dmic->vaddr_base+DMICGCR),dmic_read_reg(dev, DMICGCR));
-	pr_info("DMICIMR  %p : 0x%08x\n", (jz_dmic->vaddr_base+DMICIMR),dmic_read_reg(dev, DMICIMR));
-	pr_info("DMICINTCR  %p : 0x%08x\n", (jz_dmic->vaddr_base+DMICINTCR),dmic_read_reg(dev, DMICINTCR));
-	pr_info("DMICTRICR  %p : 0x%08x\n", (jz_dmic->vaddr_base+DMICTRICR),dmic_read_reg(dev, DMICTRICR));
-	pr_info("DMICTHRH  %p : 0x%08x\n", (jz_dmic->vaddr_base+DMICTHRH),dmic_read_reg(dev, DMICTHRH));
-	pr_info("DMICTHRL  %p : 0x%08x\n", (jz_dmic->vaddr_base+DMICTHRL),dmic_read_reg(dev, DMICTHRL));
-	pr_info("DMICTRIMMAX  %p : 0x%08x\n", (jz_dmic->vaddr_base+DMICTRIMMAX),dmic_read_reg(dev, DMICTRIMMAX));
-	pr_info("DMICTRINMAX  %p : 0x%08x\n", (jz_dmic->vaddr_base+DMICTRINMAX),dmic_read_reg(dev, DMICTRINMAX));
-	pr_info("DMICDR  %p : 0x%08x\n", (jz_dmic->vaddr_base+DMICDR),dmic_read_reg(dev, DMICDR));
-	pr_info("DMICFTHR  %p : 0x%08x\n", (jz_dmic->vaddr_base+DMICFTHR),dmic_read_reg(dev, DMICFTHR));
-	pr_info("DMICFSR  %p : 0x%08x\n", (jz_dmic->vaddr_base+DMICFSR),dmic_read_reg(dev, DMICFSR));
-	pr_info("DMICCGDIS  %p : 0x%08x\n", (jz_dmic->vaddr_base+DMICCGDIS),dmic_read_reg(dev, DMICCGDIS));
+
+	printk("not implemented!\n");
 	return;
 }
 
 static int jz_dmic_startup(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
-	struct device *dev = dai->dev;
 	struct jz_dmic *jz_dmic = dev_get_drvdata(dai->dev);
+	struct dma_fifo *tfifo = jz_dmic->tcsm_fifo;
+	struct dma_fifo *rfifo = jz_dmic->record_fifo;
 
 	DMIC_DEBUG_MSG("enter %s, substream capture\n",__func__);
 
-	if (!jz_dmic->dmic_mode) {
-		__dmic_enable(dev);
-	}
+	tfifo->n_size = TCSM_DATA_BUFFER_SIZE;
+	tfifo->xfer.buf = (char *)TCSM_DATA_BUFFER_ADDR;
+	tfifo->xfer.head = (char *)KSEG1ADDR(wakeup_module_get_dma_address()) - tfifo->xfer.buf;
+	tfifo->xfer.tail = tfifo->xfer.head;
 
-	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-		jz_dmic->dmic_mode |= DMIC_READ;
-	} else {
-		dev_err(dai->dev, "dmic is a capture device\n");
-		return -EINVAL;
-	}
+	rfifo->n_size = substream->runtime->dma_bytes;
+	rfifo->xfer.buf = substream->runtime->dma_area;
+	rfifo->paddr = substream->runtime->dma_addr;
+	rfifo->xfer.head = 0;
+	rfifo->xfer.tail = 0;
 
-	clk_enable(jz_dmic->clk_gate_dmic);
+
 	regulator_enable(jz_dmic->vcc_dmic);
 	jz_dmic->en = 1;
 
-	printk("start set dmic register....\n");
+	wakeup_module_open(NORMAL_RECORD);
+	printk("start dmic wakeup module\n");
 	return 0;
 }
 
-static int dmic_set_rate(struct device *dev, int rate){
-	switch(rate){
-		case 8000:
-			__dmic_set_sr_8k(dev);
-			break;
-		case 16000:
-			__dmic_set_sr_16k(dev);
-			break;
-		case 48000:
-			__dmic_set_sr_48k(dev);
-			break;
-		default:
-			dev_err(dev,"dmic unsupport rate %d\n",rate);
-	}
+static int dmic_set_rate(int rate)
+{
+
+	wakeup_module_ioctl(DMIC_IOCTL_SET_SAMPLERATE, rate);
+	return 0;
+}
+
+static int dmic_set_channel(int ch)
+{
+	wakeup_module_ioctl(DMIC_IOCTL_SET_CHANNEL, ch);
 	return 0;
 }
 
 static int jz_dmic_hw_params(struct snd_pcm_substream *substream,
 				struct snd_pcm_hw_params *params, struct snd_soc_dai *dai)
 {
-	struct device *dev = dai->dev;
 	int channels = params_channels(params);
 	int rate = params_rate(params);
-	struct jz_dmic *jz_dmic = dev_get_drvdata(dai->dev);
 	int fmt_width = snd_pcm_format_width(params_format(params));
-	enum dma_slave_buswidth buswidth;
-	int trigger;
 
 	DMIC_DEBUG_MSG("enter %s, substream = %s\n",__func__,"capture");
 
@@ -124,19 +112,10 @@ static int jz_dmic_hw_params(struct snd_pcm_substream *substream,
 		return -EINVAL;
 	}
 
-	if (jz_dmic->unpack_enable)
-		buswidth = DMA_SLAVE_BUSWIDTH_4_BYTES;
-	else
-		buswidth = DMA_SLAVE_BUSWIDTH_2_BYTES;
 
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-		jz_dmic->rx_dma_data.buswidth = buswidth;
-		jz_dmic->rx_dma_data.max_burst = (DMIC_FIFO_DEPTH * buswidth)/2;
-		trigger = jz_dmic->rx_dma_data.max_burst/(int)buswidth;
-		__dmic_set_request(dev, trigger);
-		__dmic_set_chnum(dev, channels - 1);
-		dmic_set_rate(dev,rate);
-		snd_soc_dai_set_dma_data(dai, substream, (void *)&jz_dmic->rx_dma_data);
+		dmic_set_rate(rate);
+		dmic_set_channel(channels);
 	} else {
 		dev_err(dai->dev, "DMIC is a capture device\n");
 	}
@@ -146,34 +125,36 @@ static int jz_dmic_hw_params(struct snd_pcm_substream *substream,
 static void jz_dmic_start_substream(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
-	struct device *dev = dai->dev;
+	struct jz_dmic *jz_dmic = dev_get_drvdata(dai->dev);
+	struct dma_fifo *rfifo = jz_dmic->record_fifo;
+
 	DMIC_DEBUG_MSG("enter %s, substream start capture\n", __func__);
 
-	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-/*		__dmic_reset(dev);*/
-/*		while(__dmic_get_reset(dev));*/
-		__dmic_enable_rdms(dev);
-		__dmic_enable(dev);
-	} else {
-		dev_err(dai->dev, "DMIC is a capture device\n");
+	if(rfifo->xfer.buf != (char *)substream->runtime->dma_area) {
+		rfifo->n_size = substream->runtime->dma_bytes;
+		rfifo->xfer.buf = substream->runtime->dma_area;
+		rfifo->xfer.head = 0;
+		rfifo->xfer.tail = 0;
+		rfifo->paddr = substream->runtime->dma_addr;
 	}
+	/* start timer to transfer data from tcsm to ddr.*/
+
+	mod_timer(&jz_dmic->record_timer, jiffies + msecs_to_jiffies(30));
+
 	return;
 }
 
 static void jz_dmic_stop_substream(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
-	struct device *dev = dai->dev;
+	struct jz_dmic *jz_dmic = dev_get_drvdata(dai->dev);
 	DMIC_DEBUG_MSG("enter %s, substream stop capture\n",__func__);
 
-	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-		if (__dmic_is_enable_rdms(dev)) {
-			__dmic_disable_rdms(dev);
-		}
-		__dmic_disable(dev);
-	}else{
-		dev_err(dai->dev, "DMIC is a capture device\n");
-	}
+
+	/* stop transfer timer */
+	del_timer_sync(&jz_dmic->record_timer);
+
+
 	return;
 }
 
@@ -185,20 +166,12 @@ static int jz_dmic_trigger(struct snd_pcm_substream *substream, int cmd, struct 
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
-		if (atomic_read(&prtd->stopped_pending))
-			return -EPIPE;
-#endif
 		printk(KERN_DEBUG"dmic start\n");
 		jz_dmic_start_substream(substream, dai);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
-		if (atomic_read(&prtd->stopped_pending))
-			return 0;
-#endif
 		printk(KERN_DEBUG"dmic stop\n");
 		jz_dmic_stop_substream(substream, dai);
 		break;
@@ -209,53 +182,107 @@ static int jz_dmic_trigger(struct snd_pcm_substream *substream, int cmd, struct 
 static void jz_dmic_shutdown(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai) {
 	struct jz_dmic *jz_dmic = dev_get_drvdata(dai->dev);
-	struct device *dev = dai->dev;
 
 	DMIC_DEBUG_MSG("enter %s, substream = capture\n", __func__);
+
 	jz_dmic_stop_substream(substream, dai);
+	/* module close */
 
-	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE)
-		jz_dmic->dmic_mode &= ~DMIC_READ;
-
-	if (!jz_dmic->dmic_mode) {
-		__dmic_disable(dev);
-	}
+	wakeup_module_close(NORMAL_RECORD);
 	regulator_disable(jz_dmic->vcc_dmic);
-	clk_disable(jz_dmic->clk_gate_dmic);
 	jz_dmic->en = 0;
+
 	return;
 }
 
 static int jz_dmic_probe(struct snd_soc_dai *dai)
 {
-	struct device *dev = dai->dev;
-	struct jz_dmic *jz_dmic = dev_get_drvdata(dai->dev);
-
-	clk_enable(jz_dmic->clk_gate_dmic);
-	/*gain: 0, ..., e*/
-	__dmic_reset(dev);
-	while(__dmic_get_reset(dev));
-	__dmic_set_sr_8k(dev);
-	__dmic_enable_hpf1(dev);
-/*	__dmic_disable_hpf1(dev);*/
-	__dmic_set_gcr(dev,8);
-	__dmic_mask_all_int(dev);
-	__dmic_enable_rdms(dev);
-	__dmic_enable_pack(dev);
-	__dmic_disable_sw_lr(dev);
-	__dmic_enable_lp(dev);
-	__dmic_set_request(dev,48);
-	__dmic_enable_hpf2(dev);
-	__dmic_set_thr_high(dev,32);
-	__dmic_set_thr_low(dev,16);
-	__dmic_enable_tri(dev);
-
-	clk_disable(jz_dmic->clk_gate_dmic);
-
-
 	return 0;
 }
 
+
+
+dma_addr_t jz_dmic_module_get_trans_addr(struct snd_pcm_substream *substream,
+					struct snd_soc_dai *dai)
+{
+	struct jz_dmic *jz_dmic = dev_get_drvdata(dai->dev);
+	struct dma_fifo *rfifo = jz_dmic->record_fifo;
+
+	struct circ_buf * rxfer = &rfifo->xfer;
+
+	return rfifo->paddr + rxfer->head;
+}
+EXPORT_SYMBOL(jz_dmic_module_get_trans_addr);
+
+static void record_timer_handler(unsigned long data)
+{
+	struct jz_dmic *jz_dmic = (struct jz_dmic *)data;
+	struct dma_fifo *rfifo = jz_dmic->record_fifo;
+	struct dma_fifo *tfifo = jz_dmic->tcsm_fifo;
+
+	struct circ_buf *rxfer = &rfifo->xfer;
+
+	struct circ_buf *txfer = &tfifo->xfer;
+	dma_addr_t trans_addr = wakeup_module_get_dma_address();
+
+	int ntotal;
+
+	int nread;
+	int ncnt2end = 0;
+	int ncopy = 0;
+	//printk("trans_addr:%08x, rxfer->buf: 0x%08x", trans_addr, rxfer->buf);
+	txfer->head = (char *)KSEG1ADDR(trans_addr) - txfer->buf;
+
+	/* TODO: copy data from tcsm to ddr , simulate dma transfer. */
+
+	/* get available data to be store */
+
+
+	ntotal = CIRC_CNT(txfer->head, txfer->tail, tfifo->n_size);
+
+	while(ntotal > 0) {
+
+		nread = CIRC_CNT(txfer->head, txfer->tail, tfifo->n_size);
+
+		if(nread > CIRC_CNT_TO_END(txfer->head, txfer->tail, tfifo->n_size)) {
+			nread = CIRC_CNT_TO_END(txfer->head, txfer->tail, tfifo->n_size);
+		}
+
+
+		ncopy = nread;
+		ncnt2end = rfifo->n_size - rxfer->head;
+		while((ncopy > ncnt2end)) {
+
+			memcpy(rxfer->buf + rxfer->head, txfer->buf + txfer->tail, ncnt2end);
+			ncopy -= ncnt2end;
+
+			rxfer->head += ncnt2end;
+			rxfer->head %= rfifo->n_size;
+
+			txfer->tail += ncnt2end;
+			txfer->tail %= tfifo->n_size;
+
+			/* new round */
+			ncnt2end = rfifo->n_size - rxfer->head;
+		}
+
+		if(ncopy != 0) {
+			memcpy(rxfer->buf + rxfer->head, txfer->buf + txfer->tail, ncopy);
+			rxfer->head += ncopy;
+			rxfer->head %= rfifo->n_size;
+
+			txfer->tail += ncopy;
+			txfer->tail %= tfifo->n_size;
+		}
+
+		ntotal -= nread;
+
+	}
+
+	//printk("record_timer:txfer->head:%08x, rxfer->head:0x%08x\n", txfer->head, rxfer->head);
+	mod_timer(&jz_dmic->record_timer, jiffies + msecs_to_jiffies(20));
+
+}
 
 static struct snd_soc_dai_ops jz_dmic_dai_ops = {
 	.startup	= jz_dmic_startup,
@@ -293,13 +320,12 @@ static struct snd_soc_dai_driver jz_dmic_dai = {
 };
 
 static const struct snd_soc_component_driver jz_dmic_component = {
-	.name		= "jz-dmic",
+	.name		= "jz-dmic-module",
 };
 
 static int jz_dmic_platfrom_probe(struct platform_device *pdev)
 {
 	struct jz_dmic *jz_dmic;
-	struct resource *res = NULL;
 	int i = 0, ret;
 
 	jz_dmic = devm_kzalloc(&pdev->dev, sizeof(struct jz_dmic), GFP_KERNEL);
@@ -307,26 +333,9 @@ static int jz_dmic_platfrom_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	jz_dmic->dev = &pdev->dev;
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res)
-		return -ENOENT;
-	if (!devm_request_mem_region(&pdev->dev,
-				res->start, resource_size(res),pdev->name))
-		return -EBUSY;
-
-	jz_dmic->res_start = res->start;
-	jz_dmic->res_size = resource_size(res);
-	jz_dmic->vaddr_base = devm_ioremap_nocache(&pdev->dev,
-			jz_dmic->res_start, jz_dmic->res_size);
-	if (!jz_dmic->vaddr_base) {
-		dev_err(&pdev->dev, "Failed to ioremap mmio memory\n");
-		return -ENOMEM;
-	}
-
-	jz_dmic->dmic_mode = 0;
-	jz_dmic->rx_dma_data.dma_addr = (dma_addr_t)jz_dmic->res_start + DMICDR;
 
 	jz_dmic->vcc_dmic = regulator_get(&pdev->dev,"vcc_dmic");
+
 	platform_set_drvdata(pdev, (void *)jz_dmic);
 
 	for (; i < ARRAY_SIZE(jz_dmic_sysfs_attrs); i++) {
@@ -335,13 +344,26 @@ static int jz_dmic_platfrom_probe(struct platform_device *pdev)
 			dev_warn(&pdev->dev,"attribute %s create failed %x",
 					attr_name(jz_dmic_sysfs_attrs[i]), ret);
 	}
-	jz_dmic->clk_gate_dmic = clk_get(&pdev->dev, "dmic");
-	if (IS_ERR_OR_NULL(jz_dmic->clk_gate_dmic)) {
-		ret = PTR_ERR(jz_dmic->clk_gate_dmic);
-		jz_dmic->clk_gate_dmic = NULL;
-		dev_err(&pdev->dev, "Failed to get clock: %d\n", ret);
-		return ret;
+
+	jz_dmic->record_fifo = kzalloc(sizeof(struct dma_fifo), GFP_KERNEL);
+	if(!jz_dmic->record_fifo) {
+		printk("failed to allocate dmic record fifo!\n");
+		goto _err_alloc_rfifo;
 	}
+
+	jz_dmic->tcsm_fifo = kzalloc(sizeof(struct dma_fifo), GFP_KERNEL);
+	if(!jz_dmic->tcsm_fifo) {
+		printk("failed to allocate dmic tcsm fifo!\n");
+		goto _err_alloc_tfifo;
+	}
+
+
+	init_timer(&jz_dmic->record_timer);
+	jz_dmic->record_timer.function = record_timer_handler;
+	jz_dmic->record_timer.data	= (unsigned long)jz_dmic;
+
+
+
 	ret = snd_soc_register_component(&pdev->dev, &jz_dmic_component,
 					 &jz_dmic_dai, 1);
 	if (ret)
@@ -351,6 +373,12 @@ static int jz_dmic_platfrom_probe(struct platform_device *pdev)
 
 err_register_cpu_dai:
 	platform_set_drvdata(pdev, NULL);
+	kfree(jz_dmic->tcsm_fifo);
+_err_alloc_tfifo:
+	kfree(jz_dmic->record_fifo);
+_err_alloc_rfifo:
+	kfree(jz_dmic);
+
 	return ret;
 }
 
@@ -371,7 +399,6 @@ static int jz_dmic_platfom_suspend(struct platform_device *pdev, pm_message_t st
 	struct jz_dmic *jz_dmic = platform_get_drvdata(pdev);
 	if(jz_dmic->en){
 		regulator_disable(jz_dmic->vcc_dmic);
-		clk_disable(jz_dmic->clk_gate_dmic);
 	}
 	return 0;
 }
@@ -381,7 +408,6 @@ static int jz_dmic_platfom_resume(struct platform_device *pdev)
 	struct jz_dmic *jz_dmic = platform_get_drvdata(pdev);
 	if(jz_dmic->en){
 		regulator_enable(jz_dmic->vcc_dmic);
-		clk_enable(jz_dmic->clk_gate_dmic);
 	}
 	return 0;
 }
@@ -394,13 +420,24 @@ static struct platform_driver jz_dmic_plat_driver = {
 	.resume = jz_dmic_platfom_resume,
 #endif
 	.driver = {
-		.name = "jz-asoc-dmic",
+		.name = "jz-asoc-dmic-module",
 		.owner = THIS_MODULE,
 	},
 };
 
 static int jz_dmic_init(void)
 {
+	struct platform_device *pdev = NULL;
+
+	pdev = platform_device_register_simple("jz-asoc-dmic-module", -1, NULL, 0);
+	if(IS_ERR(pdev)) {
+		printk("platform device register jz-asoc-dmic-module failed!\n");
+		return -ENOMEM;
+	}
+
+	printk("platform device register jz-asoc-dmic-module success!\n");
+
+
         return platform_driver_register(&jz_dmic_plat_driver);
 }
 module_init(jz_dmic_init);
@@ -411,7 +448,7 @@ static void jz_dmic_exit(void)
 }
 module_exit(jz_dmic_exit);
 
-MODULE_AUTHOR("shicheng.cheng@ingenic.com");
+MODULE_AUTHOR("qipengzhen <aric.pzqi@ingenic.com>");
 MODULE_DESCRIPTION("JZ AIC dmic SoC Interface");
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("platform:jz-dmic");

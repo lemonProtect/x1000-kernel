@@ -11,6 +11,7 @@ snd-asoc-i2s-v13-objs 	:= asoc-v13/asoc-i2s-v13.o
 snd-asoc-pcm-v13-objs 	:= asoc-v13/asoc-pcm-v13.o
 snd-asoc-spdif-v13-objs := asoc-v13/asoc-spdif-v13.o
 snd-asoc-dmic-v13-objs := asoc-v13/asoc-dmic-v13.o
+snd-asoc-dmic-module-objs := asoc-v13/asoc-dma-dmic.o asoc-v13/asoc-dmic-module.o
 
 snd-asoc-icdc-d1-objs := icodec/icdc_d1.o
 snd-asoc-icdc-d2-objs := icodec/icdc_d2.o
@@ -41,6 +42,9 @@ obj-$(CONFIG_SND_ASOC_JZ_DMIC_V12) += snd-asoc-dmic-v12.o
 obj-$(CONFIG_SND_ASOC_JZ_DMIC_V13) += snd-asoc-dmic-v13.o
 obj-$(CONFIG_SND_ASOC_JZ_DMIC_DUMP_CDC) += snd-asoc-dmic-dump.o
 
+obj-$(CONFIG_SND_ASOC_JZ_DMIC_MODULE) += snd-asoc-dmic-module.o
+
+
 snd-soc-dorado-icdc-objs   := asoc-board/dorado_icdc.o
 snd-soc-watch-icdc-objs   := asoc-board/watch_icdc.o
 snd-soc-newton2-plus-icdc-objs   := asoc-board/newton2_plus_icdc.o
@@ -55,5 +59,9 @@ obj-$(CONFIG_SND_ASOC_INGENIC_NEWTON2_PLUS_ICDC) += snd-soc-newton2-plus-icdc.o
 obj-$(CONFIG_SND_ASOC_INGENIC_MENSA_ICDC) += snd-soc-mensa-icdc.o
 obj-$(CONFIG_SND_ASOC_INGENIC_MENSA_SPDIF) += snd-soc-mensa-spdif.o
 obj-$(CONFIG_SND_ASOC_INGENIC_PHOENIX_ICDC) += snd-soc-phoenix-icdc.o
+$(obj)/asoc-board/phoenix_icdc.o:include/generated/autoconf.h
+
+
 obj-$(CONFIG_SND_ASOC_INGENIC_PHOENIX_SPDIF) += snd-soc-phoenix-spdif.o
+
 

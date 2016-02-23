@@ -1,7 +1,23 @@
 #ifndef __ASOC_DMIC_H__
 #define __ASOC_DMIC_H__
 
+ #include <linux/circ_buf.h>
+
 #include "asoc-dma-v13.h"
+
+
+struct dma2ddr_info {
+	void *addr;
+	unsigned int cur_pos;
+	unsigned int len;
+};
+
+
+struct dma_fifo {
+	struct circ_buf xfer;
+	size_t n_size;
+	dma_addr_t paddr;
+};
 
 struct jz_dmic {
 	struct device	*dev;
@@ -16,6 +32,16 @@ struct jz_dmic {
 	struct clk	*clk_gate_dmic;
 	/*for dma*/
 	struct jz_pcm_dma_params rx_dma_data;
+
+
+	struct dma_fifo *record_fifo;
+
+	/* fifo transfer data from dma to tcsm */
+	struct dma_fifo *tcsm_fifo;
+
+	/* timer to trans data from tcsm to ddr */
+	struct timer_list record_timer;
+
 };
 
 static void inline dmic_write_reg(struct device *dev, unsigned int reg,
