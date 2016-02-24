@@ -166,7 +166,7 @@ int jz_nand_chip_init(struct jz_nemc *nemc, struct jz_nand_params *param)
 	nfcsr |= NEMC_NFCSR_NFEn(1);
 	writel(nfcsr, nemc->base + NEMC_NFCSR);
 
-	nemc->clk = devm_clk_get(&nemc->pdev->dev "nemc");
+	nemc->clk = devm_clk_get(&nemc->pdev->dev, "nemc");
 	clk_enable(nemc->clk);
 	return 0;
 }
