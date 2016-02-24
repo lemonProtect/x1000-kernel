@@ -179,6 +179,9 @@ static void jz_dmic_stop_substream(struct snd_pcm_substream *substream,
 
 static int jz_dmic_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_soc_dai *dai)
 {
+#ifndef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
+	struct jz_pcm_runtime_data *prtd = substream->runtime->private_data;
+#endif
 	DMIC_DEBUG_MSG("enter %s, substream capture cmd = %d\n", __func__,cmd);
 
 	switch (cmd) {

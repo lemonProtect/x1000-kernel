@@ -229,7 +229,7 @@ static snd_pcm_uframes_t jz_pcm_pointer(struct snd_pcm_substream *substream)
 }
 
 
-#define JZ_DMA_BUFFERSIZE (256 * PAGE_SIZE)
+#define JZ_DMA_BUFFERSIZE (64 * PAGE_SIZE)
 static const struct snd_pcm_hardware jz_pcm_hardware = {
 	.info = SNDRV_PCM_INFO_MMAP |
 		SNDRV_PCM_INFO_PAUSE |

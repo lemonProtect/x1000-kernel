@@ -38,16 +38,15 @@ struct jz_pcm_runtime_data {
 	struct dma_chan *dma_chan;
 	dma_cookie_t cookie;
 	unsigned int pos;
-#ifdef CONFIG_JZ_ASOC_DMA_HRTIMER_MODE
+
 	struct hrtimer hr_timer;
 	ktime_t expires;
 	atomic_t stopped;
-#else
+
 	atomic_t stopped_pending;
 	int stopped_cmd;
 	struct delayed_work dwork_stop_dma;
 	unsigned long delayed_jiffies;
-#endif
 
 	/* debug interface just use in debug*/
 	void *copy_start;
