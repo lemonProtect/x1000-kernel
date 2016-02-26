@@ -34,9 +34,9 @@ struct jz_camera_pdata front_mensa_camera_pdata = {
 
 static int front_camera_sensor_reset(struct device *dev) {
 	gpio_set_value(FRONT_CAMERA_SENSOR_RESET, 0);
-	msleep(150);
+	msleep(10);
 	gpio_set_value(FRONT_CAMERA_SENSOR_RESET, 1);
-	msleep(150);
+	msleep(10);
 
 	return 0;
 }
@@ -44,9 +44,8 @@ static int front_camera_sensor_reset(struct device *dev) {
 
 static int front_camera_sensor_power(struct device *dev, int on) {
 	/* enable or disable the camera */
-	printk("this is on is %d\n\n", on);
 	gpio_set_value(FRONT_CAMERA_SENSOR_EN, on ? 0 : 1);
-	msleep(150);
+	msleep(10);
 
 	return 0;
 }
@@ -80,9 +79,9 @@ struct jz_camera_pdata back_mensa_camera_pdata = {
 
 static int back_camera_sensor_reset(struct device *dev) {
 	gpio_set_value(BACK_CAMERA_SENSOR_RESET, 0);
-	msleep(150);
+	msleep(10);
 	gpio_set_value(BACK_CAMERA_SENSOR_RESET, 1);
-	msleep(150);
+	msleep(10);
 
 	return 0;
 }
@@ -90,9 +89,8 @@ static int back_camera_sensor_reset(struct device *dev) {
 
 static int back_camera_sensor_power(struct device *dev, int on) {
 	/* enable or disable the camera */
-	printk("this is on is %d\n\n", on);
 	gpio_set_value(BACK_CAMERA_SENSOR_EN, on ? 0 : 1);
-	msleep(150);
+	msleep(10);
 
 	return 0;
 }

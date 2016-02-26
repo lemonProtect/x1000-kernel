@@ -192,6 +192,9 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef  CONFIG_MTD_NAND_JZ
     DEF_DEVICE(&jz_mtd_nand_device,0,0),
 #endif
+#ifdef  CONFIG_KEYBOARD_GPIO
+    DEF_DEVICE(&jz_button_device,0,0),
+#endif
 };
 
 static int __init board_base_init(void)
