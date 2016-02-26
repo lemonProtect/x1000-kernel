@@ -486,8 +486,3 @@ static void __exit vpu_exit(void)
 
 module_init(vpu_init);
 module_exit(vpu_exit);
-
-MODULE_DESCRIPTION("JZ4780 VPU driver");
-MODULE_AUTHOR("Large Dipper <ykli@ingenic.cn>");
-MODULE_LICENSE("GPL v2");
-MODULE_VERSION("20120925");

@@ -583,6 +583,9 @@ config LATTICE_ECP3_CONFIG
 	  or loading) of the Lattice ECP3 FPGA family via SPI.
 
 	  If unsure, say N.
+config JZ_X2D
+	depends on SOC_4775
+	bool "JZ EXtreme2D  for 2D driver"
 
 config SRAM
 	bool "Generic on-chip SRAM driver"
@@ -624,4 +627,5 @@ source "drivers/misc/carma/Kconfig"
 source "drivers/misc/altera-stapl/Kconfig"
 source "drivers/misc/mei/Kconfig"
 source "drivers/misc/vmw_vmci/Kconfig"
+source "drivers/misc/jz_dmmu/Kconfig"
 endmenu

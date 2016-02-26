@@ -189,6 +189,13 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_NAND_DRIVER
     DEF_DEVICE(&jz_nand_device,0,0),
 #endif
+/*jz Extreme 2D*/
+#ifdef CONFIG_JZ_X2D
+	DEF_DEVICE(&jz_x2d_device,0,0),
+#endif
+#ifdef CONFIG_JZ_VPU
+	DEF_DEVICE(&jz_vpu_device,0,0),
+#endif
 #ifdef  CONFIG_MTD_NAND_JZ
     DEF_DEVICE(&jz_mtd_nand_device,0,0),
 #endif
