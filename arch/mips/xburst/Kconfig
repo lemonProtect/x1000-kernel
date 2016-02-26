@@ -205,6 +205,18 @@ config JZ_IMEM
 	  The two node will take 16M and 8M memory space,
 	  Which is used such as by mplayer to encode and decode video and audio
 
+config IMEM_MAX_ORDER
+	  int "/proc/jz/mem/imem max order"
+	  depends on JZ_IMEM
+	  range 0 20
+	  default "10"
+
+config IMEM1_MAX_ORDER
+	  int "/proc/jz/mem/imem max order"
+	  depends on JZ_IMEM
+	  range 0 20
+	  default "12"
+
 config SUPPORT_OTA
      bool "jz ota updata"
      default n

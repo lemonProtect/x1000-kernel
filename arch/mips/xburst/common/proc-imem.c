@@ -77,14 +77,14 @@ typedef struct imem_list {
 
 
 #ifdef JZ_PROC_IMEM
-#define IMEM_MAX_ORDER 10		/* max 2^11 * 4096 = 8MB */
+#define IMEM_MAX_ORDER CONFIG_IMEM_MAX_ORDER		/* max 2^11 * 4096 = 8MB */
 static unsigned int jz_imem_base;	/* physical base address of ipu memory */
 static unsigned int allocated_phys_addr = 0;
 static struct imem_list *imem_list_head = NULL; /* up sorted by phys_start */
 #endif
 
 #ifdef JZ_PROC_IMEM_1
-#define IMEM1_MAX_ORDER 12              /* max 2^11 * 4096 = 8MB */
+#define IMEM1_MAX_ORDER CONFIG_IMEM1_MAX_ORDER              /* max 2^11 * 4096 = 8MB */
 static unsigned int jz_imem1_base;      /* physical base address of ipu memory */
 static unsigned int allocated_phys_addr1 = 0;
 static struct imem_list *imem1_list_head = NULL; /* up sorted by phys_start */
