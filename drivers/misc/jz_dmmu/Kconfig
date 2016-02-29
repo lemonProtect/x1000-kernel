@@ -1,5 +1,6 @@
 menuconfig JZ_DMMU
 	bool "JZ DMMU Driver"
+	depends on SOC_4775
 	default y
 	help
 	  Support for Ingenic dmmu operations.

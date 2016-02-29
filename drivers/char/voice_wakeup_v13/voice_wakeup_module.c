@@ -200,7 +200,7 @@ static int __init wakeup_module_init(void)
 
 //	test_ops();
 	m_ops->_module_init();
-	m_ops->set_dma_channel(JZDMA_REQ_I2S1 + 1);  /* dma phy id 5 */
+	m_ops->set_dma_channel(0);  /* dma phy id 5 */
 	return 0;
 }
 static void __exit wakeup_module_exit(void)
