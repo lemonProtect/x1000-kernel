@@ -432,19 +432,28 @@ LABLE1:
 	 * (3) set PDIV H2DIV H0DIV L2CDIV CDIV = 0
 	 */
 	val = REG32(0xb0000000);
-	val &= ~(0xfff << 20);
-	val |= (0x95 << 24);
+	val &= ~(7 << 20);
+	val |= (1 << 22);
 	REG32(0xb0000000) = val;
 
 	val = REG32(0xb0000000);
-	val &= ~(0xfffff);
+	val &= ~((0xf << 28) | (0xff));
+	val |=((0x9 << 28) | 0x00);
 	REG32(0xb0000000) = val;
 
 	val = REG32(0xb0000000);
-	val |= 7 << 20;
+	val &= ~(7 << 20);
+	val |= (3 << 20);
 	REG32(0xb0000000) = val;
 
-	while((REG32(0xB00000D4) & 7))
+	while((REG32(0xB00000D4) & 1))
+		TCSM_PCHAR('C');
+	val = REG32(0xb0000000);
+	val &= ~((0xf << 24) | (0xfff << 8));
+	val |=((0x5 << 24) | 0x000 << 8);
+	REG32(0xb0000000) = val;
+
+	while((REG32(0xB00000D4) & 6))
 		TCSM_PCHAR('H');
 
 	REG32(0xb0000000) &= ~(0xf << 20);
@@ -464,12 +473,17 @@ LABLE1:
 	/* set pdma deep sleep */
 	REG32(0xb00000b8) |= (1<<31);
 	__asm__ volatile(".set mips32\n\t"
+			"sync \n\t"
+			"lw $0, 0(%0)\n\t"
+			"nop\n\t"
 			"wait\n\t"
 			"nop\n\t"
 			"nop\n\t"
 			"nop\n\t"
-			"jr %0\n\t"
-			".set mips32 \n\t" ::"r" (SLEEP_TCSM_BOOT_TEXT));
+			"jr %1\n\t"
+			".set mips32 \n\t"
+			:
+			:"r"(0xa0000000), "r" (SLEEP_TCSM_BOOT_TEXT));
 
 	while(1)
 		TCSM_PCHAR('n');
@@ -889,7 +903,7 @@ int __init m200_pm_init(void)
         /* init opcr and lcr for idle */
         lcr = cpm_inl(CPM_LCR);
         lcr &= ~(0x7);		/* LCR.SLEEP.DS=1'b0,LCR.LPM=2'b00*/
-        lcr |= 0xfff << 8;	/* power stable time */
+        lcr |= 0xff << 8;	/* power stable time */
         cpm_outl(lcr,CPM_LCR);
 
         opcr = cpm_inl(CPM_OPCR);
