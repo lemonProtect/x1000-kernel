@@ -4290,6 +4290,41 @@ static int jzfb_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct jzfb *jzfb = platform_get_drvdata(pdev);
+
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+	return ;
+#endif
+	mutex_lock(&jzfb->lock);
+	if (jzfb->pdata->alloc_vidmem) {
+		/* set suspend state and notify panel, backlight client */
+		fb_blank(jzfb->fb, FB_BLANK_POWERDOWN);
+		fb_set_suspend(jzfb->fb, 1);
+
+		if (jzfb->pdata->lvds && jzfb->id) {
+			/* disable TX output */
+			jzfb_lvds_txctrl_is_tx_en(jzfb->fb, 0);
+			/* disable LVDS PLL */
+			jzfb_lvds_txpll0_is_pll_en(jzfb->fb, 0);
+			/* band-gap power down */
+			jzfb_lvds_txpll0_is_bg_pwd(jzfb->fb, 1);
+		}
+	} else {
+		/* disable LCDC */
+		jzfb_blank(FB_BLANK_POWERDOWN, jzfb->fb);
+	}
+	mutex_lock(&jzfb->suspend_lock);
+	jzfb->is_suspend = 1;
+	mutex_unlock(&jzfb->suspend_lock);
+
+#ifdef CONFIG_JZ4780_AOSD
+	/* The clock of aosd just need to close once */
+	if (jzfb->osd.decompress && jzfb->pdata->alloc_vidmem) {
+		jzfb_aosd_disable(jzfb->fb);
+	}
+#endif
+
+	mutex_unlock(&jzfb->lock);
+
 	clk_disable(jzfb->clk);
 	clk_disable(jzfb->pclk);
 
@@ -4299,8 +4334,31 @@ static int jzfb_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct jzfb *jzfb = platform_get_drvdata(pdev);
-	clk_enable(jzfb->pclk);
+#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
+	return ;
+#endif
+
 	clk_enable(jzfb->clk);
+	clk_enable(jzfb->pclk);
+
+#ifdef CONFIG_JZ4780_AOSD
+	if (jzfb->osd.decompress && jzfb->pdata->alloc_vidmem) {
+		aosd_clock_enable(1);
+	}
+#endif
+
+	if (jzfb->pdata->alloc_vidmem) {
+		fb_set_suspend(jzfb->fb, 0);
+		fb_blank(jzfb->fb, FB_BLANK_UNBLANK);
+	} else {
+		jzfb_blank(FB_BLANK_UNBLANK, jzfb->fb);
+	}
+
+	mutex_lock(&jzfb->suspend_lock);
+	jzfb->is_suspend = 0;
+	mutex_unlock(&jzfb->suspend_lock);
+
+	jzfb_display_v_color_bar(jzfb->fb);
 	return 0;
 }
 static const struct dev_pm_ops jzfb_pm_ops = {

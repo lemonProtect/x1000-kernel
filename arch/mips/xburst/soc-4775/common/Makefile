@@ -11,11 +11,7 @@ obj-y += serial.o
 obj-y += tcu.o
 obj-y += jzcpm_pwc.o
 
-ifeq ($(CONFIG_FPGA_TEST),y)
-obj-y += clk_fpga.o
-else
 obj-y += clk.o
-endif
 
 obj-y += gpio.o
 # only for debug
@@ -24,12 +20,10 @@ obj-y += irq.o
 obj-y += cpm_usb.o
 
 obj-y += platform.o
+obj-y += regs_save_restore.o
 
-ifeq ($(CONFIG_PM_POWERDOWN_P0),y)
 obj-y += pm_p0.o
-else
-obj-y += pm.o
-endif
+
 
 obj-$(CONFIG_CPU_FREQ) += cpufreq.o
 
@@ -41,4 +35,3 @@ ifeq ($(CONFIG_MTD_NAND_JZ4775), y)
 obj-y += gpemc.o
 obj-y += bch.o
 endif
-

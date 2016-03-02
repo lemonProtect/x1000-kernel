@@ -481,21 +481,27 @@ static int jz_rtc_remove(struct platform_device *pdev)
 static int jz_rtc_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct jz_rtc *rtc = platform_get_drvdata(pdev);
+#ifdef CONFIG_SUSPEND_TEST
+	unsigned int val;
+	unsigned int test_alarm_time, sr_time;
 
-#ifdef CONFIG_TEST_RESET_DLL
-	jzrtc_writel(rtc, RTC_PWRONCR,
-			jzrtc_readl(rtc, RTC_PWRONCR) &~ (1 << 0));
+	val = jzrtc_readl(rtc, RTC_RTCCR);
+	if(val & RTCCR_AE) {
+		rtc->save_rtccr = val;
+		rtc->os_alarm_time = jzrtc_readl(rtc, RTC_RTCSAR);
+	}
+	val |= RTCCR_AIE | RTCCR_AE;
+	jzrtc_writel(rtc, RTC_RTCCR, val);
 
-	jzrtc_writel(rtc, RTC_RTCGR,
-			jzrtc_readl(rtc, RTC_RTCGR) &~ (1 << 31));
+	sr_time = jzrtc_readl(rtc, RTC_RTCSR);
+	test_alarm_time = sr_time + CONFIG_SUSPEND_ALARM_TIME;
+	if(rtc->os_alarm_time && rtc->os_alarm_time > sr_time \
+	   && rtc->os_alarm_time < test_alarm_time)
+		test_alarm_time =  rtc->os_alarm_time;
+	jzrtc_writel(rtc, RTC_RTCSAR, test_alarm_time);
 
-	jzrtc_writel(rtc, RTC_RTCGR,
-			jzrtc_readl(rtc, RTC_RTCGR) &~ (0x1f << 11));
-
-	jzrtc_writel(rtc, RTC_RTCCR,
-			jzrtc_readl(rtc, RTC_RTCCR) | RTCCR_1HZIE);
+	printk("-------suspend count = %d\n", rtc->sleep_count++);
 #endif
-
 	if (device_may_wakeup(&pdev->dev)) {
 		enable_irq_wake(rtc->irq);
 	}
@@ -510,7 +516,19 @@ static int jz_rtc_resume(struct platform_device *pdev)
 	if (device_may_wakeup(&pdev->dev)) {
 		disable_irq_wake(rtc->irq);
 	}
-
+#ifdef CONFIG_SUSPEND_TEST
+	if(rtc->save_rtccr & RTCCR_AE) {
+		jzrtc_writel(rtc, RTC_RTCSAR, rtc->os_alarm_time);
+		jzrtc_writel(rtc, RTC_RTCCR, rtc->save_rtccr);
+		rtc->os_alarm_time = 0;
+		rtc->save_rtccr = 0;
+	} else {
+		unsigned int val;
+		val = jzrtc_readl(rtc, RTC_RTCCR);
+		val &= ~ (RTCCR_AF |RTCCR_AIE | RTCCR_AE);
+		jzrtc_writel(rtc, RTC_RTCCR, val);
+	}
+#endif
 	return 0;
 }
 #else

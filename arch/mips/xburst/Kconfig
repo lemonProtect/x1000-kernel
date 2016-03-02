@@ -185,16 +185,17 @@ config SUSPEND_TEST
 	bool "auto suspend test"
 	default n
 
+config SUSPEND_ALARM_TIME
+	int "suspend alarm time(second)"
+	depends on SUSPEND_TEST
+	default 2
+
 config DDR_DEBUG
    bool "ddr debug code"
    default n
 
 config EARLY_INIT_RUN
 	bool "early run init process"
-	default n
-
-config TEST_RESET_DLL
-	bool "fast test reset_dll"
 	default n
 
 config JZ_IMEM

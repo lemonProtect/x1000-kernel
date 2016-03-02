@@ -120,6 +120,11 @@ struct jz_rtc {
 	struct work_struct work;
 	struct rtc_device *rtc;
 	struct rtc_time rtc_alarm;
+#ifdef CONFIG_SUSPEND_TEST
+	unsigned int sleep_count;
+	unsigned int os_alarm_time;
+	unsigned int save_rtccr;
+#endif
 };
 
 

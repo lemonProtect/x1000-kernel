@@ -1,7 +1,7 @@
 /*
- * linux/arch/mips/jz4775/pm.c
+ * linux/arch/mips/xburst/soc-xxx/common/pm_p0.c
  *
- *  JZ4775 Power Management Routines
+ *  X1000 Power Management Routines
  *  Copyright (C) 2006 - 2012 Ingenic Semiconductor Inc.
  *
  *  This program is free software; you can distribute it and/or modify it
@@ -29,271 +29,36 @@
 #include <linux/fs.h>
 #include <linux/sysctl.h>
 #include <linux/delay.h>
-#include <asm/cacheops.h>
 #include <asm/fpu.h>
 #include <linux/syscore_ops.h>
 #include <linux/regulator/consumer.h>
-
+#include <linux/clk.h>
+#include <linux/notifier.h>
+#include <asm/cacheops.h>
 #include <soc/cache.h>
+#include <asm/r4kcache.h>
 #include <soc/base.h>
 #include <soc/cpm.h>
-
-#include <rjzcache.h>
+#include <soc/tcu.h>
+#include <soc/gpio.h>
+#include <soc/ddr.h>
 #include <tcsm.h>
+#include <smp_cp0.h>
 
-//#define TEST 1
-//#define DUMP_DDR_REGS
+#include <soc/tcsm_layout.h>
 
-#define save_regs_ra(base)			\
-	__asm__ __volatile__ (			\
-		".set push \n\t"		\
-		".set noreorder \n\t"		\
-		"sw	$31,116(%0)	\n\t"	\
-		".set pop \n\t"			\
-		:				\
-		: "r" (base)			\
-		: "memory"			\
-		)
-
-#define save_regs(base)							\
-	__asm__ __volatile__ (						\
-		".set push \n\t"					\
-		".set    noat		\n\t"				\
-		".set   noreorder       \n\t"				\
-		"addu 	$26, %0,$0	\n\t"				\
-		"mfhi	$27		\n\t"				\
-		"sw	$0,0($26)	\n\t"				\
-		"sw	$1,4($26)	\n\t"				\
-		"sw	$27,120($26)	\n\t"				\
-		"mflo	$27		\n\t"				\
-		"sw	$2,8($26)	\n\t"				\
-		"sw	$3,12($26)	\n\t"				\
-		"sw	$27,124($26)	\n\t"				\
-		"sw	$4,16($26)	\n\t"				\
-		"sw	$5,20($26)	\n\t"				\
-		"sw	$6,24($26)	\n\t"				\
-		"sw	$7,28($26)	\n\t"				\
-		"sw	$8,32($26)	\n\t"				\
-		"sw	$9,36($26)	\n\t"				\
-		"sw	$10,40($26)	\n\t"				\
-		"sw	$11,44($26)	\n\t"				\
-		"sw	$12,48($26)	\n\t"				\
-		"sw	$13,52($26)	\n\t"				\
-		"sw	$14,56($26)	\n\t"				\
-		"sw	$15,60($26)	\n\t"				\
-		"sw	$16,64($26)	\n\t"				\
-		"sw	$17,68($26)	\n\t"				\
-		"sw	$18,72($26)	\n\t"				\
-		"sw	$19,76($26)	\n\t"				\
-		"sw	$20,80($26)	\n\t"				\
-		"sw	$21,84($26)	\n\t"				\
-		"sw	$22,88($26)	\n\t"				\
-		"sw	$23,92($26)	\n\t"				\
-		"sw	$24,96($26)	\n\t"				\
-		"sw	$25,100($26)	\n\t"				\
-		"sw	$28,104($26)	\n\t"				\
-		"sw	$29,108($26)	\n\t"				\
-		"sw	$30,112($26)	\n\t"				\
-		"sw	$31,116($26)	\n\t"				\
-		"mfc0	$1, $0    	\n\t"				\
-		"mfc0	$2, $1    	\n\t"				\
-		"mfc0	$3, $2    	\n\t"				\
-		"mfc0	$4, $3    	\n\t"				\
-		"mfc0	$5, $4    	\n\t"				\
-		"mfc0	$6, $5    	\n\t"				\
-		"mfc0	$7, $6    	\n\t"				\
-		"mfc0	$8, $8    	\n\t"				\
-		"mfc0	$9, $10   	\n\t"				\
-		"mfc0	$10,$12   	\n\t"				\
-		"mfc0	$11, $12,1	\n\t"				\
-		"mfc0	$12, $13 	\n\t"				\
-		"mfc0	$13, $14    	\n\t"				\
-		"mfc0	$14, $15    	\n\t"				\
-		"mfc0	$15, $15,1    	\n\t"				\
-		"mfc0	$16, $16    	\n\t"				\
-		"mfc0	$17, $16,1    	\n\t"				\
-		"mfc0	$18, $16,2    	\n\t"				\
-		"mfc0	$19, $16,3    	\n\t"				\
-		"mfc0	$20, $16, 7    	\n\t"				\
-		"mfc0	$21, $17    	\n\t"				\
-		"sw	$1,  128($26)    \n\t"				\
-		"sw	$2,  132($26)    \n\t"				\
-		"sw	$3,  136($26)    \n\t"				\
-		"sw	$4,  140($26)    \n\t"				\
-		"sw	$5,  144($26)    \n\t"				\
-		"sw	$6,  148($26)    \n\t"				\
-		"sw	$7,  152($26)    \n\t"				\
-		"sw	$8,  156($26)    \n\t"				\
-		"sw	$9,  160($26)    \n\t"				\
-		"sw	$10, 164($26)    \n\t"				\
-		"sw	$11, 168($26)    \n\t"				\
-		"sw	$12, 172($26)    \n\t"				\
-		"sw	$13, 176($26)    \n\t"				\
-		"sw	$14, 180($26)    \n\t"				\
-		"sw	$15, 184($26)    \n\t"				\
-		"sw	$16, 188($26)    \n\t"				\
-		"sw	$17, 192($26)    \n\t"				\
-		"sw	$18, 196($26)    \n\t"				\
-		"sw	$19, 200($26)    \n\t"				\
-		"sw	$20, 204($26)    \n\t"				\
-		"sw	$21, 208($26)    \n\t"				\
-		"mfc0	$1, $18    	\n\t"				\
-		"mfc0	$2, $19    	\n\t"				\
-		"mfc0	$3, $23    	\n\t"				\
-		"mfc0	$4, $24    	\n\t"				\
-		"mfc0	$5, $26    	\n\t"				\
-		"mfc0	$6, $28		\n\t"				\
-		"mfc0	$7, $28,1	\n\t"				\
-		"mfc0	$8, $30		\n\t"				\
-		"mfc0	$9, $31		\n\t"				\
-		"mfc0	$10,$5,4 	\n\t"				\
-		"sw	$1,  212($26)	\n\t"				\
-		"sw	$2,  216($26)	\n\t"				\
-		"sw	$3,  220($26)	\n\t"				\
-		"sw	$4,  224($26)	\n\t"				\
-		"sw	$5,  228($26)	\n\t"				\
-		"sw	$6,  232($26)	\n\t"				\
-		"sw	$7,  236($26)	\n\t"				\
-		"sw	$8,  240($26)	\n\t"				\
-		"sw	$9,  244($26)	\n\t"				\
-		"sw	$10, 248($26)	\n\t"				\
-		".set pop \n\t"						\
-		:							\
-		: "r" (base)						\
-		: "memory",						\
-		  "$1", "$2", "$3", "$4", "$5", "$6", "$7", "$8", "$9", "$10", \
-		  "$11", "$12", "$13", "$14", "$15", "$16", "$17", "$18", "$19", "$20", \
-		  "$21", "$22", "$23", "$24", "$25", "$26", "$27",	\
-		  "$31"							\
-		)
-
-#define load_regs_jmp(base)				\
-	__asm__ __volatile__ (			\
-		".set push \n\t"		\
-		".set    noat		\n\t"	\
-		".set   noreorder \n\t"		\
-		"addu 	$26, %0,$0	\n\t"	\
-		"lw	$1,  128($26)	\n\t"	\
-		"lw	$2,  132($26)	\n\t"	\
-		"lw	$3,  136($26)	\n\t"	\
-		"lw	$4,  140($26)	\n\t"	\
-		"lw	$5,  144($26)	\n\t"	\
-		"lw	$6,  148($26)	\n\t"	\
-		"lw	$7,  152($26)	\n\t"	\
-		"lw	$8,  156($26)	\n\t"	\
-		"lw	$9,  160($26)	\n\t"	\
-		"lw	$10, 164($26)	\n\t"	\
-		"lw	$11, 168($26)	\n\t"	\
-		"lw	$12, 172($26)	\n\t"	\
-		"lw	$13, 176($26)	\n\t"	\
-		"lw	$14, 180($26)	\n\t"	\
-		"lw	$15, 184($26)	\n\t"	\
-		"lw	$16, 188($26)	\n\t"	\
-		"lw	$17, 192($26)	\n\t"	\
-		"lw	$18, 196($26)	\n\t"	\
-		"lw	$19, 200($26)	\n\t"	\
-		"lw	$20, 204($26)	\n\t"	\
-		"lw	$21, 208($26)	\n\t"	\
-		"mtc0	$1, $0		\n\t"	\
-		"mtc0	$2, $1		\n\t"	\
-		"mtc0	$3, $2		\n\t"	\
-		"mtc0	$4, $3		\n\t"	\
-		"mtc0	$5, $4		\n\t"	\
-		"mtc0	$6, $5		\n\t"	\
-		"mtc0	$7, $6		\n\t"	\
-		"mtc0	$8, $8		\n\t"	\
-		"mtc0	$9, $10		\n\t"	\
-		"mtc0	$10,$12		\n\t"	\
-		"mtc0	$11, $12,1	\n\t"	\
-		"mtc0	$12, $13	\n\t"	\
-		"mtc0	$13, $14	\n\t"	\
-		"mtc0	$14, $15	\n\t"	\
-		"mtc0	$15, $15,1	\n\t"	\
-		"mtc0	$16, $16	\n\t"	\
-		"mtc0	$17, $16,1	\n\t"	\
-		"mtc0	$18, $16,2	\n\t"	\
-		"mtc0	$19, $16,3	\n\t"	\
-		"mtc0	$20, $16,7	\n\t"	\
-		"mtc0	$21, $17	\n\t"	\
-		"lw	$1,  212($26)	\n\t"	\
-		"lw	$2,  216($26)	\n\t"	\
-		"lw	$3,  220($26)	\n\t"	\
-		"lw	$4,  224($26)	\n\t"	\
-		"lw	$5,  228($26)	\n\t"	\
-		"lw	$6,  232($26)	\n\t"	\
-		"lw	$7,  236($26)	\n\t"	\
-		"lw	$8,  240($26)	\n\t"	\
-		"lw	$9,  244($26)	\n\t"	\
-		"lw	$10, 248($26)	\n\t"	\
-		"mtc0	$1, $18		\n\t"	\
-		"mtc0	$2, $19		\n\t"	\
-		"mtc0	$3, $23		\n\t"	\
-		"mtc0	$4, $24		\n\t"	\
-		"mtc0	$5, $26		\n\t"	\
-		"mtc0	$6, $28		\n\t"	\
-		"mtc0	$7, $28,1	\n\t"	\
-		"mtc0	$8, $30		\n\t"	\
-		"mtc0	$9, $31		\n\t"	\
-		"mtc0	$10,$5,4	\n\t"	\
-		"lw	$27,	120($26)\n\t"	\
-		"lw	$0,	0($26)	\n\t"	\
-		"lw	$1,  	4($26)	\n\t"	\
-		"mthi	$27		\n\t"	\
-		"lw	$27,	124($26)\n\t"	\
-		"lw	$2,	8($26)	\n\t"	\
-		"lw	$3,  	12($26)	\n\t"	\
-		"mtlo	$27		\n\t"	\
-		"lw	$4,  	16($26)	\n\t"	\
-		"lw	$5,  	20($26)	\n\t"	\
-		"lw	$6,  	24($26)	\n\t"	\
-		"lw	$7,  	28($26)	\n\t"	\
-		"lw	$8,  	32($26)	\n\t"	\
-		"lw	$9,  	36($26)	\n\t"	\
-		"lw	$10, 	40($26)	\n\t"	\
-		"lw	$11, 	44($26)	\n\t"	\
-		"lw	$12, 	48($26)	\n\t"	\
-		"lw	$13, 	52($26)	\n\t"	\
-		"lw	$14, 	56($26)	\n\t"	\
-		"lw	$15, 	60($26)	\n\t"	\
-		"lw	$16, 	64($26)	\n\t"	\
-		"lw	$17, 	68($26)	\n\t"	\
-		"lw	$18, 	72($26)	\n\t"	\
-		"lw	$19, 	76($26)	\n\t"	\
-		"lw	$20, 	80($26)	\n\t"	\
-		"lw	$21, 	84($26)	\n\t"	\
-		"lw	$22, 	88($26)	\n\t"	\
-		"lw	$23, 	92($26)	\n\t"	\
-		"lw	$24, 	96($26)	\n\t"	\
-		"lw	$25, 	100($26)\n\t"	\
-		"lw	$28, 	104($26)\n\t"	\
-		"lw	$29, 	108($26)\n\t"	\
-		"lw	$30, 	112($26)\n\t"	\
-		"lw	$31, 	116($26)\n\t"	\
-		"j      $31             \n\t"	\
-		"nop             \n\t"					\
-		".set pop \n\t"						\
-		:							\
-		: "r" (base)						\
-		: "memory",						\
-		  "$1", "$2", "$3", "$4", "$5", "$6", "$7", "$8", "$9", "$10", \
-		  "$11", "$12", "$13", "$14", "$15", "$16", "$17", "$18", "$19", "$20", \
-		  "$21", "$22", "$23", "$24", "$25", "$26", "$27",	\
-		  "$31"							\
-		)
-
-#define TCSM_BASE 	(0xb3422000)
-#define RETURN_ADDR 	(TCSM_BASE+0)
-#define REG_ADDR 	(TCSM_BASE+4)
-#define RESUME_ADDR 	(TCSM_BASE+8)
+extern long long save_goto(unsigned int);
+extern int restore_goto(void);
+extern unsigned int get_pmu_slp_gpio_info(void);
+extern unsigned int _regs_stack[64];
+static noinline void cpu_resume(void);
 
 #define DELAY_0 0x1ff
 #define DELAY_1 0x1ff
 #define DELAY_2 0x1ff
 
-#define SAVE_SIZE 4096
 
-#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
-#define U3_IOBASE 0xb0033000
+#define get_cp0_ebase()	__read_32bit_c0_register($15, 1)
 
 #define OFF_TDR         (0x00)
 #define OFF_LCR         (0x0C)
@@ -301,93 +66,53 @@
 
 #define LSR_TDRQ        (1 << 5)
 #define LSR_TEMT        (1 << 6)
-#define TCSM_PCHAR(x)													\
-	while ((*((volatile unsigned int*)(U3_IOBASE+OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))	\
-		;													\
-	*((volatile unsigned int*)(U3_IOBASE+OFF_TDR)) = x
 
+#define DDR_TRAINING
+//#define DDR_TEST
+
+#define PRINT_DEBUG
+
+#ifdef PRINT_DEBUG
+#define U_IOBASE (UART3_IOBASE + 0xa0000000)
+#define TCSM_PCHAR(x)							\
+	*((volatile unsigned int*)(U_IOBASE+OFF_TDR)) = x;		\
+	while ((*((volatile unsigned int*)(U_IOBASE + OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
 #else
 #define TCSM_PCHAR(x)
 #endif
 
+#define TCSM_DELAY(x)						\
+	do{							\
+		register unsigned int i = x;			\
+		while(i--)					\
+			__asm__ volatile(".set mips32\n\t"	\
+					 "nop\n\t"		\
+					 ".set mips32");	\
+	}while(0)						\
 
-#ifdef DUMP_DDR_REGS
-
-void inline tcsm_put_hex(u32 d)
-{
-	register u32 i;
-	register u32 c;
-
-	TCSM_PCHAR('*');
-	for(i = 0; i < 8;i++) {
-		c = (d >> ((7 - i) * 4)) & 0xf;
-		if(c < 10)
-			c += 0x30;
-		else
-			c += (0x41 - 10);
-
-		TCSM_PCHAR(c);
+static inline void serial_put_hex(unsigned int x) {
+	int i;
+	unsigned int d;
+	for(i = 7;i >= 0;i--) {
+		d = (x  >> (i * 4)) & 0xf;
+		if(d < 10) d += '0';
+		else d += 'A' - 10;
+		TCSM_PCHAR(d);
 	}
-	TCSM_PCHAR('\n');
-	TCSM_PCHAR('\r');
+	/* TCSM_PCHAR('\r'); */
+	/* TCSM_PCHAR('\n'); */
 }
+static inline void set_gpio_func(int gpio, int type) {
+	int i;
+	int port = gpio / 32;
+	int pin = gpio & 0x1f;
+	int addr = 0xb0010010 + port * 0x100;
 
-static inline void dump_regs(void) {
-/*
- *	16'hb301_100c
- *	16'hb301_1034
- *	16'hb301_1038
- *	16'hb301_103c
- *	and from 16'hb301_0060 to 16'hb301_0074
- */
-	volatile u32 *p = (volatile u32 *)0xb3011000;
-	volatile u32 i = 1;
-
-	TCSM_PCHAR('\n');
-	TCSM_PCHAR('\r');
-	tcsm_put_hex(p[0xc / 4]);
-	i = 1;
-	while (i--);
-
-	tcsm_put_hex(p[0x34 / 4]);
-
-	i = 1;
-	while (i--);
-
-	tcsm_put_hex(p[0x38 / 4]);
-
-	i = 1;
-	while (i--);
-
-	tcsm_put_hex(p[0x3c / 4]);
-
-	i = 1;
-	while (i--);
-
-	for (p = (volatile u32 *)0xb3010060; p < (volatile u32 *)0xb3010078; p++)
-		tcsm_put_hex(*p);
+	for(i = 0;i < 4;i++){
+		REG32(addr + 0x10 * i) &= ~(1 << pin);
+		REG32(addr + 0x10 * i) |= (((type >> (3 - i)) & 1) << pin);
+	}
 }
-#endif
-
-
-#define TCSM_DELAY(x) \
-	i=x;	\
-	while(i--)	\
-	__asm__ volatile(".set mips32\n\t"\
-			"nop\n\t"\
-			".set mips32")
-
-#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
-/* store something we can use it for memory testing */
-static __section(.mem.test) char test_mem0 = 't';
-static __section(.mem.test) char test_mem1 = 'e';
-static __section(.mem.test) char test_mem2 = 's';
-static __section(.mem.test) char test_mem3 = 't';
-#endif
-
-static unsigned int regs[256] __attribute__ ((aligned (32)));
-static char tcsm_back[SAVE_SIZE] __attribute__ ((aligned (32)));
-
 #define UNIQUE_ENTRYHI(idx) (CKSEG0 + ((idx) << (PAGE_SHIFT + 1)))
 static inline void local_flush_tlb_all(void)
 {
@@ -414,10 +139,144 @@ static inline void local_flush_tlb_all(void)
 	write_c0_entryhi(old_ctx);
 }
 
-static noinline void reset_dll(void)
+static inline void config_powerdown_core(unsigned int *resume_pc)
 {
-	void (*return_func)(void);
-#ifndef TEST
+	/* set SLBC and SLPC */
+	cpm_outl(1,CPM_SLBC);
+	/* Clear previous reset status */
+	cpm_outl(0,CPM_RSR);
+	/* set resume pc */
+	cpm_outl((unsigned int)resume_pc,CPM_SLPC);
+}
+struct resume_reg
+{
+	unsigned int sleep_cpm_lcr;
+	unsigned int sleep_cpm_opcr;
+	unsigned int sleep_cpm_cpccr;
+	unsigned int sleep_voice_enable;
+};
+
+#ifdef DDR_TEST
+#define MEM_TEST_SIZE  (1024 * 1024 * 4)
+static unsigned int test_mem_space[MEM_TEST_SIZE / 4];
+static inline void test_ddr_data_init(void)
+{
+	int i;
+	unsigned int *test_mem;
+	test_mem = (unsigned int *)((unsigned int)test_mem_space /* | 0x80000000 */);
+	dma_cache_wback_inv((unsigned int)test_mem_space,0x100000);
+	for(i = 0;i < MEM_TEST_SIZE / 4;i++) {
+		test_mem[i] = (unsigned int)&test_mem[i];
+	}
+}
+static inline void check_ddr_data(void) {
+	int i;
+	unsigned int *test_mem;
+	test_mem = (unsigned int *)((unsigned int)test_mem_space /* | 0x80000000 */);
+	for(i = 0;i < MEM_TEST_SIZE / 4;i++) {
+		unsigned int dd;
+		dd = test_mem[i];
+		if(dd != (unsigned int)&test_mem[i]) {
+			serial_put_hex(dd);
+			TCSM_PCHAR(' ');
+			/* serial_put_hex(i); */
+			/* TCSM_PCHAR(' '); */
+			serial_put_hex((unsigned int)&test_mem[i]);
+			TCSM_PCHAR('\r');
+			TCSM_PCHAR('\n');
+		}
+	}
+}
+#endif
+static noinline void cpu_sleep(void)
+{
+	struct resume_reg *resume_reg = (struct resume_reg*)SLEEP_TCSM_RESUME_DATA;
+
+	config_powerdown_core((unsigned int *)SLEEP_TCSM_BOOT_TEXT);
+	resume_reg->sleep_cpm_cpccr = cpm_inl(CPM_CPCCR);
+
+	printk("icmr0 = %x\n",REG32(0xb0001004));
+	printk("icmr1 = %x\n",REG32(0xb0001024));
+	printk("icpr0 = %x\n",REG32(0xb0001010));
+	printk("icpr1 = %x\n",REG32(0xb0001030));
+	printk("CPAPCR = %x\n",cpm_inl(CPM_CPAPCR));
+	printk("CPMPCR = %x\n",cpm_inl(CPM_CPMPCR));
+	printk("opcr = %x\n",cpm_inl(CPM_OPCR));
+	printk("lcr = %x\n",cpm_inl(CPM_LCR));
+	printk("slpc = %x\n",cpm_inl(CPM_SLPC));
+	printk("slbc = %x\n",cpm_inl(CPM_SLBC));
+	printk("clkgate = %x\n",cpm_inl(CPM_CLKGR));
+	printk("tcunt = %x\n",REG32(0xb0002068));
+
+	cache_prefetch(LABLE1,1024);
+LABLE1:
+	blast_icache32();
+	blast_dcache32();
+	__sync();
+	__fast_iob();
+#ifdef DDR_TRAINING
+	*((volatile unsigned int*)(0xb30100b8)) &= ~(0x1);
+#endif
+
+	/*
+	 * (1) SCL_SRC source clock changes APLL to EXCLK
+	 * (2) AH0/2 source clock changes MPLL to EXCLK
+	 * (3) set PDIV H2DIV H0DIV L2CDIV CDIV = 0
+	 */
+	/* REG32(0xb0000000) = 0x95800000; */
+	/* while((REG32(0xB00000D4) & 7)) */
+	/* 	TCSM_PCHAR('A'); */
+		/* set pdma deep sleep */
+	/* REG32(0xb00000b8) |= (1<<31); */
+
+	__asm__ volatile(".set mips32\n\t"
+			 "sync\n\t"
+			 "nop\n\t"
+			 "wait\n\t"
+			 "nop\n\t"
+			 "nop\n\t"
+			 "nop\n\t"
+			 "jr %0\n\t"
+			 "nop\n\t"
+			 ".set mips32 \n\t"
+			 :: "r" (SLEEP_TCSM_BOOT_TEXT)
+		);
+
+	while(1)
+		TCSM_PCHAR('n');
+
+}
+static noinline void cpu_resume_boot(void)
+{
+	TCSM_PCHAR('O');
+	__asm__ volatile(".set mips32\n\t"
+		"move $29, %0\n\t"
+		".set mips32\n\t"
+		:
+		:"r" (SLEEP_TCSM_CPU_RESMUE_SP)
+		:
+		);
+	__asm__ volatile(".set mips32\n\t"
+		"jr %0\n\t"
+		"nop\n\t"
+		".set mips32 \n\t"
+		:: "r" (SLEEP_TCSM_RESUME_TEXT));
+}
+
+static noinline void cpu_resume(void)
+{
+	register unsigned int val;
+	register struct resume_reg *resume_reg = (struct resume_reg *)SLEEP_TCSM_RESUME_DATA;
+
+	/* restore  CPM CPCCR */
+	val = resume_reg->sleep_cpm_cpccr;
+	val |= (7 << 20);
+	REG32(0xb0000000) = val;
+	while((REG32(0xB00000D4) & 7))
+		TCSM_PCHAR('w');
+
+#ifdef DDR_TRAINING
+	{
 	register int i;
 
 	TCSM_PCHAR('0');
@@ -437,172 +296,122 @@ static noinline void reset_dll(void)
 	*(volatile unsigned *) 0xb00000d0 = 0x1; //disable the reset
 	i = *(volatile unsigned *) 0xb00000d0;
 	TCSM_DELAY(DELAY_2);
-	TCSM_PCHAR('5');
+
+		TCSM_PCHAR('5');
+	}
+#endif
+#ifdef DDR_TEST
+	check_ddr_data();
+#endif
 	__jz_cache_init();
-	TCSM_PCHAR('6');
-#endif
-
-	*((volatile unsigned int*)(0xb30100b8)) |= 0x1;//DDR DFI low power interface enable
-
-#ifdef DUMP_DDR_REGS
-	dump_regs();
-#endif
-
-	TCSM_PCHAR(test_mem0);
-	TCSM_PCHAR(test_mem1);
-	TCSM_PCHAR(test_mem2);
-	TCSM_PCHAR(test_mem3);
-
-	return_func = (void (*)(void))(*(volatile unsigned int *)RETURN_ADDR);
-	return_func();
-}
-
-static noinline void jz4775_resume(void)
-{
-	/*
-	 * NOTE: you can do some simple things here
-	 * for example: access memory, light a LED, etc.
-	 *
-	 * BUT, do not call kernel function which might_sleep(),
-	 * for example: printk()s, etc.
-	 *
-	 * as a principle: DO NOTE call any function here
-	 */
-
-	/* for example: set PE7 as output 1 */
-#if 0
-	*(volatile unsigned int *)0xb0010418 = (1 << 7);
-	*(volatile unsigned int *)0xb0010424 = (1 << 7);
-	*(volatile unsigned int *)0xb0010438 = (1 << 7);
-	*(volatile unsigned int *)0xb0010444 = (1 << 7);
-#endif
-
-	load_regs_jmp(*(volatile unsigned int *)REG_ADDR);
-}
-
-static noinline void jz4775_suspend(void)
-{
-	/*
-	 *  WARNING: should not call any function in here
-	 */
-	save_regs_ra(*(volatile unsigned int *)REG_ADDR);
-	mb();
-
-#ifdef TEST
-	reset_dll();
-#else
-	blast_dcache32();
-	blast_icache32();
-	cache_prefetch(sleep,sleep_2);
-
-	*((volatile unsigned int*)(0xb30100b8)) &= ~(0x1);
-sleep:
-	__asm__ volatile(".set mips32\n\t"
-		"sync\n\t"
-		"sync\n\t"
-		"wait\n\t"
-		"nop\n\t"
-		"nop\n\t"
-		"nop\n\t"
-		".set mips32");
 	*((volatile unsigned int*)(0xb30100b8)) |= 0x1;
-	jz4775_resume();
-	/* BE CARE!!! any code below this are not executed!!! */
-sleep_2:
-#endif
-	return;
+
+	__asm__ volatile(".set mips32\n\t"
+			 "jr %0\n\t"
+			 "nop\n\t"
+			 ".set mips32 \n\t" :: "r" (restore_goto));
 }
 
-#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
-int jz4775_pm_enter(suspend_state_t state)
-#else
-static int jz4775_pm_enter(suspend_state_t state)
-#endif
+static void load_func_to_tcsm(unsigned int *tcsm_addr,unsigned int *f_addr,unsigned int size)
 {
-	unsigned int lcr = cpm_inl(CPM_LCR);
-	unsigned int opcr = cpm_inl(CPM_OPCR);
-
-	disable_fpu();
-#ifdef	CONFIG_TRAPS_USE_TCSM
-	cpu0_save_tscm();
+	unsigned int instr;
+	int offset;
+	int i;
+	printk("tcsm addr = %p %p size = %d\n",tcsm_addr,f_addr,size);
+	for(i = 0;i < size / 4;i++) {
+		instr = f_addr[i];
+		if((instr >> 26) == 2){
+			offset = instr & 0x3ffffff;
+			offset = (offset << 2) - ((unsigned int)f_addr & 0xfffffff);
+			if(offset > 0) {
+				offset = ((unsigned int)tcsm_addr & 0xfffffff) + offset;
+				instr = (2 << 26) | (offset >> 2);
+			}
+		}
+		tcsm_addr[i] = instr;
+	}
+}
+/* extern int rtc_is_enabled(void); */
+static int jz4775_pm_enter(suspend_state_t state)
+{
+	volatile unsigned int lcr,opcr;
+	struct resume_reg *resume_reg = (struct resume_reg *)SLEEP_TCSM_RESUME_DATA;
+	/* unsigned int clkgate; */
+#if 0
+	bypassmode = ddr_readl(DDRP_PIR) & DDRP_PIR_DLLBYP;
+	printk("\nddr mode  = %d\n",bypassmode);
 #endif
-	cpm_outl(LCR_LPM_SLEEP | 0xc000ff00,CPM_LCR);
-	while((cpm_inl(CPM_LCR) & 0xcc000000) != 0xcc000000);
-	mdelay(1);
+#ifdef DDR_TEST
+	test_ddr_data_init();
+#endif
+	/* clkgate = *(volatile unsigned int *)(0xB0000020); */
+	/* clkgate |= (1 << 3 | 1 << 25); */
+	/* *(volatile unsigned int *)(0xB0000020) = clkgate; */
+	disable_fpu();
+	resume_reg->sleep_cpm_lcr =  cpm_inl(CPM_LCR);
+	resume_reg->sleep_cpm_opcr =  cpm_inl(CPM_OPCR);
 
-	cpm_outl(cpm_inl(CPM_USBPCR) | (1<<25),CPM_USBPCR);
+	lcr = cpm_inl(CPM_LCR);
+	lcr &= ~(3|(0xfff<<8));
+	lcr |= 0xfff << 8;	/* power stable time */
+	lcr |= LCR_LPM_SLEEP;
+	cpm_outl(lcr,CPM_LCR);
 
-	/* Set resume return address */
-	cpm_outl(1,CPM_SLBC);
-	memcpy(tcsm_back, (void *)TCSM_BASE, SAVE_SIZE);
-	*(volatile unsigned int *)RETURN_ADDR = (unsigned int)jz4775_resume;
-	*(volatile unsigned int *)REG_ADDR = (unsigned int)regs;
-	cpm_outl(RESUME_ADDR,CPM_SLPC);
-	memcpy((void *)RESUME_ADDR, reset_dll, SAVE_SIZE - 8);
-	mdelay(1);
-	/* set Oscillator Stabilize Time*/
-	/* disable externel clock Oscillator in sleep mode */
-	/* select 32K crystal as RTC clock in sleep mode */
-	cpm_outl(((opcr & 0x22) | 1<<25 | 0xff<<8 | OPCR_PD | OPCR_ERCS) & (~(1<<7)) ,CPM_OPCR);
-	/* Clear previous reset status */
-	cpm_outl(0,CPM_RSR);
+	opcr = cpm_inl(CPM_OPCR);
+	opcr &= ~((1 << 22) | (0xfff << 8) | (1 << 7) | (1 << 6) | (1 << 4) | (1 << 2));
+	opcr |= (1 << 31) | (1 << 30) | (1 << 25) | (1 << 23) | (0xfff << 8) | (1 << 2) | (1 << 3);
+
+	/* if(rtc_is_enabled()) { */
+	/* 	opcr &= ~((1 << 4) | (1 << 2)); */
+	/* 	opcr |= (1 << 2); */
+	/* } */
+	cpm_outl(opcr,CPM_OPCR);
+
 
 	*(volatile unsigned *)  0xB3010008 |= 0x1<<17;
 
-#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
-	printk("enter suspend.\n");
-#endif
+	load_func_to_tcsm((unsigned int *)SLEEP_TCSM_BOOT_TEXT,(unsigned int *)cpu_resume_boot,SLEEP_TCSM_BOOT_LEN);
+	load_func_to_tcsm((unsigned int *)SLEEP_TCSM_RESUME_TEXT,(unsigned int *)cpu_resume,SLEEP_TCSM_RESUME_LEN);
 
 	mb();
-	save_regs(*(volatile unsigned int *)REG_ADDR);
-	/*
-	 * CheckPoint A
-	 *
-	 * save_regs() saved the context of jz4780_pm_enter before sleep;
-	 */
-	//printk("===========>haha\n");
-	jz4775_suspend();
-	/*
-	 * CheckPoint B
-	 *
-	 * when resume, PC goes to here, as if the code between A and B is never exist!
-	 */
+	save_goto((unsigned int)cpu_sleep);
 	mb();
+
+	__jz_flush_cache_all();
 	local_flush_tlb_all();
 
-#ifdef CONFIG_SUSPEND_SUPREME_DEBUG
-	TCSM_PCHAR('x');
-	TCSM_PCHAR('x');
-	printk("resume.\n");
-#endif
+	/* clkgate = *(volatile unsigned int *)(0xB0000020); */
+	/* clkgate &= ~(1 << 3); */
+	/* *(volatile unsigned int *)(0xB0000020) = clkgate; */
 
-	memcpy((void *)TCSM_BASE, tcsm_back, SAVE_SIZE);
-	cpm_outl(lcr,CPM_LCR);
-	cpm_outl(opcr,CPM_OPCR);
-
-#ifdef	CONFIG_TRAPS_USE_TCSM
-	cpu0_restore_tscm();
-#endif
+	cpm_outl(resume_reg->sleep_cpm_lcr,CPM_LCR);
+	cpm_outl(resume_reg->sleep_cpm_opcr,CPM_OPCR);
 
 	return 0;
 }
-
 /*
  * Initialize power interface
  */
-#ifdef CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH
-/* drivers/video/jz4780-fb/lcd_suspend_update/suspend_ops.c */
-extern struct platform_suspend_ops pm_ops;
-
-#else  /* CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH */
 struct platform_suspend_ops pm_ops = {
 	.valid = suspend_valid_only_mem,
 	.enter = jz4775_pm_enter,
 };
-#endif	/* CONFIG_SLCD_SUSPEND_ALARM_WAKEUP_REFRESH */
+
 
 int __init jz4775_pm_init(void)
 {
+	volatile unsigned int lcr,opcr;
+        /* init opcr and lcr for idle */
+	lcr = cpm_inl(CPM_LCR);
+	lcr &= ~(0x3);		/* LCR.SLEEP.DS=0'b0,LCR.LPM=1'b00*/
+	lcr |= 0xff << 8;	/* power stable time */
+	cpm_outl(lcr,CPM_LCR);
+
+	opcr = cpm_inl(CPM_OPCR);
+	opcr |= 0xff << 8;	/* EXCLK stable time */
+	opcr &= ~(1 << 4);	/* EXCLK stable time */
+	cpm_outl(opcr,CPM_OPCR);
+
 	suspend_set_ops(&pm_ops);
 	return 0;
 }

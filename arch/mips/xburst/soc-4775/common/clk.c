@@ -730,21 +730,14 @@ static void __init init_gate_clk(void)
 	}
 }
 
-static unsigned long clkgr;
-
 int clk_suspend(void)
 {
-	clkgr = cpm_inl(CPM_CLKGR);
-
-	cpm_outl(clkgr | 0x7fe8ffe0,CPM_CLKGR);
-	udelay(20);
 	return 0;
 }
 
 void clk_resume(void)
 {
-	cpm_outl(clkgr,CPM_CLKGR);
-	mdelay(5);
+
 }
 
 struct syscore_ops clk_pm_ops = {
