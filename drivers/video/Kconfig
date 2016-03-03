@@ -15,6 +15,11 @@ config SH_MIPI_DSI
 config SH_LCD_MIPI_DSI
 	bool
 
+config JZ_MIPI_DSI
+	bool "jz mipi dsi interface"
+	depends on FB_JZ_V12 || DRM_JZDRM
+	default n
+
 source "drivers/char/agp/Kconfig"
 
 source "drivers/gpu/vga/Kconfig"

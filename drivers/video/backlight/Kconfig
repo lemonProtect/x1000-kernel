@@ -174,7 +174,7 @@ config LCD_BYD_9177AA
 
 config LCD_X163
 	tristate "X163 smart mipi-dsi panel(320x320)"
-	depends on FB && JZ_MIPI_DSI
+	depends on JZ_MIPI_DSI
 	help
 	jz mipi dsi.dbi smart display panel support
 

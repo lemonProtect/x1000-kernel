@@ -146,7 +146,7 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_RTC_DRV_JZ
 	DEF_DEVICE(&jz_rtc_device, 0, 0),
 #endif
-#ifdef CONFIG_FB_JZ_V12
+#if (defined(CONFIG_FB_JZ_V12) || defined(CONFIG_DRM_JZDRM))
 	DEF_DEVICE(&jz_fb_device, &jzfb_pdata, sizeof(struct jzfb_platform_data)),
 #endif
 #ifdef CONFIG_JZ_EPD_V12

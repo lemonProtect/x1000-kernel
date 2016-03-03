@@ -28,7 +28,11 @@
 
 #include <linux/byd_8991.h>
 #include "../jz_fb_v12/jz_fb.h"
+#include "../jz_fb_v12/regs.h"
+
 extern void Initial_IC(struct platform_byd_8991_data *pdata);
+
+static int uboot_inited;
 
 struct byd_8991_data {
 	int lcd_power;
@@ -109,6 +113,16 @@ static struct lcd_ops byd_8991_ops = {
 	.set_mode = byd_8991_set_mode,
 };
 
+static int lcd_inited_by_uboot( void )
+{
+	if (*(unsigned int*)(0xb3050000 + LCDC_CTRL) & LCDC_CTRL_ENA)
+		        uboot_inited = 1;
+	else
+		        uboot_inited = 0;
+		    /* screen init will set this function first */
+	return uboot_inited;
+}
+
 static int byd_8991_probe(struct platform_device *pdev)
 {
 	/* check the parameters from lcd_driver */
@@ -141,8 +155,10 @@ static int byd_8991_probe(struct platform_device *pdev)
 	if (dev->pdata->gpio_lcd_back_sel)
 		gpio_request(dev->pdata->gpio_lcd_back_sel, "back_light_ctrl");
 #endif
-	if ( ! lcd_display_inited_by_uboot() )
+	if ( ! lcd_inited_by_uboot() ) {
 		byd_8991_on(dev);
+	}
+	dev->lcd_power = FB_BLANK_UNBLANK;
 
 	dev->lcd = lcd_device_register("byd_8991-lcd", &pdev->dev,
 				       dev, &byd_8991_ops);

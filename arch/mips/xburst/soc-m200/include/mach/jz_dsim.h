@@ -156,6 +156,7 @@ struct dsi_device {
 	unsigned int state;
 	unsigned int data_lane;
 	bool suspended;
+	int counter;
 
 };
 

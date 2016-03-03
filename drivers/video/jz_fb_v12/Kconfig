@@ -14,11 +14,6 @@ config DELAY_AFTER_LCD_DISPLAY_ON
 	depends on FB_JZ_V12
 	default 0
 
-config JZ_MIPI_DSI
-	bool "jz mipi dsi interface"
-    depends on FB_JZ_V12
-	default n
-
 
 config JZ_MIPI_DBI
 	bool "jz mipi dbi support mipi slcd"

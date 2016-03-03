@@ -656,7 +656,8 @@ int drm_fb_helper_setcmap(struct fb_cmap *cmap, struct fb_info *info)
 			if (rc)
 				return rc;
 		}
-		crtc_funcs->load_lut(crtc);
+		if (crtc_funcs->load_lut)
+			crtc_funcs->load_lut(crtc);
 	}
 	return rc;
 }

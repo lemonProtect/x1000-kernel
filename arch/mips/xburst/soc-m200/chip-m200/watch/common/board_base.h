@@ -88,7 +88,7 @@ extern struct jz_epd_platform_data jz_epd_pdata;
 #endif
 
 /* lcd pdata and display panel */
-#ifdef CONFIG_FB_JZ_V12
+#if (defined(CONFIG_FB_JZ_V12) || defined(CONFIG_DRM_JZDRM))
 extern struct jzfb_platform_data jzfb_pdata;
 #endif
 #ifdef CONFIG_LCD_KFM701A21_1A
