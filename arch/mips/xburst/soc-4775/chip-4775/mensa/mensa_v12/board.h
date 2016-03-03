@@ -85,7 +85,7 @@
 #if defined(CONFIG_JZ_CIM1) || defined(CONFIG_VIDEO_JZ4780_CIM_HOST)
 #define GPIO_MENU		(-1)
 #else
-#define GPIO_MENU		GPIO_PG(15)
+/*#define GPIO_MENU		GPIO_PG(15)*/
 #endif
 
 #define GPIO_BACK		GPIO_PD(19)

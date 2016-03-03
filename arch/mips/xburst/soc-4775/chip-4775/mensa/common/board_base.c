@@ -54,11 +54,11 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_JZMMC_V11_MMC0
 	DEF_DEVICE(&jz_msc0_device,&inand_pdata,sizeof(struct jzmmc_platform_data)),
 #endif
-#ifdef CONFIG_MMC1_JZ4775
-	DEF_DEVICE(&jz_msc1_device,&tf_pdata,sizeof(struct jzmmc_platform_data)),
+#ifdef CONFIG_JZMMC_V11_MMC2
+	DEF_DEVICE(&jz_msc2_device,&tf_pdata,sizeof(struct jzmmc_platform_data)),
 #endif
-#ifdef CONFIG_MMC2_JZ4775
-	DEF_DEVICE(&jz_msc2_device,&sdio_pdata,sizeof(struct jzmmc_platform_data)),
+#ifdef CONFIG_JZMMC_V11_MMC1
+	DEF_DEVICE(&jz_msc1_device,&sdio_pdata,sizeof(struct jzmmc_platform_data)),
 #endif
 #ifdef CONFIG_SOUND_JZ_PCM_V12
 	DEF_DEVICE(&jz_pcm_device, &pcm_data, sizeof(struct snd_dev_data)),
