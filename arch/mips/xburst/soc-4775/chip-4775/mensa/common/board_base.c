@@ -182,6 +182,11 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef CONFIG_LCD_BYD_8991FTGF
     DEF_DEVICE(&byd_8991_device,0,0),
 #endif
+
+#ifdef CONFIG_LCD_KFM701A21_1A
+    DEF_DEVICE(&kfm701a21_1a_device,0,0),
+#endif
+
 #ifdef CONFIG_FB_JZ_V11
 	DEF_DEVICE(&jz_fb0_device, &jzfb0_pdata, sizeof(struct jzfb_platform_data)),
 #endif
