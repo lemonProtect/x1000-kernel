@@ -32,7 +32,7 @@ struct jzmmc_platform_data tf_pdata = {
 	.recovery_info			= NULL,
 	.gpio				= &tf_gpio,
 	.max_freq                       = CONFIG_MMC0_MAX_FREQ,
-#ifdef CONFIG_MMC1_PIO_MODE
+#ifdef CONFIG_MMC0_PIO_MODE
 	.pio_mode                       = 1,
 #else
 	.pio_mode                       = 0,
