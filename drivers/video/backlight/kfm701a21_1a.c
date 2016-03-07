@@ -31,7 +31,7 @@ struct kfm701a21_1a_data {
 	struct platform_kfm701a21_1a_data *pdata;
 	struct regulator *lcd_vcc_reg;
 };
-
+static int uboot_inite;
 
 static void kfm701a21_1a_on(struct kfm701a21_1a_data *dev)
 {
@@ -113,6 +113,15 @@ static struct lcd_ops kfm701a21_1a_ops = {
 	.get_power = kfm701a21_1a_get_power,
 	.set_mode = kfm701a21_1a_set_mode,
 };
+int lcd_display_inite_by_uboot( void )
+{
+	if (*(unsigned int*)(0xb3050000 + 0x30) & (1<<3))
+		uboot_inite = 1;
+	else
+		uboot_inite = 0;
+	/* screen init will set this function first */
+	return uboot_inite;
+}
 
 static int kfm701a21_1a_probe(struct platform_device *pdev)
 {
@@ -143,9 +152,9 @@ static int kfm701a21_1a_probe(struct platform_device *pdev)
 #else
 	dev->reset_enable = 0;
 #endif
-
+	if(!lcd_display_inite_by_uboot()){
 	kfm701a21_1a_on(dev);
-
+	}
 	dev->lcd = lcd_device_register("kfm701a21_1a-lcd", &pdev->dev,
 				       dev, &kfm701a21_1a_ops);
 	if (IS_ERR(dev->lcd)) {
