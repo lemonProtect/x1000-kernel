@@ -126,7 +126,7 @@ if __name__ == '__main__':
     dev_clk = 0
 
     if len(sys.argv) == 2:
-        dev_clk = string.atoi(sys.argv[1:])
+        dev_clk = string.atoi(sys.argv[1])
         main(dev_clk)
         print "=====================",
         print dev_clk
