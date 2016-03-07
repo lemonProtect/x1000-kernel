@@ -12,6 +12,8 @@
 #include <common.h>
 
 
+extern unsigned int _dma_channel;
+
 unsigned int __res_mem wakeup_res[] = {
 	//#include "ivModel_v21.data"
 };
@@ -160,14 +162,16 @@ int wakeup_open(void)
 		return ivFalse;
 	}
 	//printf("[voice wakeup] OBJECT create ok\n");
-	IvwSetParam( pIvwObj, IVW_CM_THRESHOLD, 10, 0 ,0);
+	IvwSetParam( pIvwObj, IVW_CM_THRESHOLD, 37, 0 ,0);
+#if 0
 	IvwSetParam( pIvwObj, IVW_CM_THRESHOLD, 20, 1 ,0);
 	IvwSetParam( pIvwObj, IVW_CM_THRESHOLD, 15, 2 ,0);
+#endif
 	/* code that need rewrite */
 	struct circ_buf *xfer = &rx_fifo->xfer;
 	rx_fifo->n_size	= BUF_SIZE; /*tcsm 4kBytes*/
 	xfer->buf = (char *)VOICE_TCSM_DATA_BUF;
-	dma_addr = pdma_trans_addr(DMA_CHANNEL, 2);
+	dma_addr = pdma_trans_addr(_dma_channel, 2);
 	if((dma_addr >= (VOICE_TCSM_DATA_BUF & 0x1fffffff)) && (dma_addr <= ((VOICE_TCSM_DATA_BUF + BUF_SIZE)& 0x1fffffff))) {
 		xfer->head = (char *)(dma_addr | 0xA0000000) - xfer->buf;
 	} else {
@@ -175,7 +179,7 @@ int wakeup_open(void)
 	}
 	xfer->tail = xfer->head;
 
-	printf("pdma_trans_addr:%x, xfer->buf:%x, xfer->head:%x, xfer->tail:%x\n",pdma_trans_addr(DMA_CHANNEL, 2), xfer->buf, xfer->head, xfer->tail);
+	printf("pdma_trans_addr:%x, xfer->buf:%x, xfer->head:%x, xfer->tail:%x\n",pdma_trans_addr(_dma_channel, 2), xfer->buf, xfer->head, xfer->tail);
 	return 0;
 }
 
@@ -189,7 +193,7 @@ int wakeup_close(void)
 int get_valid_bytes()
 {
 	unsigned int dma_addr;
-	dma_addr = pdma_trans_addr(DMA_CHANNEL, DMA_DEV_TO_MEM);
+	dma_addr = pdma_trans_addr(_dma_channel, DMA_DEV_TO_MEM);
 	int nbytes;
 	struct circ_buf *xfer;
 	xfer = &rx_fifo->xfer;
@@ -260,7 +264,7 @@ int process_dma_data_2(void)
 	volatile int ret;
 	struct circ_buf *xfer;
 
-	dma_addr = pdma_trans_addr(DMA_CHANNEL, DMA_DEV_TO_MEM);
+	dma_addr = pdma_trans_addr(_dma_channel, DMA_DEV_TO_MEM);
 	xfer = &rx_fifo->xfer;
 	xfer->head = (char *)(dma_addr | 0xA0000000) - xfer->buf;
 
@@ -304,7 +308,7 @@ int process_dma_data(void)
 	int ret;
 	struct circ_buf *xfer;
 
-	dma_addr = pdma_trans_addr(DMA_CHANNEL, DMA_DEV_TO_MEM);
+	dma_addr = pdma_trans_addr(_dma_channel, DMA_DEV_TO_MEM);
 	xfer = &rx_fifo->xfer;
 	xfer->head = (char *)(dma_addr | 0xA0000000) - xfer->buf;
 
