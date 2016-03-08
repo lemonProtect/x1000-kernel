@@ -177,7 +177,7 @@ struct jzfb_platform_data jzfb0_pdata = {
 	.smart_config.rsply_cmd_high = 0,
 	.smart_config.csply_active_high = 0,
 
-	.smart_config.continuous_dma = 0, /* 1: auto continuous dma. 0: trigger DMA_RESTART per-frame dma. */
+	.smart_config.continuous_dma = 1, /* 1: auto continuous dma. 0: trigger DMA_RESTART per-frame dma. */
 
 	.smart_config.write_gram_cmd = 0x00000804, /* 0x00000202(16bit) -->> 0x00000804(18bit) ? */
 	.smart_config.bus_width = 18,
