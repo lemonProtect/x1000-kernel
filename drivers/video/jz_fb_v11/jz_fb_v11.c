@@ -1221,6 +1221,10 @@ static int jzfb_set_par(struct fb_info *info)
 	uint32_t pcfg;
 	unsigned long rate;
 
+	if(uboot_inited==1){
+		uboot_inited = 2;
+		return 0;
+	}
 	mode = jzfb_get_mode(var, info);
 	if (mode == NULL) {
 		dev_err(info->dev, "%s get video mode failed\n", __func__);
@@ -3897,12 +3901,8 @@ void test_pattern(struct jzfb *jzfb)
 	int count = 5;
 	int next_frm = 0;
 	dump_lcdc_registers(jzfb);
-	jzfb_set_par(jzfb->fb);
-	dump_lcdc_registers(jzfb);
 	jzfb_display_v_color_bar(jzfb->fb);
-	jzfb_enable(jzfb->fb);
 
-	dump_lcdc_registers(jzfb);
 #ifdef CONFIG_JZ_MIPI_DSI
 	dump_dsi_reg(jzfb->dsi);
 #endif
@@ -4007,6 +4007,11 @@ static int jzfb_probe(struct platform_device *pdev)
 	}else if(jzfb->id == 1){
 		jzfb1 = jzfb;
 	}
+	if(lcd_display_inited_by_uboot())
+	{
+		jzfb->is_enabled = 1;
+	}
+
 
 	if (pdata->lcd_type != LCD_TYPE_INTERLACED_TV &&
 	    pdata->lcd_type != LCD_TYPE_LCM) {
@@ -4211,6 +4216,10 @@ static int jzfb_probe(struct platform_device *pdev)
 		clk_disable(jzfb->clk);
 		clk_disable(jzfb->pclk);
 	}
+
+	if (uboot_inited == 1)
+		uboot_inited = 2;
+
 	return 0;
 err_kthread_stop:
 	kthread_stop(jzfb->vsync_thread);
