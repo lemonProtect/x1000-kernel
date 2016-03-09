@@ -21,6 +21,8 @@
 #define NUM_FRAME_BUFFERS 1
 #define PIXEL_ALIGN 4
 
+#define JZFB_SET_VSYNCINT      _IOW('F', 0x210, int)
+
 #define to_jzdrm_crtc(x) container_of(x, struct jzdrm_crtc, base)
 
 struct jzdrm_display_size {
@@ -125,6 +127,18 @@ struct jzdrm_crtc {
 	dma_addr_t framedesc_phys;
 
 	void __iomem *mmio;
+
+	wait_queue_head_t vsync_wq;
+	ktime_t vsync_timestamp;
+	unsigned int vsync_skip_map;	/* 10 bits width */
+	int vsync_skip_ratio;
+
+#define TIMESTAMP_CAP	16
+	struct {
+		volatile int wp; /* write position */
+		int rp;	/* read position */
+		u64 value[TIMESTAMP_CAP];
+	} timestamp;
 
 #ifdef CONFIG_JZ_MIPI_DSI_MODE1
 	struct dsi_device *dsi;

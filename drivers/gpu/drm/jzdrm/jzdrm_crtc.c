@@ -141,7 +141,7 @@ void dump_lcdc_registers(struct drm_crtc *crtc)
         printk("==================================\n");
         if (i != desc_num - 1) {
             printk("jzdrm_crtc->framedesc[%d]: %p\n", i,
-                    &jzdrm_crtc->framedesc[i]);
+                    jzdrm_crtc->framedesc[i]);
             printk("DMA 0 descriptor value in memory\n");
         } else {
             printk("jzdrm_crtc->fg1_framedesc: %p\n",
@@ -817,6 +817,66 @@ static void set_scanout(struct drm_crtc *crtc, int n)
 	pm_runtime_put_sync(dev->dev);
 }
 
+static void jzdrm_vsync(struct jzdrm_crtc* jzdrm_crtc)
+{
+	if (jzdrm_crtc->pdata->lcd_type != LCD_TYPE_SLCD) {
+			/* report vsync to android hwcomposer */
+		wmb();
+		jzdrm_crtc->timestamp.value[jzdrm_crtc->timestamp.wp] =
+			ktime_to_ns(ktime_get());
+		jzdrm_crtc->timestamp.wp = (jzdrm_crtc->timestamp.wp + 1) % TIMESTAMP_CAP;
+			wake_up_interruptible(&jzdrm_crtc->vsync_wq);
+	}
+}
+
+static int jzdrm_crtc_ioctl(struct drm_crtc *crtc, struct fb_info *info, unsigned int cmd, unsigned long arg){
+	struct jzdrm_crtc *jzdrm_crtc = to_jzdrm_crtc(crtc);
+	struct drm_device *dev = crtc->dev;
+	void __user *argp = (void __user *)arg;
+	unsigned int value;
+	int  ret, tmp;
+
+	switch(cmd){
+	case FBIO_WAITFORVSYNC:
+		if (likely(jzdrm_crtc->timestamp.wp == jzdrm_crtc->timestamp.rp)) {
+			unlock_fb_info(info);
+			interruptible_sleep_on(&jzdrm_crtc->vsync_wq);
+			lock_fb_info(info);
+		} else {
+			printk("<7>send vsync!\n");
+		}
+
+		ret = copy_to_user(argp, jzdrm_crtc->timestamp.value + jzdrm_crtc->timestamp.rp,
+				sizeof(u64));
+		jzdrm_crtc->timestamp.rp = (jzdrm_crtc->timestamp.rp + 1) % TIMESTAMP_CAP;
+
+		if (unlikely(ret))
+			return -EFAULT;
+		break;
+	case JZFB_SET_VSYNCINT:
+		if (unlikely(copy_from_user(&value, argp, sizeof(int))))
+			return -EFAULT;
+		if (value) {
+
+	                /* clear previous EOF flag */
+                        tmp = jzdrm_read(dev, LCDC_STATE);
+
+			jzdrm_write(dev, LCDC_STATE, tmp & ~LCDC_STATE_EOF);
+			/* enable end of frame interrupt */
+			tmp = jzdrm_read(dev, LCDC_CTRL);
+			jzdrm_write(dev, LCDC_CTRL, tmp | LCDC_CTRL_EOFM);
+		}
+		else {
+			tmp = jzdrm_read(dev, LCDC_CTRL);
+			jzdrm_write(dev, LCDC_CTRL, tmp & (~LCDC_CTRL_EOFM));
+		}
+                break;
+	default:
+		break;
+	}
+	return 0;
+}
+
 static void update_scanout(struct drm_crtc *crtc)
 {
 	struct jzdrm_crtc *jzdrm_crtc = to_jzdrm_crtc(crtc);
@@ -824,6 +884,7 @@ static void update_scanout(struct drm_crtc *crtc)
 
 	if (jzdrm_crtc->dpms == DRM_MODE_DPMS_ON) {
 		drm_vblank_get(dev, 0);
+		jzdrm_vsync(jzdrm_crtc);
 	} else {
 		/* not enabled yet, so update registers immediately: */
 //		jzdrm_write(dev, LCDC_STATE, 0);
@@ -1161,6 +1222,7 @@ static int jzdrm_mode_set(struct drm_crtc *crtc,
 {
 	struct jzdrm_crtc *jzdrm_crtc = to_jzdrm_crtc(crtc);
 	struct drm_device *dev = crtc->dev;
+	int next_frm;
 	//int ret;
 
 	jzdrm_crtc->mode = mode;
@@ -1177,7 +1239,29 @@ static int jzdrm_mode_set(struct drm_crtc *crtc,
 	jzdrm_clk_disable(crtc);
 
 */
+	next_frm = y / mode->vdisplay;
+	if (jzdrm_crtc->pdata->lcd_type != LCD_TYPE_INTERLACED_TV &&
+	    jzdrm_crtc->pdata->lcd_type != LCD_TYPE_SLCD) {
+		if (!jzdrm_crtc->osd.block) {
+			jzdrm_crtc->framedesc[0]->databuf = jzdrm_crtc->vidmem_phys
+			    + jzdrm_crtc->frm_size * next_frm;
+		} else {
+			/* 16x16 block mode */
+		}
+	} else if (jzdrm_crtc->pdata->lcd_type == LCD_TYPE_SLCD) {
+		/*
+		struct slcd_te *te;
+		te = &jzdrm_crtc->slcd_te;
+
+		jzdrm_crtc->framedesc[0]->databuf = jzdrm_crtc->vidmem_phys
+		    + jzdrm_crtc->frm_size * next_frm;
+		if (!jzdrm_crtc->is_lcd_en)
+			return -EINVAL;
+		*/
+	}
+
 	pm_runtime_put_sync(dev->dev);
+
 	return 0;
 }
 
@@ -1185,6 +1269,7 @@ static const struct drm_crtc_funcs jzdrm_funcs = {
 		.destroy        = jzdrm_destroy,
 		.set_config     = drm_crtc_helper_set_config,
 		.page_flip      = jzdrm_page_flip,
+		.ioctl          = jzdrm_crtc_ioctl,
 };
 
 static const struct drm_crtc_helper_funcs jzdrm_helper_funcs = {
@@ -1327,6 +1412,10 @@ struct drm_crtc *jzdrm_crtc_create(struct drm_device *dev)
 		dev_err(dev->dev, "could not allocate unref FIFO\n");
 		goto fail;
 	}
+
+	init_waitqueue_head(&jzdrm_crtc->vsync_wq);
+	jzdrm_crtc->timestamp.rp = 0;
+	jzdrm_crtc->timestamp.wp = 0;
 
 	ret = drm_crtc_init(dev, crtc, &jzdrm_funcs);
 	if (ret < 0)

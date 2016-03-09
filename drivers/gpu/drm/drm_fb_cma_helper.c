@@ -243,6 +243,7 @@ static struct fb_ops drm_fbdev_cma_ops = {
 	.fb_blank	= drm_fb_helper_blank,
 	.fb_pan_display	= drm_fb_helper_pan_display,
 	.fb_setcmap	= drm_fb_helper_setcmap,
+	.fb_ioctl       = drm_fb_helper_ioctl,
 };
 
 static int drm_fbdev_cma_create(struct drm_fb_helper *helper,
@@ -272,6 +273,12 @@ static int drm_fbdev_cma_create(struct drm_fb_helper *helper,
 		sizes->surface_depth);
 
 	size = mode_cmd.pitches[0] * mode_cmd.height;
+#ifdef CONFIG_THREE_FRAME_BUFFERS
+	size = mode_cmd.pitches[0] * mode_cmd.height * 3;
+#endif
+#ifdef CONFIG_TWO_FRAME_BUFFERS
+	size = mode_cmd.pitches[0] * mode_cmd.height * 2;
+#endif
 	obj = drm_gem_cma_create(dev, size);
 	if (IS_ERR(obj))
 		return -ENOMEM;

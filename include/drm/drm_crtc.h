@@ -362,6 +362,7 @@ struct drm_crtc_funcs {
 			 struct drm_framebuffer *fb,
 			 struct drm_pending_vblank_event *event);
 
+	int  (*ioctl)(struct drm_crtc *crtc, struct fb_info *info, unsigned int cmd, unsigned long arg);
 	int (*set_property)(struct drm_crtc *crtc,
 			    struct drm_property *property, uint64_t val);
 };

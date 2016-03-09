@@ -353,7 +353,7 @@ static void __exit jzdrm_drm_fini(void)
 	DRM_DEBUG_DRIVER("fini");
 	platform_driver_unregister(&jzdrm_platform_driver);
 }
-late_initcall(jzdrm_drm_init);
+rootfs_initcall(jzdrm_drm_init);
 module_exit(jzdrm_drm_fini);
 
 MODULE_AUTHOR("Zubair Lutfullah Kakakhel <Zubair.Kakakhel@imgtec.com>");

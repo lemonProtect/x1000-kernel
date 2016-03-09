@@ -680,8 +680,7 @@ int drm_fb_helper_check_var(struct fb_var_screeninfo *var,
 
 	/* Need to resize the fb object !!! */
 	if (var->bits_per_pixel > fb->bits_per_pixel ||
-	    var->xres > fb->width || var->yres > fb->height ||
-	    var->xres_virtual > fb->width || var->yres_virtual > fb->height) {
+	    var->xres > fb->width || var->yres > fb->height) {
 		DRM_DEBUG("fb userspace requested width/height/bpp is greater than current fb "
 			  "request %dx%d-%d (virtual %dx%d) > %dx%d-%d\n",
 			  var->xres, var->yres, var->bits_per_pixel,
@@ -759,6 +758,23 @@ int drm_fb_helper_check_var(struct fb_var_screeninfo *var,
 	return 0;
 }
 EXPORT_SYMBOL(drm_fb_helper_check_var);
+
+int drm_fb_helper_ioctl(struct fb_info *info, unsigned int cmd,
+			unsigned long arg){
+	struct drm_fb_helper *fb_helper = info->par;
+	struct drm_crtc *crtc;
+	int i, ret;
+
+	for (i = 0; i < fb_helper->crtc_count; i++) {
+		crtc = fb_helper->crtc_info[i].mode_set.crtc;
+		ret = crtc->funcs->ioctl(crtc, info, cmd, arg);
+		if(ret  != 0)
+			return ret;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL(drm_fb_helper_ioctl);
 
 /**
  * drm_fb_helper_set_par - implementation for ->fb_set_par
@@ -949,6 +965,8 @@ static int drm_fb_helper_single_fb_probe(struct drm_fb_helper *fb_helper,
 	if (register_framebuffer(info) < 0)
 		return -EINVAL;
 
+	drm_fb_helper_set_par(fb_helper->fbdev);
+
 	dev_info(fb_helper->dev->dev, "fb%d: %s frame buffer device\n",
 			info->node, info->fix.id);
 
@@ -1027,6 +1045,13 @@ void drm_fb_helper_fill_var(struct fb_info *info, struct drm_fb_helper *fb_helpe
 	info->var.activate = FB_ACTIVATE_NOW;
 	info->var.height = -1;
 	info->var.width = -1;
+
+#ifdef CONFIG_THREE_FRAME_BUFFERS
+	info->var.yres_virtual = fb->height * 3;
+#endif
+#ifdef CONFIG_TWO_FRAME_BUFFERS
+	info->var.yres_virtual = fb->height * 2;
+#endif
 
 	switch (fb->depth) {
 	case 8:
