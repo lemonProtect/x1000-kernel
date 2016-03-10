@@ -2479,7 +2479,7 @@ static int inv_check_chip_type(struct inv_mpu_state *st,
 	result = inv_i2c_single_write(st, reg->pwr_mgmt_1, BIT_H_RESET);
 	if (result)
 		return result;
-	msleep(POWER_UP_TIME);
+	udelay(POWER_UP_TIME);   //by snmu for android-6.0 speed up,warn:it is probably cause has bug.
 	/* toggle power state */
 	result = st->set_power_state(st, false);
 	if (result)

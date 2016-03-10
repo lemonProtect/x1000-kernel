@@ -218,7 +218,7 @@ static int icdc_d1_set_bias_level(struct snd_soc_codec *codec,
 		if (snd_soc_update_bits(codec, DLV_REG_CR_VIC, DLV_CR_VIC_SB_MASK, 0))
 			msleep(250);
 		if (snd_soc_update_bits(codec, DLV_REG_CR_VIC, DLV_CR_VIC_SB_SLEEP_MASK, 0)) {
-			msleep(400);
+			msleep(10);  //at least 10ms,  by snmu for android-6.0 speed up,warn:it is probably cause has bug.
 			icdc_d1_reset_gain(codec);
 		}
 		snd_soc_update_bits(codec, DLV_REG_AICR_ADC, DLV_AICR_AICR_SB_MASK, 0);

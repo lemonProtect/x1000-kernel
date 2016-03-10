@@ -282,10 +282,10 @@ start:
 #endif
 			break;
 		case NORMAL:
-			msleep(200);
+			//msleep(200);   useless msleep, by snmu for android-6.0 speed up,warn:it is probably cause has bug.
 #ifdef WL_REG_EN
 			gpio_direction_output(wl_reg_on,1);
-			msleep(200);
+			//msleep(200);   useless msleep, by snmu for android-6.0 speed up,warn:it is probably cause has bug.
 #endif
 #ifdef WL_RST_EN
 			gpio_direction_output(reset, 0);

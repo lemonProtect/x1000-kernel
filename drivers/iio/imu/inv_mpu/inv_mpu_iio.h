@@ -191,7 +191,7 @@
 #define FIFO_SIZE                800
 #define HARDWARE_FIFO_SIZE       1024
 #define MAX_READ_SIZE            64
-#define POWER_UP_TIME            100
+#define POWER_UP_TIME            10    //10us  Valid power-on RESET MIN
 #define SENSOR_UP_TIME           30
 #define REG_UP_TIME              5
 #define INV_MPU_SAMPLE_RATE_CHANGE_STABLE 50

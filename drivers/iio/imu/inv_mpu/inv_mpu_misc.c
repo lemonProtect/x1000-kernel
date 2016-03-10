@@ -467,7 +467,7 @@ int inv_get_silicon_rev_mpu6500(struct inv_mpu_state *st)
 		return -EINVAL;
 
 	/*memory read need more time after power up */
-	msleep(POWER_UP_TIME);
+	udelay(POWER_UP_TIME);   //by snmu for android-6.0 speed up,warn:it is probably cause has bug.
 	result = mpu_memory_read(st, st->i2c_addr,
 			MPU6500_MEM_REV_ADDR, 1, &sw_rev);
 	sw_rev &= INV_MPU_REV_MASK;

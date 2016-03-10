@@ -98,7 +98,7 @@ static int _bcm_power_on(void)
 
 	if (bcm_power->use_count == 0) {
 		clk_32k_on();
-		msleep(200);
+		udelay(63);  //two sleep cycles,  by snmu for android-6.0 speed up,warn:it is probably cause has bug.
 		ret = wlan_power_on();
 		if (ret < 0) {
 			pr_err("%s, wlan power on failure\n", __func__);
@@ -129,7 +129,7 @@ static int _bcm_power_down(void)
 			pr_err("%s, wlan power on failure\n", __func__);
 			return -EIO;
 		}
-		msleep(100);
+		//msleep(100);
 		clk_32k_off();
 	}
 
