@@ -3,6 +3,7 @@
 #include <linux/kmod.h>
 #include <asm/uaccess.h>
 #include <linux/seq_file.h>
+#include <jz_proc.h>
 static int exec_write_proc(struct file *file, const char __user *buffer, size_t count, loff_t *data)
 {
 	char buf[128];
@@ -50,20 +51,19 @@ static int exec_write_proc(struct file *file, const char __user *buffer, size_t 
 	return count;
 }
 
-static int proc_exec_open(struct inode *inode, struct file *file)
-{
-	return single_open(file,NULL, PDE_DATA(inode));
-}
 
-static const struct file_operations exec_proc_fops ={
-	.open = proc_exec_open,
+static struct jz_single_file_ops exec_proc_fops ={
 	.write = exec_write_proc,
-	.llseek = seq_lseek,
-	.release = single_release,
 };
 static int __init init_proc_exec(void)
 {
-	proc_create("proc-exec",0600,NULL,&exec_proc_fops);
+	struct proc_dir_entry *jz_proc;
+#ifndef CONFIG_USE_JZ_ROOT_DIR
+	jz_proc = jz_proc_mkdir("exec");
+#else
+	jz_proc = get_jz_proc_root();
+#endif
+	jz_proc_create("proc-exec",0600,jz_proc,&exec_proc_fops);
 	return 0;
 }
 

@@ -213,7 +213,7 @@ config IMEM_MAX_ORDER
 	  default "10"
 
 config IMEM1_MAX_ORDER
-	  int "/proc/jz/mem/imem max order"
+	  int "/proc/jz/mem/imem1 max order"
 	  depends on JZ_IMEM
 	  range 0 20
 	  default "12"

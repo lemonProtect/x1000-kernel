@@ -2,6 +2,7 @@
 #include <asm/mipsregs.h>
 #include <asm/uaccess.h>
 #include <linux/seq_file.h>
+#include <jz_proc.h>
 #define get_pmon_csr()		__read_32bit_c0_register($16, 7)
 #define set_pmon_csr(val)	__write_32bit_c0_register($16, 7, val)
 
@@ -91,10 +92,14 @@ static int pmon_proc_show(struct seq_file *m, void *v)
 	return len;
 }
 
-static int pmon_open(struct inode *inode, struct file *file)
+
+static int pmon_read_proc(struct seq_file *filq, void *v)
 {
-	return single_open(file, pmon_proc_show, PDE_DATA(inode));
+	pmon_proc_show(filq,NULL);
+	return 0;
 }
+
+
 
 static int pmon_write_proc(struct file *file, const char __user *buffer,
 			   size_t count, loff_t *data)
@@ -133,16 +138,20 @@ static int pmon_write_proc(struct file *file, const char __user *buffer,
 	return count;
 }
 
-static const struct file_operations gpios_proc_fops ={
-	.read = seq_read,
-	.open = pmon_open,
+
+static struct jz_single_file_ops gpios_proc_fops ={
 	.write = pmon_write_proc,
-	.llseek = seq_lseek,
-	.release = single_release,
+	.read = pmon_read_proc,
 };
 static int __init init_proc_pmon(void)
 {
-        proc_create("proc-pmon",0644,NULL,&gpios_proc_fops);
+	struct proc_dir_entry *jz_proc;
+#ifndef CONFIG_USE_JZ_ROOT_DIR
+	jz_proc = jz_proc_mkdir("pmon");
+#else
+	jz_proc = get_jz_proc_root();
+#endif
+        jz_proc_create("proc-pmon",0644,jz_proc,&gpios_proc_fops);
 
 	return 0;
 }
