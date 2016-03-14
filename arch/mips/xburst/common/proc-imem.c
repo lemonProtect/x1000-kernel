@@ -387,7 +387,12 @@ static int imem_read_proc(struct seq_file *filq, void *v)
 
 	len += 2 * sizeof(unsigned int);
 
-	return len;
+	seq_write(filq, &allocated_phys_addr, len);
+
+	if(filq->count < filq->size)
+		return 0;
+	else
+		return 1;
 }
 static int imem_write_proc(struct file *file, const char __user *buffer,size_t count, loff_t *data)
 {
@@ -415,13 +420,13 @@ static int imem_write_proc(struct file *file, const char __user *buffer,size_t c
  * Return the allocated buffer address and the max order of free buffer
  */
 #ifdef JZ_PROC_IMEM_1
-static int imem1_read_proc(struct seq_file *filp, void *v)
+static int imem1_read_proc(struct seq_file *filq, void *v)
 {
 	int len = 0;
 	unsigned int start_addr, end_addr, max_order, max_size;
 	struct imem_list *imem;
 
-	unsigned int *tmp = (unsigned int *)(filp->buf + len);
+	unsigned int *tmp = (unsigned int *)(filq->buf + len);
 
 	start_addr = jz_imem1_base;
 	end_addr = start_addr + (1 << IMEM1_MAX_ORDER) * PAGE_SIZE;
@@ -457,7 +462,12 @@ static int imem1_read_proc(struct seq_file *filp, void *v)
 
 	len += 2 * sizeof(unsigned int);
 
-	return len;
+	seq_write(filq, &allocated_phys_addr1, len);
+
+	if(filq->count < filq->size)
+		return 0;
+	else
+		return 1;
 }
 
 static int imem1_write_proc(struct file *file, const char __user *buffer,size_t count, loff_t *data)
