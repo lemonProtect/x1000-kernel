@@ -18,6 +18,7 @@
  * MIPS32/MIPS64 L2 cache handling
  */
 static unsigned long scache_size __read_mostly;
+unsigned long reserved_for_alloccache[ 32 * 1024 ] __attribute__ ((aligned (32)));
 /*
  * Writeback and invalidate the secondary cache before DMA.
  */

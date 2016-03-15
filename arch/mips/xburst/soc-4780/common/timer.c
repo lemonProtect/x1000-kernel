@@ -322,7 +322,9 @@ void __cpuinit jzcpu_timer_setup(void)
 		apbost_writel(OSTCNTH, 0);
 		break;
 	}
+#ifdef CONFIG_HOTPLUG_CPU
 	jz_set_cpu_affinity(evt->irq,0);
+#endif
 	jz_clockevent_init(evt,cpu);
 }
 

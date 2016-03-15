@@ -25,12 +25,11 @@
 #include <linux/cpu.h>
 #include <linux/smp.h>
 #include <linux/kernel_stat.h>
-#include <linux/earlysuspend.h>
 
 #include <asm/mmu_context.h>
 #include <asm/io.h>
 #include <asm/uasm.h>
-#include <asm/rjzcache.h>
+#include <rjzcache.h>
 
 #include <smp_cp0.h>
 
@@ -212,19 +211,26 @@ wait:
 static void __init jzsoc_smp_setup(void)
 {
 	int i, num;
-	scpu_pwc = cpm_pwc_get(PWC_SCPU);
-	cpus_clear(cpu_possible_map);
-	cpus_clear(cpu_present_map);
 
-	cpu_set(0, cpu_possible_map);
-	cpu_set(0, cpu_present_map);
+	scpu_pwc = cpm_pwc_get(PWC_SCPU);
+
+	/* set_cpu_present(0, false); */
+	/* set_cpu_possible(0, false); */
+
+	cpus_clear(*(cpumask_t *)cpu_possible_mask);
+	cpus_clear(*(cpumask_t *)cpu_present_mask);
+
+	cpu_set(0, *(cpumask_t *)cpu_possible_mask);
+	cpu_set(0, *(cpumask_t *)cpu_present_mask);
 
 	__cpu_number_map[0] = 0;
 	__cpu_logical_map[0] = 0;
 
 	for (i = 1, num = 0; i < NR_CPUS; i++) {
-		cpu_set(i, cpu_possible_map);
-		cpu_set(i, cpu_present_map);
+		/* set_cpu_present(i, true); */
+		/* set_cpu_possible(i, true); */
+		cpu_set(i, *(cpumask_t *)cpu_possible_mask);
+		cpu_set(i, *(cpumask_t *)cpu_present_mask);
 
 		__cpu_number_map[i] = ++num;
 		__cpu_logical_map[num] = i;
@@ -304,7 +310,7 @@ int jzsoc_cpu_disable(void)
 //	unsigned int status;
 	if (cpu == 0)		/* FIXME */
 		return -EBUSY;
-	cpu_clear(cpu, cpu_online_map);
+	cpu_clear(cpu, *(cpumask_t *)cpu_online_mask);
 	cpu_clear(cpu, cpu_callin_map);
 
 	local_irq_disable();

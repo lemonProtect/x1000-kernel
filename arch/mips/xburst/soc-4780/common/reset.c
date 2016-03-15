@@ -13,14 +13,17 @@
 #include <linux/kthread.h>
 #include <linux/syscore_ops.h>
 #include <linux/platform_device.h>
-#include <linux/mfd/ricoh618.h>
-
+#include <linux/sched/rt.h>
+#include <linux/seq_file.h>
+#include <jz_proc.h>
+#include <jz_notifier.h>
 #include <soc/base.h>
 #include <soc/cpm.h>
 #include <soc/extal.h>
 #include <soc/tcu.h>
+#include <linux/slab.h>
 #include <soc/gpio.h>
-#include <jz_notifier.h>
+
 
 #include <asm/reboot.h>
 
@@ -170,7 +173,7 @@ void jz_hibernate(void)
 	/* Put CPU to hibernate mode */
 	rtc_write_reg(RTC_HCR, 0x1);
 
-	reset_notifier_call_chain(PM_POST_HIBERNATION, NULL);
+	jz_notifier_call(NOTEFY_PROI_HIGH, JZ_POST_HIBERNATION, NULL);
 
 	mdelay(200);
 		printk("We should NOT come here.%08x\n",inl(RTC_IOBASE + RTC_HCR));
@@ -256,18 +259,23 @@ int __init reset_init(void)
 arch_initcall(reset_init);
 
 static char *reset_command[] = {"wdt","hibernate","recovery"};
-
-static int reset_read_proc(char *page, char **start, off_t off,
-			  int count, int *eof, void *data){
-	int len = 0,i;
+static int reset_proc_show(struct seq_file *m, void *v)
+{
+	int len = 0;
+	int i;
 	for(i = 0;i < ARRAY_SIZE(reset_command);i++)
-		len += sprintf(page+len,"%s\t",reset_command[i]);
-	len += sprintf(page+len,"\n");
+		len += seq_printf(m,"%s\t",reset_command[i]);
+	len += seq_printf(m,"\n");
+
 	return len;
 }
 
+static int reset_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, reset_proc_show, PDE_DATA(inode));
+}
 static int reset_write_proc(struct file *file, const char __user *buffer,
-			    unsigned long count, void *data) {
+			    size_t count, loff_t *data) {
 	int command = 0;
 	int i;
 
@@ -324,17 +332,24 @@ static int reset_task(void *data) {
 	return 0;
 }
 
-static int wdt_control_read_proc(char *page, char **start, off_t off,
-			  int count, int *eof, void *data){
+
+static int wdt_control_proc_show(struct seq_file *m, void *v)
+{
 	int len = 0;
-	struct wdt_reset *wdt = data;
-	len += sprintf(page+len,wdt->stop?">off<on\n":"off>on<\n");
+	struct wdt_reset *wdt = m->private;
+	len += seq_printf(m,wdt->stop?">off<on\n":"off>on<\n");
 	return len;
+return 0;
+}
+
+static int wdt_control_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, wdt_control_proc_show, PDE_DATA(inode));
 }
 
 static int wdt_control_write_proc(struct file *file, const char __user *buffer,
-			    unsigned long count, void *data) {
-	struct wdt_reset *wdt = data;
+			    size_t count, loff_t *data) {
+	struct wdt_reset *wdt =file->private_data ;
 	if(!strncmp(buffer,"on",2) && (wdt->stop == 1)) {
 		wdt->task = kthread_run(reset_task, wdt, "reset_task%d",wdt->count++);
 		wdt->stop = 0;
@@ -344,19 +359,23 @@ static int wdt_control_write_proc(struct file *file, const char __user *buffer,
 	}
 	return count;
 }
-
-static int wdt_time_read_proc(char *page, char **start, off_t off,
-			  int count, int *eof, void *data){
+static int wdt_time_proc_show(struct seq_file *m, void *v)
+{
 	int len = 0;
-	struct wdt_reset *wdt = data;
-	len += sprintf(page+len,"%d msecs\n",wdt->msecs);
+	struct wdt_reset *wdt = m->private;
+	len += seq_printf(m,"%d msecs\n",wdt->msecs);
 	return len;
 }
 
+static int wdt_time_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, wdt_time_proc_show, PDE_DATA(inode));
+}
+
 static int wdt_time_write_proc(struct file *file, const char __user *buffer,
-			    unsigned long count, void *data) {
+			    size_t count, loff_t *data) {
 	unsigned msecs= 0;
-	struct wdt_reset *wdt = data;
+	struct wdt_reset *wdt = file->private_data;
 
 	if(!wdt->stop)
 		return -EBUSY;
@@ -369,10 +388,34 @@ static int wdt_time_write_proc(struct file *file, const char __user *buffer,
 	return count;
 }
 
+static const struct file_operations reset_proc_fops ={
+	.read = seq_read,
+	.open = reset_proc_open,
+	.write = reset_write_proc,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static const struct file_operations wdt_control_proc_fops ={
+	.read = seq_read,
+	.open = wdt_control_proc_open,
+	.write = wdt_control_write_proc,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+static const struct file_operations wdt_time_proc_fops ={
+	.read = seq_read,
+	.open = wdt_time_proc_open,
+	.write = wdt_time_write_proc,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 static int wdt_probe(struct platform_device *pdev)
 {
 	struct wdt_reset *wdt;
-	struct proc_dir_entry *p,*res;
+	struct proc_dir_entry *p;
 
 	wdt = kmalloc(sizeof(struct wdt_reset),GFP_KERNEL);
 	if(!wdt) {
@@ -389,33 +432,14 @@ static int wdt_probe(struct platform_device *pdev)
 #else
 	wdt->stop = 1;
 #endif
-	p = proc_mkdir("reset", 0);
+	p = jz_proc_mkdir("reset");
 	if (!p) {
 		pr_warning("create_proc_entry for common reset failed.\n");
 		return -ENODEV;
 	}
-
-	res = create_proc_entry("reset", 0444, p);
-	if (res) {
-		res->read_proc = reset_read_proc;
-		res->write_proc = reset_write_proc;
-		res->data = wdt;
-	}
-
-	res = create_proc_entry("wdt_control", 0444, p);
-	if (res) {
-		res->read_proc = wdt_control_read_proc;
-		res->write_proc = wdt_control_write_proc;
-		res->data = wdt;
-	}
-
-	res = create_proc_entry("wdt_time", 0444, p);
-	if (res) {
-		res->read_proc = wdt_time_read_proc;
-		res->write_proc = wdt_time_write_proc;
-		res->data = wdt;
-	}
-
+        proc_create_data("reset", 0444,p,&reset_proc_fops,wdt);
+        proc_create_data("wdt_control", 0444,p,&wdt_control_proc_fops,wdt);
+        proc_create_data("wdt_time", 0444,p,&wdt_time_proc_fops,wdt);
 	return 0;
 }
 

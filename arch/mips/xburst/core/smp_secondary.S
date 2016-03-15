@@ -10,7 +10,7 @@
 
 	.macro	add_smp_flag val
 	/* write SMP_FLAG (smp.c) */
-1:	
+1:
 	ll	v0, 0($26)
 	addu	v0, \val
 	sc	v0, 0($26)
@@ -56,22 +56,22 @@ NESTED(__jzsoc_secondary_start, 16, sp)
 	/* set MMU/tlb attribute (jz special) */
 	li	v0, 0xa9000000
 	mtc0	v0, $5, 4
-	
+
 	/* get cpu mask bit */
 	mfc0	v0, $15, 1
 	and	v0, v0, 0x3ff
 	addu	v1, zero, 1
-	sllv	v1, v1, v0
+	sllv	v1, v1, v0/*??? only read, not write back*/
 
 	/* set uncached cpu_ready bitmap */
 	li	v0, 0x20000000
 	addu	t8, t8, v0
-1:	
+1:
 	ll	v0, 0(t8)
 	or	v0, v0, v1
 	sc	v0, 0(t8)
 	beqz	v0, 1b
-	nop
+	nop/*????*/
 
 	/* wait for set cpu_start. busy loop! */
 2:
@@ -90,7 +90,7 @@ NESTED(__jzsoc_secondary_start, 16, sp)
 	sc	v0, 0(t9)
 	beqz	v0, 3b
 	nop
-	
+
 	.set	reorder
 
 	j	smp_bootstrap

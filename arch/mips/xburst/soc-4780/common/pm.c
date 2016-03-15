@@ -30,7 +30,7 @@
 #include <linux/sysctl.h>
 #include <linux/delay.h>
 #include <asm/cacheops.h>
-#include <asm/rjzcache.h>
+#include <rjzcache.h>
 #include <linux/syscore_ops.h>
 #include <linux/regulator/consumer.h>
 

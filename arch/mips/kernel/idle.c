@@ -21,7 +21,9 @@
 #include <asm/idle.h>
 #include <asm/mipsregs.h>
 #include <asm/cacheops.h>
-
+#ifdef CONFIG_SOC_4780
+#include <rjzcache.h>
+#endif
 /*
  * Not all of the MIPS CPUs have the "wait" instruction available. Moreover,
  * the implementation of the "wait" feature differs between CPU families. This
