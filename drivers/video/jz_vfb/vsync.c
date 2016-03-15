@@ -65,11 +65,13 @@ int jzfb_vsync_thread(void *data)
 
 int vsync_soft_set(int data)
 {
+	static int delay;
+	delay= data;
 	vsync_skip_set(CONFIG_FB_VSYNC_SKIP);
 	init_waitqueue_head(&vsync_data.vsync_wq);
 	vsync_data.timestamp.rp = 0;
 	vsync_data.timestamp.wp = 0;
-	vsync_data.vsync_thread = kthread_run(jzfb_vsync_thread,&data,"jzfb-vsync");
+	vsync_data.vsync_thread = kthread_run(jzfb_vsync_thread,&delay,"jzfb-vsync");
 	if(vsync_data.vsync_thread == ERR_PTR(-ENOMEM)){
 		return -1;
 	}

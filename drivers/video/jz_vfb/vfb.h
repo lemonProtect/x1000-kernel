@@ -12,6 +12,11 @@
 
 #define PIXEL_ALIGN 4
 
+/* Reserved for future extend */
+#define JZFB_SET_VSYNCINT	_IOW('F', 0x210, int)
+
+#define JZFB_GET_LCDTYPE        _IOR('F', 0x122, int)
+
 enum jzfb_format_order {
 	FORMAT_X8R8G8B8 = 1,
 	FORMAT_X8B8G8R8,
