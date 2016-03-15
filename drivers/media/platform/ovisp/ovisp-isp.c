@@ -1638,7 +1638,7 @@ static int isp_close(struct isp_device *isp, struct isp_prop *prop)
 
 	/*clk should be disabled here, but error happens, add by pzqi*/
 	/* wait for mac wirte ram finish */
-	msleep(80);
+	//msleep(80);
 
 	if (!isp->poweron)
 		return -ENODEV;
