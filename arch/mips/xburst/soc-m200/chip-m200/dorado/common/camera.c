@@ -15,7 +15,7 @@ static int ov9724_power(int onoff)
 	}
 	if (onoff) { /* conflict with USB_ID pin */
 		//gpio_direction_output(CAMERA_PWDN_N, 0);
-		mdelay(10); /* this is necesary */
+		mdelay(1); /* this is necesary */
 		//gpio_direction_output(CAMERA_PWDN_N, 1);
 		;
 	} else {
@@ -30,9 +30,9 @@ static int ov9724_reset(void)
 {
 	/*reset*/
 	gpio_direction_output(CAMERA_RST, 1);   /*PWM0 */
-	mdelay(10);
+	mdelay(1);
 	gpio_direction_output(CAMERA_RST, 0);   /*PWM0 */
-	mdelay(10);
+	mdelay(1);
 	gpio_direction_output(CAMERA_RST, 1);   /*PWM0 */
 
 	return 0;
@@ -52,7 +52,7 @@ static int ov5645_power(int onoff)
 		temp = 0;
 	}
 	if (onoff) {
-		mdelay(10);
+		mdelay(1);
 		//gpio_direction_output(CAMERA_RST, 1);   /*PWM0 */
 		;
 	} else {
@@ -68,9 +68,9 @@ static int ov5645_reset(void)
 {
 	/*reset*/
 	gpio_direction_output(CAMERA_RST, 1);   /*PWM0 */
-	mdelay(10);
+	mdelay(1);
 	gpio_direction_output(CAMERA_RST, 0);   /*PWM0 */
-	mdelay(10);
+	mdelay(1);
 	gpio_direction_output(CAMERA_RST, 1);   /*PWM0 */
 	return 0;
 }
