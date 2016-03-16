@@ -1380,16 +1380,7 @@ struct drm_crtc *jzdrm_crtc_create(struct drm_device *dev)
 	jzdrm_crtc->dpms = DRM_MODE_DPMS_OFF;
 	jzdrm_crtc->is_lcd_en = 1;
 
-#ifdef CONFIG_ANDROID
-        if (pdata->lcd_type == LCD_TYPE_SLCD) {
-            jzdrm_crtc->fmt_order = FORMAT_X8R8G8B8;
-        }
-        else {
-            jzdrm_crtc->fmt_order = FORMAT_X8B8G8R8;
-        }
-#else
         jzdrm_crtc->fmt_order = FORMAT_X8R8G8B8;
-#endif
 
 	if (pdata->lcd_type != LCD_TYPE_INTERLACED_TV &&
 	    pdata->lcd_type != LCD_TYPE_SLCD) {
