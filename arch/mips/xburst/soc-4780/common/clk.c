@@ -16,6 +16,7 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/syscore_ops.h>
+#include <linux/slab.h>
 
 #include <soc/cpm.h>
 #include <soc/base.h>
@@ -1065,58 +1066,57 @@ int cpm_stop_ohci(void)
 }
 EXPORT_SYMBOL(cpm_stop_ohci);
 
-static int clk_read_proc(char *page, char **start, off_t off,
-		int count, int *eof, void *data)
-{
-	int len = 0;
-	int i;
-#define PRINT(ARGS...) len += sprintf (page+len, ##ARGS)
-	PRINT("ID NAME       FRE        stat       count     parent\n");
-	for(i=0; i<ARRAY_SIZE(clk_srcs); i++) {
-		unsigned int mhz = clk_srcs[i].rate / 10000;
-		PRINT("%2d %-10s %4d.%02dMHz %3sable   %d %s\n",i,clk_srcs[i].name
-				, mhz/100, mhz%100
-				, clk_srcs[i].flags & CLK_FLG_ENABLE? "en": "dis"
-				, clk_srcs[i].count
-				, clk_srcs[i].parent? clk_srcs[i].parent->name: "root");
-	}
-	PRINT("CLKGR0\t: %08x\nCLKGR1\t: %08x\n",
-			cpm_inl(CPM_CLKGR0),cpm_inl(CPM_CLKGR1));
-	return len;
-}
+/* static int clk_read_proc(char *page, char **start, off_t off, */
+/* 		int count, int *eof, void *data) */
+/* { */
+/* 	int len = 0; */
+/* 	int i; */
+/* #define PRINT(ARGS...) len += sprintf (page+len, ##ARGS) */
+/* 	PRINT("ID NAME       FRE        stat       count     parent\n"); */
+/* 	for(i=0; i<ARRAY_SIZE(clk_srcs); i++) { */
+/* 		unsigned int mhz = clk_srcs[i].rate / 10000; */
+/* 		PRINT("%2d %-10s %4d.%02dMHz %3sable   %d %s\n",i,clk_srcs[i].name */
+/* 				, mhz/100, mhz%100 */
+/* 				, clk_srcs[i].flags & CLK_FLG_ENABLE? "en": "dis" */
+/* 				, clk_srcs[i].count */
+/* 				, clk_srcs[i].parent? clk_srcs[i].parent->name: "root"); */
+/* 	} */
+/* 	PRINT("CLKGR0\t: %08x\nCLKGR1\t: %08x\n", */
+/* 			cpm_inl(CPM_CLKGR0),cpm_inl(CPM_CLKGR1)); */
+/* 	return len; */
+/* } */
 
-static int clk_write_proc(struct file *file, const char __user *buffer,
-		unsigned long count, void *data)
-{
-	int ret;
-	char buf[32];
-	unsigned int cgr0,cgr1;
+/* static int clk_write_proc(struct file *file, const char __user *buffer, */
+/* 		unsigned long count, void *data) */
+/* { */
+/* 	int ret; */
+/* 	char buf[32]; */
+/* 	unsigned int cgr0,cgr1; */
 
-	if (count > 32)
-		count = 32;
-	if (copy_from_user(buf, buffer, count))
-		return -EFAULT;
+/* 	if (count > 32) */
+/* 		count = 32; */
+/* 	if (copy_from_user(buf, buffer, count)) */
+/* 		return -EFAULT; */
 
-	ret = sscanf(buf,"0x%x@0x%x",&cgr0,&cgr1);
+/* 	ret = sscanf(buf,"0x%x@0x%x",&cgr0,&cgr1); */
 
-	if(ret >= 1) cpm_outl(cgr0,CPM_CLKGR0);
-	if(ret == 2) cpm_outl(cgr1,CPM_CLKGR1);
+/* 	if(ret >= 1) cpm_outl(cgr0,CPM_CLKGR0); */
+/* 	if(ret == 2) cpm_outl(cgr1,CPM_CLKGR1); */
 
-	return count;
-}
+/* 	return count; */
+/* } */
 
-static int __init init_clk_proc(void)
-{
-	struct proc_dir_entry *res;
+/* static int __init init_clk_proc(void) */
+/* { */
+/* 	struct proc_dir_entry *res; */
 
-	res = create_proc_entry("clocks", 0444, NULL);
-	if (res) {
-		res->read_proc = clk_read_proc;
-		res->write_proc = clk_write_proc;
-		res->data = NULL;
-	}
-	return 0;
-}
+/* 	res = create_proc_entry("clocks", 0444, NULL); */
+/* 	if (res) { */
+/* 		res->read_proc = clk_read_proc; */
+/* 		res->write_proc = clk_write_proc; */
+/* 		res->data = NULL; */
+/* 	} */
+/* 	return 0; */
+/* } */
 
-module_init(init_clk_proc);
-
+/* module_init(init_clk_proc); */

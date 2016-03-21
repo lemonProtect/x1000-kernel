@@ -686,48 +686,48 @@ static int irq_read_proc(char *page, char **start, off_t off,
 	return len;
 }
 
-/* echo value to clear time_monitor value*/
-static int irq_write_proc(struct file *file, const char __user *buffer,
-		unsigned long count, void *data)
-{
-	int ret, i;
-	char buf[32];
-	unsigned long long cgr;
+/* /\* echo value to clear time_monitor value*\/ */
+/* static int irq_write_proc(struct file *file, const char __user *buffer, */
+/* 		unsigned long count, void *data) */
+/* { */
+/* 	int ret, i; */
+/* 	char buf[32]; */
+/* 	unsigned long long cgr; */
 
-	if (count > 32)
-		count = 32;
-	if (copy_from_user(buf, buffer, count))
-		return -EFAULT;
+/* 	if (count > 32) */
+/* 		count = 32; */
+/* 	if (copy_from_user(buf, buffer, count)) */
+/* 		return -EFAULT; */
 
-	ret = sscanf(buf,"%lld", &cgr);
-	if (cgr == 0)
-		for (i = 0; i < 499; i++) {
-			time_monitor[i] = 0;
-			time_over[i] = 0;
-			if (i == 498)
-				printk(" clear time_monitor successed!! \n");
-		}
-	else {
-		time_monitor[499] = cgr;
-		printk(" echo value successed: %lld \n", time_monitor[499]);
-		echo_success = 1;
-	}
+/* 	ret = sscanf(buf,"%lld", &cgr); */
+/* 	if (cgr == 0) */
+/* 		for (i = 0; i < 499; i++) { */
+/* 			time_monitor[i] = 0; */
+/* 			time_over[i] = 0; */
+/* 			if (i == 498) */
+/* 				printk(" clear time_monitor successed!! \n"); */
+/* 		} */
+/* 	else { */
+/* 		time_monitor[499] = cgr; */
+/* 		printk(" echo value successed: %lld \n", time_monitor[499]); */
+/* 		echo_success = 1; */
+/* 	} */
 
-	return count;
-}
+/* 	return count; */
+/* } */
 
-static int __init init_irq_proc_time(void)
-{
-	struct proc_dir_entry *res;
+/* static int __init init_irq_proc_time(void) */
+/* { */
+/* 	struct proc_dir_entry *res; */
 
-	res = create_proc_entry("gap_time_irq", 0666, NULL);
-	if (res) {
-		res->read_proc = irq_read_proc;
-		res->write_proc = irq_write_proc;
-		res->data = NULL;
-	}
-	return 0;
-}
+/* 	res = create_proc_entry("gap_time_irq", 0666, NULL); */
+/* 	if (res) { */
+/* 		res->read_proc = irq_read_proc; */
+/* 		res->write_proc = irq_write_proc; */
+/* 		res->data = NULL; */
+/* 	} */
+/* 	return 0; */
+/* } */
 
-module_init(init_irq_proc_time);
+/* module_init(init_irq_proc_time); */
 #endif

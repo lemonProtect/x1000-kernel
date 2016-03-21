@@ -48,18 +48,17 @@ config JZRISC
 config MIPS_MM_HOOKS
 	bool "use for m200 dmmu"
 
-if SOC_4775
+config SOC_NAME
+	string
+	default "soc-4780" if SOC_4780
+	default "soc-4775" if SOC_4775
+	default "soc-m200" if SOC_M200
+	default "soc-x1000" if SOC_X1000
+
 source "arch/mips/xburst/soc-4775/Kconfig"
-endif
-if SOC_4780
 source "arch/mips/xburst/soc-4780/Kconfig"
-endif
-if SOC_M200
 source "arch/mips/xburst/soc-m200/Kconfig"
-endif
-if SOC_X1000
 source "arch/mips/xburst/soc-x1000/Kconfig"
-endif
 
 config EXTAL_CLOCK
 	depends on MACH_XBURST

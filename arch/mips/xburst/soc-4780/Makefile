@@ -1,4 +1,3 @@
 
-obj-y += board/
+obj-y += $(CONFIG_CHIP_NAME)/
 obj-y += common/
-

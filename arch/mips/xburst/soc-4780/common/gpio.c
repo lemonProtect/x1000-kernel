@@ -21,7 +21,7 @@
 #include <soc/gpio.h>
 #include <soc/irq.h>
 
-#if !defined CONFIG_GPIOLIB || !defined CONFIG_GENERIC_GPIO
+#if !defined CONFIG_GPIOLIB
 #error  "Need GPIOLIB !!!"
 #endif
 
@@ -197,7 +197,7 @@ int jz_gpio_set_func(int gpio, enum gpio_function func)
 EXPORT_SYMBOL(jz_gpio_set_func);
 
 int jzgpio_ctrl_pull(enum gpio_port port, int enable_pull,unsigned long pins)
-{	
+{
 	struct jzgpio_chip *jz = &jz_gpio_chips[port];
 
 	if (~jz->dev_map[0] & pins)
@@ -525,7 +525,7 @@ static int __init setup_gpio_irq(void)
 	for (i = 0; i < ARRAY_SIZE(jz_gpio_chips); i++) {
 		spin_lock_init(&jz_gpio_chips[i].gpiolock);
 		if (request_irq(IRQ_GPIO_PORT(i), gpio_handler, IRQF_DISABLED,
-					jz_gpio_chips[i].irq_chip.name, 
+					jz_gpio_chips[i].irq_chip.name,
 					(void*)&jz_gpio_chips[i]))
 			continue;
 
@@ -533,7 +533,7 @@ static int __init setup_gpio_irq(void)
 		irq_set_handler(IRQ_GPIO_PORT(i), handle_simple_irq);
 		for (j = 0; j < 32; j++)
 			irq_set_chip_and_handler(jz_gpio_chips[i].irq_base + j,
-					&jz_gpio_chips[i].irq_chip, 
+					&jz_gpio_chips[i].irq_chip,
 					handle_level_irq);
 	}
 	return 0;
@@ -595,7 +595,7 @@ int gpio_suspend(void)
 		jz->save[2] = readl(jz->reg + PXPAT1);
 		jz->save[3] = readl(jz->reg + PXPAT0);
 		jz->save[4] = readl(jz->reg + PXPEN);
-	
+
         gpio_suspend_set(jz);
 	}
 	return 0;
@@ -675,7 +675,7 @@ int __init gpio_ss_check(void)
 
 	pr_info("GPIO sleep states:\n");
 	for(i = 0; i < GPIO_NR_PORTS; i++) {
-		pr_info("OH:%08x OL:%08x IP:%08x IN:%08x\n", 
+		pr_info("OH:%08x OL:%08x IP:%08x IN:%08x\n",
 				jz_gpio_chips[i].sleep_state.output_high,
 				jz_gpio_chips[i].sleep_state.output_low,
 				jz_gpio_chips[i].sleep_state.input_pull,
@@ -778,35 +778,35 @@ int __init setup_gpio_pins(void)
 
 arch_initcall(setup_gpio_pins);
 
-static int gpio_read_proc(char *page, char **start, off_t off,
-		int count, int *eof, void *data)
-{
-	int len = 0;
-	int i;
-#define PRINT(ARGS...) len += sprintf (page+len, ##ARGS)
-	PRINT("INT\t\tMASK\t\tPAT1\t\tPAT0\n");
-	for(i = 0; i < GPIO_NR_PORTS; i++) {
-		PRINT("0x%08x\t0x%08x\t0x%08x\t0x%08x\n",
-				readl(jz_gpio_chips[i].reg + PXINT),
-				readl(jz_gpio_chips[i].reg + PXMSK),
-				readl(jz_gpio_chips[i].reg + PXPAT1),
-				readl(jz_gpio_chips[i].reg + PXPAT0));
-	}
+/* static int gpio_read_proc(char *page, char **start, off_t off, */
+/* 		int count, int *eof, void *data) */
+/* { */
+/* 	int len = 0; */
+/* 	int i; */
+/* #define PRINT(ARGS...) len += sprintf (page+len, ##ARGS) */
+/* 	PRINT("INT\t\tMASK\t\tPAT1\t\tPAT0\n"); */
+/* 	for(i = 0; i < GPIO_NR_PORTS; i++) { */
+/* 		PRINT("0x%08x\t0x%08x\t0x%08x\t0x%08x\n", */
+/* 				readl(jz_gpio_chips[i].reg + PXINT), */
+/* 				readl(jz_gpio_chips[i].reg + PXMSK), */
+/* 				readl(jz_gpio_chips[i].reg + PXPAT1), */
+/* 				readl(jz_gpio_chips[i].reg + PXPAT0)); */
+/* 	} */
 
-	return len;
-}
+/* 	return len; */
+/* } */
 
-static int __init init_gpio_proc(void)
-{
-	struct proc_dir_entry *res;
+/* static int __init init_gpio_proc(void) */
+/* { */
+/* 	struct proc_dir_entry *res; */
 
-	res = create_proc_entry("gpios", 0444, NULL);
-	if (res) {
-		res->read_proc = gpio_read_proc;
-		res->write_proc = NULL;
-		res->data = NULL;
-	}
-	return 0;
-}
+/* 	res = create_proc_entry("gpios", 0444, NULL); */
+/* 	if (res) { */
+/* 		res->read_proc = gpio_read_proc; */
+/* 		res->write_proc = NULL; */
+/* 		res->data = NULL; */
+/* 	} */
+/* 	return 0; */
+/* } */
 
-module_init(init_gpio_proc);
+/* module_init(init_gpio_proc); */

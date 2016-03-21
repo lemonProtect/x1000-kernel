@@ -135,33 +135,33 @@ EXPORT_SYMBOL(generate_random);
 |* , and then : cat random_generator. You will see a  *|
 |* random number in the serial ports.                 *|
 \******************************************************/
-static int read_random_proc(char *page, char **start, off_t off,
-		int count, int *eof, void *data)
-{
-	int len = 0;
-	unsigned int random_num = 0;
+/* static int read_random_proc(char *page, char **start, off_t off, */
+/* 		int count, int *eof, void *data) */
+/* { */
+/* 	int len = 0; */
+/* 	unsigned int random_num = 0; */
 
-#define PRINT(ARGS...) len += sprintf (page+len, ##ARGS)
-	    PRINT("ID NAME       FRE        stat       count     parent\n");
+/* #define PRINT(ARGS...) len += sprintf (page+len, ##ARGS) */
+/* 	    PRINT("ID NAME       FRE        stat       count     parent\n"); */
 
-	random_num = generate_one_random();
-	PRINT("random_num: 0x%08x\n", random_num);
+/* 	random_num = generate_one_random(); */
+/* 	PRINT("random_num: 0x%08x\n", random_num); */
 
-#undef PRINT
+/* #undef PRINT */
 
-	return len;
-}
+/* 	return len; */
+/* } */
 
-static int __init init_generate_random(void)
-{
-	struct proc_dir_entry *res;
+/* static int __init init_generate_random(void) */
+/* { */
+/* 	struct proc_dir_entry *res; */
 
-	res = create_proc_entry("random_generator", 0444, NULL);
-	if (res) {
-		res->read_proc = read_random_proc;
-		res->write_proc = NULL;
-		res->data = NULL;
-	}
-	return 0;
-}
-module_init(init_generate_random);
+/* 	res = create_proc_entry("random_generator", 0444, NULL); */
+/* 	if (res) { */
+/* 		res->read_proc = read_random_proc; */
+/* 		res->write_proc = NULL; */
+/* 		res->data = NULL; */
+/* 	} */
+/* 	return 0; */
+/* } */
+/* module_init(init_generate_random); */
