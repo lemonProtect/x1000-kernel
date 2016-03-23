@@ -807,7 +807,6 @@ static size_t jz_sfc_nandflash_write(struct mtd_info *mtd,loff_t addr,size_t len
 	int page=0;
 	int ret,timeout = 2000;
 	u8 status;
-	struct sfc_transfer_nand transfer[1];
 	if(addr & (mtd->writesize - 1)){
                 pr_info("wirte add don't align ,error ! %s %s %d \n",__FILE__,__func__,__LINE__);
                 return -EINVAL;
@@ -820,7 +819,6 @@ static size_t jz_sfc_nandflash_write(struct mtd_info *mtd,loff_t addr,size_t len
 		column=ops_addr%page_size;
 		wlen=min_t(int,page_size-column,ops_len);
 		memcpy(flash->swap_buf,buffer,wlen);
-		memset(transfer,0,sizeof(struct sfc_transfer_nand));
 		ret=jz_sfc_nand_write_cmd(flash,column,wlen);
 		if(ret<0){
 			pr_info("spi nand write fail %s %s %d\n",__FILE__,__func__,__LINE__);
@@ -832,7 +830,7 @@ static size_t jz_sfc_nandflash_write(struct mtd_info *mtd,loff_t addr,size_t len
 			pr_info("spi nand write fail %s %s %d\n",__FILE__,__func__,__LINE__);
 			break;
 		}
-//		udelay(flash->tPROG);
+		udelay(flash->tPROG);
         	do{
 			ret = jz_sfc_nandflash_get_status(flash,&status);
 			if(ret<0){
