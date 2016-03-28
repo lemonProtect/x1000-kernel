@@ -127,47 +127,59 @@ static void dma_stop_watchdog(struct work_struct *work)
 	}
 }
 
+static size_t
+snd_pcm_get_pos_algin_period(struct snd_pcm_substream *substream, dma_addr_t addr)
+{
+	return (addr - substream->runtime->dma_addr -
+			(addr - substream->runtime->dma_addr)%
+			snd_pcm_lib_period_bytes(substream));
+}
+
+static size_t
+snd_pcm_get_pos(struct snd_pcm_substream *substream, dma_addr_t addr)
+{
+	return (addr - substream->runtime->dma_addr);
+}
+
 static void jz_asoc_dma_callback(void *data)
 {
 	struct snd_pcm_substream *substream = data;
 	struct jz_pcm_runtime_data *prtd = substream->runtime->private_data;
-	void* old_pos_addr = snd_pcm_get_ptr(substream, prtd->pos);
+	struct dma_chan *dma_chan = prtd->dma_chan;
+	dma_addr_t pdma_addr = 0;
+	size_t buffer_bytes = snd_pcm_lib_buffer_bytes(substream);
+	size_t curr_pos = 0;
+	enum dma_transfer_direction direction = substream->stream == SNDRV_PCM_STREAM_PLAYBACK ?
+		DMA_MEM_TO_DEV : DMA_DEV_TO_MEM;
 
-	DMA_SUBSTREAM_MSG(substream,"%s enter stopped_pending == %d\n", __func__,
-			atomic_read(&prtd->stopped_pending));
-	if (!atomic_dec_if_positive(&prtd->stopped_pending)) {
-		struct snd_soc_pcm_runtime *rtd = substream->private_data;
-		struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-		DMA_SUBSTREAM_MSG(substream,"stop real\n");
-		cancel_delayed_work(&prtd->dwork_stop_dma);
-		dmaengine_terminate_all(prtd->dma_chan);
-		if (cpu_dai->driver->ops->trigger)
-			cpu_dai->driver->ops->trigger(substream, prtd->stopped_cmd, cpu_dai);
-		return;
-	}
 
-	if (!IS_ERR_OR_NULL(prtd->file) && !work_pending(&prtd->debug_work)) {
-		prtd->copy_start = old_pos_addr;
-		prtd->copy_length = snd_pcm_lib_period_bytes(substream);
-		schedule_work(&prtd->debug_work);
-	} else {
-#if defined(CONFIG_JZ_ASOC_DMA_AUTO_CLR_DRT_MEM)
-		if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-			DMA_DEBUG_MSG("dma start %x pos %p size %d\n",
-					substream->runtime->dma_addr,
-					old_pos_addr,
-					snd_pcm_lib_period_bytes(substream));
-			memset(old_pos_addr, 0,
-					snd_pcm_lib_period_bytes(substream));
+	pdma_addr = dma_chan->device->get_current_trans_addr(dma_chan,
+			NULL,
+			NULL,
+			direction);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
+		curr_pos = snd_pcm_get_pos_algin_period(substream, pdma_addr);
+		if (curr_pos == prtd->pos)
+			return -1;
+#ifdef CONFIG_JZ_ASOC_DMA_AUTO_CLR_DRT_MEM
+		if (prtd->pos < curr_pos) {
+			memset(snd_pcm_get_ptr(substream, prtd->pos), 0 , (curr_pos - prtd->pos));
+		}
+		if (prtd->pos > curr_pos) {
+			memset(snd_pcm_get_ptr(substream, prtd->pos), 0, (buffer_bytes - prtd->pos));
+			memset(snd_pcm_get_ptr(substream, 0), 0, curr_pos);
 		}
 #endif
+		prtd->pos = curr_pos;
+	} else {
+		curr_pos = snd_pcm_get_pos(substream, pdma_addr);
+		if (curr_pos == prtd->pos)
+			return -1;
+		prtd->pos = curr_pos;
 	}
+	//printk(KERN_DEBUG"curr_pos = %d buffer_bytes = %d\n", curr_pos, buffer_bytes);
 
-	prtd->pos += snd_pcm_lib_period_bytes(substream);
-	if (prtd->pos >= snd_pcm_lib_buffer_bytes(substream))
-		prtd->pos = 0;
 	snd_pcm_period_elapsed(substream);
-	return;
 }
 
 static int jz_asoc_dma_prepare_and_submit(struct snd_pcm_substream *substream)

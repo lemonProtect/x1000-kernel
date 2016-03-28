@@ -148,7 +148,7 @@ int jz_device_register(struct platform_device *pdev,void *pdata)
 
 	return platform_device_register(pdev);
 }
-#ifdef CONFIG_XBURST_DMAC
+#ifdef CONFIG_XBURST_DMAC_V13
 static struct resource jz_pdma_res[] = {
 	[0] = {
 		.flags = IORESOURCE_MEM,
