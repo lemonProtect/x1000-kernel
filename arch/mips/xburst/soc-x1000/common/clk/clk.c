@@ -82,7 +82,6 @@ void __init init_all_clk(void)
 	int clk_srcs_size = get_clk_sources_size();
 	for(i = 0; i < clk_srcs_size; i++) {
 		clk_srcs[i].CLK_ID = i;
-
 		if(clk_srcs[i].flags & CLK_FLG_CPCCR) {
 			init_cpccr_clk(&clk_srcs[i]);
 		}
@@ -102,6 +101,9 @@ void __init init_all_clk(void)
 		}
 		if(clk_srcs[i].flags & CLK_FLG_GATE) {
 			init_gate_clk(&clk_srcs[i]);
+		}
+		if(clk_srcs[i].flags & CLK_FLG_WDT) {
+			init_wdt_clk(&clk_srcs[i]);
 		}
 		if(clk_srcs[i].flags & CLK_FLG_ENABLE)
 			clk_srcs[i].init_state = 1;
@@ -238,6 +240,8 @@ unsigned long clk_get_rate(struct clk *clk)
 		return -EINVAL;
 	if(clk->source)
 		clk = clk->source;
+	if(!clk->rate)
+		return clk->ops->get_rate(clk);
 	return clk? clk->rate: 0;
 }
 EXPORT_SYMBOL(clk_get_rate);

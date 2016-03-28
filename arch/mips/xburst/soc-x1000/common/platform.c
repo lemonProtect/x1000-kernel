@@ -887,3 +887,20 @@ struct platform_device jz_pwm_device = {
 	.id   = -1,
 };
 #endif
+/* Watchdog */
+#ifdef CONFIG_JZ_WDT
+static struct resource jz_wdt_resources[] = {
+	{
+		.start = WDT_IOBASE,
+		.end   = WDT_IOBASE + 0x10 - 1,
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device jz_wdt_device = {
+	.name	       = "jz-wdt",
+	.id	       = -1,
+	.num_resources = ARRAY_SIZE(jz_wdt_resources),
+	.resource      = jz_wdt_resources,
+};
+#endif

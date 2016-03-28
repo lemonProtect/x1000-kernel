@@ -137,6 +137,7 @@ extern struct platform_device jz_vpu_device;
 extern struct platform_device jz_efuse_device;
 extern struct platform_device jz_security_device;
 extern struct platform_device jz_pwm_device;
+extern struct platform_device jz_wdt_device;
 /*alsa*/
 
 extern struct platform_device jz_aic_dma_device;

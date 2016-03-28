@@ -32,6 +32,7 @@ static struct clk clk_srcs[] = {
 #define CPCCR(x) (((x)<<24) | CLK_FLG_CPCCR)
 #define CGU(no)  (((no)<<24) | CLK_FLG_CGU)
 #define CGU_AUDIO(no)  (((no)<<24) | CLK_FLG_CGU_AUDIO)
+#define TCU_WDT(no)  (((no)<<24) | CLK_FLG_WDT)
 #define PLL(no)  (((no)<<24) | CLK_FLG_PLL)
 #define PARENT(P)  (((CLK_ID_##P)<<16) | CLK_FLG_PARENT)
 #define RELATIVE(P)  (((CLK_ID_##P)<<16) | CLK_FLG_RELATIVE)
@@ -84,6 +85,8 @@ static struct clk clk_srcs[] = {
 	DEF_CLK(AHB0,  		GATE(29)),
 	DEF_CLK(CPU,  		GATE(30)),
 	DEF_CLK(DDR,  		GATE(31)),
+
+	DEF_CLK(WDT,  		TCU_WDT(0)),
 
 	DEF_CLK(CGU_MSC_MUX,  	CGU(CGU_MSC_MUX)),
 	DEF_CLK(CGU_PCM,	CGU_AUDIO(CGU_AUDIO_PCM)),
