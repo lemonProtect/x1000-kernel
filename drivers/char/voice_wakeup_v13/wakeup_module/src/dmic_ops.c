@@ -8,6 +8,7 @@
 #include "tcu_timer.h"
 
 
+extern unsigned int _dma_channel;
 int dmic_current_state;
 unsigned int cur_thr_value;
 unsigned int wakeup_failed_times;
@@ -127,7 +128,7 @@ void dmic_init(void)
 
 int cpu_should_sleep(void)
 {
-	return ((REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR - 10)) &&(last_dma_count != REG_DMADTC(5)) ? 1 : 0;
+	return ((REG_DMIC_FSR & 0x7f) < (DMIC_FIFO_THR - 10)) &&(last_dma_count != REG_DMADTC(_dma_channel)) ? 1 : 0;
 }
 
 int dmic_init_mode(int mode)
@@ -290,7 +291,7 @@ int dmic_handler(int pre_ints)
 	REG_DMIC_ICR |= 0x3f;
 	REG_DMIC_IMR |= 1<<0 | 1<<4;
 
-	last_dma_count = REG_DMADTC(5);
+	last_dma_count = REG_DMADTC(_dma_channel);
 
 	if(dmic_current_state == WAITING_TRIGGER) {
 		if(is_int_rtc(pre_ints)) {
@@ -326,7 +327,7 @@ int dmic_handler(int pre_ints)
 		REG_DMIC_CR0 |= 1 << 6;
 		REG_DMIC_IMR &= ~( 1<<4 | 1<<0);
 #endif
-		last_dma_count = REG_DMADTC(5);
+		last_dma_count = REG_DMADTC(_dma_channel);
 		return SYS_NEED_DATA;
 	} else if(ret == SYS_WAKEUP_FAILED) {
 		/*

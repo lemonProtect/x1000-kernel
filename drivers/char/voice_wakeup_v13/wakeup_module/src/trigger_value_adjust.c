@@ -3,7 +3,7 @@
 #include "dmic_config.h"
 #include "trigger_value_adjust.h"
 
-int thr_table[TRIGGER_CNTS] = {5000, 8000};
+int thr_table[TRIGGER_CNTS] = {1000, 5000};
 int tri_cnt[TRIGGER_CNTS] = {2, 6};
 
 #if 0
@@ -33,18 +33,16 @@ int quantity_tri(int times)
 int adjust_trigger_value(int times_per_unit, int cur_thr)
 {
 	int result;
-	int fix_times = quantity_tri(times_per_unit);
-#if 0
-	int fix_thr   = quantity_thr(cur_thr);
-#endif
-	int fix_result;
+	int down = quantity_tri(times_per_unit);  
 
-	fix_result = fix_times;
-	result = cur_thr + (5000 - 1000) * fix_result;
-	//result = fix_times - fix_thr > 0 ? 1000 * (fix_times - fix_thr) : cur_thr;
-
+	if(down) {
+		result = thr_table[0];
+	} else {
+		result = thr_table[1];
+	}
 
 	return result;
+
 }
 
 

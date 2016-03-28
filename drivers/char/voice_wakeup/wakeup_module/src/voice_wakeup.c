@@ -162,7 +162,7 @@ int wakeup_open(void)
 		return ivFalse;
 	}
 	//printf("[voice wakeup] OBJECT create ok\n");
-	IvwSetParam( pIvwObj, IVW_CM_THRESHOLD, 37, 0 ,0);
+	IvwSetParam( pIvwObj, IVW_CM_THRESHOLD, 20, 0 ,0);
 #if 0
 	IvwSetParam( pIvwObj, IVW_CM_THRESHOLD, 20, 1 ,0);
 	IvwSetParam( pIvwObj, IVW_CM_THRESHOLD, 15, 2 ,0);
