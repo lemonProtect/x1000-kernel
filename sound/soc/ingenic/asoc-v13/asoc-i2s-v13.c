@@ -248,6 +248,7 @@ static void jz_i2s_start_substream(struct snd_pcm_substream *substream,
 {
 	struct jz_i2s *jz_i2s = dev_get_drvdata(dai->dev);
 	struct device *aic = jz_i2s->aic;
+	int timeout = 15000;
 	I2S_DEBUG_MSG("enter %s, substream = %s\n",
 			__func__,
 			(substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? "playback" : "capture");
@@ -262,7 +263,12 @@ static void jz_i2s_start_substream(struct snd_pcm_substream *substream,
 		__aic_clear_tur(aic);
 		dev_dbg(dai->dev, "codec fifo level1 %x\n", jz_aic_read_reg(aic, AICSR));
 		__i2s_enable_replay(aic);
-		while(!__aic_test_tur(aic));
+		while((!__aic_test_tur(aic)) && (timeout--)){
+			if(timeout == 0){
+				printk("wait tansmit fifo under run error\n");
+				return -1;
+			}
+		}
 		__i2s_enable_transmit_dma(aic);
 		__aic_clear_tur(aic);
 		if (jz_i2s_debug) __aic_en_tur_int(aic);
@@ -281,6 +287,7 @@ static void jz_i2s_stop_substream(struct snd_pcm_substream *substream,
 {
 	struct jz_i2s *jz_i2s = dev_get_drvdata(dai->dev);
 	struct device *aic = jz_i2s->aic;
+	int timeout = 15000;
 	I2S_DEBUG_MSG("enter %s, substream = %s\n",
 			__func__,
 			(substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? "playback" : "capture");
@@ -293,7 +300,12 @@ static void jz_i2s_stop_substream(struct snd_pcm_substream *substream,
 			/*hrtime mode: stop will be happen in any where, make sure there is
 			 *	no data transfer on ahb bus before stop dma
 			 */
-			while(!__aic_test_tur(aic));
+			while((!__aic_test_tur(aic)) && (timeout--)){
+				if(timeout == 0){
+					printk("wait tansmit fifo under run error\n");
+					return -1;
+				}
+			}
 		}
 		__i2s_disable_replay(aic);
 		__aic_clear_tur(aic);
@@ -302,7 +314,12 @@ static void jz_i2s_stop_substream(struct snd_pcm_substream *substream,
 		if (__i2s_receive_dma_is_enable(aic)) {
 			__i2s_disable_receive_dma(aic);
 			__aic_clear_ror(aic);
-			while(!__aic_test_ror(aic));
+			while(!__aic_test_ror(aic) && timeout--){
+				if(timeout == 0){
+					printk("wait tansmit fifo under run error\n");
+					return -1;
+				}
+			}
 		}
 		__i2s_disable_record(aic);
 		__aic_clear_ror(aic);
