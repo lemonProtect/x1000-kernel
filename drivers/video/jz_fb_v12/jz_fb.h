@@ -37,7 +37,11 @@
 #define NUM_FRAME_BUFFERS 3
 #endif
 
+#ifdef CONFIG_ANDROID
+#define PIXEL_ALIGN 16		/* ALIGN 16 match lcd resolution 400x400 for android surface. */
+#else
 #define PIXEL_ALIGN 4
+#endif
 #define MAX_DESC_NUM 4
 
 /**
