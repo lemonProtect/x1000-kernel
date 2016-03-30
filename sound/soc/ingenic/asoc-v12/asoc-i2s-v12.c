@@ -244,7 +244,7 @@ static void jz_i2s_start_substream(struct snd_pcm_substream *substream,
 {
 	struct jz_i2s *jz_i2s = dev_get_drvdata(dai->dev);
 	struct device *aic = jz_i2s->aic;
-	int timeout = 15000;
+	int timeout = 150000;
 	I2S_DEBUG_MSG("enter %s, substream = %s\n",
 			__func__,
 			(substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? "playback" : "capture");
@@ -283,7 +283,7 @@ static void jz_i2s_stop_substream(struct snd_pcm_substream *substream,
 {
 	struct jz_i2s *jz_i2s = dev_get_drvdata(dai->dev);
 	struct device *aic = jz_i2s->aic;
-	int timeout = 15000;
+	int timeout = 150000;
 	I2S_DEBUG_MSG("enter %s, substream = %s\n",
 			__func__,
 			(substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ? "playback" : "capture");
