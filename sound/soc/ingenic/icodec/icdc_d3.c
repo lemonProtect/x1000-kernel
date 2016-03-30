@@ -217,7 +217,7 @@ static int icdc_d3_set_bias_level(struct snd_soc_codec *codec,
 		if (snd_soc_update_bits(codec, SCODA_REG_CR_VIC, SCODA_CR_VIC_SB_MASK, 0))
 			msleep(250);
 		if (snd_soc_update_bits(codec, SCODA_REG_CR_VIC, SCODA_CR_VIC_SB_SLEEP_MASK, 0)) {
-			msleep(400);
+			msleep(10);
 		}
 		snd_soc_update_bits(codec, SCODA_REG_AICR_ADC, SCODA_AICR_ADC_SB_MASK, 0);
 		snd_soc_update_bits(codec, SCODA_REG_AICR_DAC, SCODA_AICR_DAC_SB_MASK, 0);

@@ -188,7 +188,7 @@ static int icdc_d2_set_bias_level(struct snd_soc_codec *codec,
 		if (snd_soc_update_bits(codec, DLV_REG_CR_VIC, DLV_CR_VIC_SB_MASK, 0))
 			msleep(250);
 		if (snd_soc_update_bits(codec, DLV_REG_CR_VIC, DLV_CR_VIC_SB_SLEEP_MASK, 0)) {
-			msleep(400);
+			msleep(10);
 			icdc_d2_reset_gain(codec);
 		}
 		break;
