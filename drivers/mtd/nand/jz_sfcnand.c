@@ -1271,6 +1271,9 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Cannot claim IRQ\n");
 	}
 	flash->column_cmdaddr_bits=24;
+#ifdef CONFIG_SPI_QUAD
+	        jz_sfc_nandflash_set_quad_mode(flash);
+#endif
 	jz_get_sfcnand_param(&param,flash,&nand_magic);
 	if(nand_magic==0x6e616e64){
 		(flash->pdata)->board_info = (void *)param;
@@ -1311,7 +1314,7 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 	flash->tPROG = spi_flash->tPROG_maxbusy;
 	flash->tBERS = spi_flash->tBERS_maxbusy;
 
-        flash->mtd.bitflip_threshold = flash->mtd.ecc_strength = 1;
+        flash->mtd.bitflip_threshold = flash->mtd.ecc_strength = 2;
         chip->select_chip = NULL;
         chip->badblockbits = 8;
         chip->scan_bbt = nand_default_bbt;
@@ -1339,9 +1342,6 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
         flash->mtd._block_markbad = jz_sfcnand_block_markbad;
 
 	//jz_sfc_nand_ext_init(flash);
-#ifdef CONFIG_SPI_QUAD
-	jz_sfc_nandflash_set_quad_mode(flash);
-#endif
 	chip->scan_bbt(&flash->mtd);
 	ret = mtd_device_parse_register(&flash->mtd,jz_probe_types,NULL, mtd_sfcnand_partition, num_partitions);
 	if (ret) {
