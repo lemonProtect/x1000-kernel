@@ -3925,6 +3925,7 @@ bool dhd_update_fw_nv_path(dhd_info_t *dhdinfo)
 	 */
 
 	/* set default firmware and nvram path for built-in type driver */
+#ifndef CONFIG_ANDROID
 	if (!dhd_download_fw_on_driverload) {
 #ifdef CONFIG_BCMDHD_1_141_66_FW_PATH
 		fw = CONFIG_BCMDHD_1_141_66_FW_PATH;
@@ -3933,7 +3934,7 @@ bool dhd_update_fw_nv_path(dhd_info_t *dhdinfo)
 		nv = CONFIG_BCMDHD_1_141_66_NVRAM_PATH;
 #endif /* CONFIG_BCMDHD_1_141_66_NVRAM_PATH */
 	}
-
+#endif
 	/* check if we need to initialize the path */
 	if (dhdinfo->fw_path[0] == '\0') {
 		if (adapter && adapter->fw_path && adapter->fw_path[0] != '\0')
