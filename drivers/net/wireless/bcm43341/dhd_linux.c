@@ -398,7 +398,7 @@ module_param(dhd_arp_mode, uint, 0);
 module_param(disable_proptx, int, 0644);
 /* load firmware and/or nvram values from the filesystem */
 module_param_string(firmware_path, firmware_path, MOD_PARAM_PATHLEN, 0660);
-module_param_string(nvram_path, nvram_path, MOD_PARAM_PATHLEN, 0);
+module_param_string(nvram_path, nvram_path, MOD_PARAM_PATHLEN, 0660);
 
 
 /* Watchdog interval */
