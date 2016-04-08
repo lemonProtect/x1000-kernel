@@ -1180,7 +1180,7 @@ static int jz_get_sfcnand_param(struct jz_spi_nand_platform_data **param,struct 
 	char *member_addr=NULL;
 	int i=0;
 	for(i=0;i<2;i++){
-		spi_nandflash->column_cmdaddr_bits=24;
+		flash->column_cmdaddr_bits=24;
 		if(i==1)
 			flash->column_cmdaddr_bits=32;
 		*nand_magic=0;
