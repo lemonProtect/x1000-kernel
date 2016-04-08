@@ -1199,7 +1199,8 @@ static int jz_get_sfcnand_param(struct jz_spi_nand_platform_data **param,struct 
 			kfree(buffer);
 			if(i==1)
 				return 0;
-		}
+		}else
+			break;
 	}
 	member_addr=buffer+sizeof(int32_t);
 	param_from_burner.version=*(int *)member_addr;
