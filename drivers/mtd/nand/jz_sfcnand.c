@@ -493,7 +493,7 @@ static int jz_sfc_nand_read_cmd(struct jz_sfc_nand *flash,char *buf,int column,u
 	switch(flash->column_cmdaddr_bits){
 		case 24:
 #ifdef CONFIG_SPI_QUAD
-			transfer[0].sfc_cmd.cmd=SPINAND_CMD_FRCH;
+			transfer[0].sfc_cmd.cmd=SPINAND_CMD_RDCH_X4;
 #else
 			transfer[0].sfc_cmd.cmd=SPINAND_CMD_RDCH;
 #endif
@@ -501,9 +501,9 @@ static int jz_sfc_nand_read_cmd(struct jz_sfc_nand *flash,char *buf,int column,u
 		break;
 		case 32:
 #ifdef CONFIG_SPI_QUAD
-			transfer[0].sfc_cmd.cmd=SPINAND_CMD_FRCH;
+			transfer[0].sfc_cmd.cmd=SPINAND_CMD_RDCH_X4;
 #else
-			transfer[0].sfc_cmd.cmd=SPINAND_CMD_RDCH;
+			transfer[0].sfc_cmd.cmd=SPINAND_CMD_FRCH;
 #endif
 			transfer[0].sfc_cmd.addr_len=4;
 		break;
@@ -1178,18 +1178,28 @@ static int jz_get_sfcnand_param(struct jz_spi_nand_platform_data **param,struct 
 	struct get_chip_param param_from_burner;
 	char *buffer=NULL;
 	char *member_addr=NULL;
-	*nand_magic=0;
-	page_size=get_pagesize_from_nand(flash,0,0);
-	if(page_size!=-ENOMEM)
-		buffer=kzalloc(page_size,GFP_KERNEL);
-	if(!buffer)
-		return -ENOMEM;
-	jz_sfc_nandflash_read_ops(flash,buffer,SPIFLASH_PARAMER_OFFSET/page_size,SPIFLASH_PARAMER_OFFSET%page_size,
-			page_size,&rlen);
-	*nand_magic=*(int32_t *)(buffer);
-	if(*nand_magic!=0x6e616e64){
-		kfree(buffer);
-		return 0;
+	int i=0;
+	for(i=0;i<2;i++){
+		spi_nandflash->column_cmdaddr_bits=24;
+		if(i==1)
+			flash->column_cmdaddr_bits=32;
+		*nand_magic=0;
+		page_size=get_pagesize_from_nand(flash,0,0);
+		if(page_size>0&&page_size<4000)
+			buffer=kzalloc(page_size,GFP_KERNEL);
+		else
+			continue;
+		if(!buffer)
+			return -ENOMEM;
+		jz_sfc_nandflash_read_ops(flash,buffer,SPIFLASH_PARAMER_OFFSET/page_size,SPIFLASH_PARAMER_OFFSET%page_size,
+				page_size,&rlen);
+		*nand_magic=*(int32_t *)(buffer);
+		printk("nand_magic=0x%x",*nand_magic);
+		if(*nand_magic!=0x6e616e64){
+			kfree(buffer);
+			if(i==1)
+				return 0;
+		}
 	}
 	member_addr=buffer+sizeof(int32_t);
 	param_from_burner.version=*(int *)member_addr;
@@ -1270,9 +1280,9 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
         if (err) {
 		dev_err(&pdev->dev, "Cannot claim IRQ\n");
 	}
-	flash->column_cmdaddr_bits=24;
+	jz_sfc_nand_ext_init(flash);
 #ifdef CONFIG_SPI_QUAD
-	        jz_sfc_nandflash_set_quad_mode(flash);
+	jz_sfc_nandflash_set_quad_mode(flash);
 #endif
 	jz_get_sfcnand_param(&param,flash,&nand_magic);
 	if(nand_magic==0x6e616e64){
@@ -1341,7 +1351,6 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
         flash->mtd._block_isbad = jz_sfcnand_block_isbab;
         flash->mtd._block_markbad = jz_sfcnand_block_markbad;
 
-	//jz_sfc_nand_ext_init(flash);
 	chip->scan_bbt(&flash->mtd);
 	ret = mtd_device_parse_register(&flash->mtd,jz_probe_types,NULL, mtd_sfcnand_partition, num_partitions);
 	if (ret) {

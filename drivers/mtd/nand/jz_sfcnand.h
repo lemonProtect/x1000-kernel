@@ -16,7 +16,8 @@
 #define SPINAND_CMD_PLRd                0X84    /* program load random data */
 #define SPINAND_CMD_PLRd_X4             0Xc4    /* program load random data x4*/
 #define SPINAND_CMD_RDCH                0x03    /* read from spi nand cache */
-#define SPINAND_CMD_FRCH                0x6b    /* fast read from spi nand cache */
+#define SPINAND_CMD_RDCH_X4             0x6b    /* read from spi nand cache */
+#define SPINAND_CMD_FRCH                0x0b    /* fast read from spi nand cache */
 #define SPINAND_CMD_FRCH_IO             0xeb	/* for Quad I/O SPI mode */
 
 #define SPINAND_CMD_ERASE_128K  0xd8    /* erase spi nand block 128K */

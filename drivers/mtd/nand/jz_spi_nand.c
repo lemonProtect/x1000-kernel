@@ -899,18 +899,29 @@ static int jz_get_spinand_param(struct jz_spi_nand_platform_data **param,struct 
         char *buffer=NULL;
 	char *member_addr;
 	*nand_magic=0;
-	page_size=get_pagesize_from_nand(flash,0,0) ;
-	if(page_size!=-ENOMEM)
-		buffer=kzalloc(page_size,GFP_KERNEL);
-        if(!buffer)
-                return -ENOMEM;
-        jz_spi_nandflash_read_ops(flash,buffer,SPIFLASH_PARAMER_OFFSET/page_size,SPIFLASH_PARAMER_OFFSET%page_size,
-			page_size,&rlen);
-	*nand_magic=*(int32_t *)(buffer);
-	if(*nand_magic!=0x6e616e64){
-		kfree(buffer);
-		return 0;
-	}
+        int i=0;
+        for(i=0;i<2;i++){
+		spi_nandflash->column_cmdaddr_bits=24;
+                if(i==1)
+                        flash->column_cmdaddr_bits=32;
+                *nand_magic=0;
+                page_size=get_pagesize_from_nand(flash,0,0);
+                if(page_size>0&&page_size<4000)
+                        buffer=kzalloc(page_size,GFP_KERNEL);
+                else
+                        continue;
+                if(!buffer)
+                        return -ENOMEM;
+                jz_spi_nandflash_read_ops(flash,buffer,SPIFLASH_PARAMER_OFFSET/page_size,SPIFLASH_PARAMER_OFFSET%page_size,
+                                page_size,&rlen);
+                *nand_magic=*(int32_t *)(buffer);
+                printk("nand_magic=0x%x",*nand_magic);
+                if(*nand_magic!=0x6e616e64){
+                        kfree(buffer);
+                        if(i==1)
+                                return 0;
+                }
+        }
 	member_addr=buffer+sizeof(int32_t);
 	param_from_burner.version=*(int *)member_addr;
 	member_addr+=sizeof(param_from_burner.version);
@@ -950,7 +961,6 @@ static int jz_spi_nandflash_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	spi_nandflash->spi = spi;
-	spi_nandflash->column_cmdaddr_bits=24;
 	mutex_init(&spi_nandflash->lock);
 	dev_set_drvdata(&spi->dev, spi_nandflash);
 	spi_flash = jz_spi_flash_probe(spi);
@@ -982,7 +992,7 @@ static int jz_spi_nandflash_probe(struct spi_device *spi)
 	spi_nandflash->tPROG = spi_flash->tPROG_maxbusy;
 	spi_nandflash->tBERS = spi_flash->tBERS_maxbusy;
 
-	spi_nandflash->mtd.bitflip_threshold = spi_nandflash->mtd.ecc_strength = 1;
+	spi_nandflash->mtd.bitflip_threshold = spi_nandflash->mtd.ecc_strength = 2;
 	chip->select_chip = NULL;
 	chip->badblockbits = 8;
 	chip->scan_bbt = nand_default_bbt;
