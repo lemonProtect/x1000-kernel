@@ -8671,16 +8671,13 @@ static int concate_revision_bcm43438(dhd_bus_t *bus,
 	char chipver_tag[4] = {0, };
 #endif /* defined(SUPPORT_MULTIPLE_CHIPS) */
 
-	printk(("%s: BCM43438 Multiple Revision Check\n", __FUNCTION__));
 
 	chip_id = bus->sih->chip;
 	chip_ver = bus->sih->chiprev;
 
 	if (chip_ver == 1) {
-		printk(("----- CHIP bcm43438_A1 -----\n"));
 		strcat(chipver_tag, "_a1");
 	} else if (chip_ver == 0) {
-		printk(("----- CHIP bcm43438_A0 -----\n"));
 		strcat(chipver_tag, "_a0");
 	} else {
 		printk(("----- Invalid chip version -----\n"));
@@ -8689,6 +8686,8 @@ static int concate_revision_bcm43438(dhd_bus_t *bus,
 
 	strcat(fw_path, chipver_tag);
 	strcat(nv_path, chipver_tag);
+	strcat(fw_path, ".bin");
+	strcat(nv_path, ".cal");
 	printk("fw_path:%s nv_path:%s\n", fw_path, nv_path);
 	return 0;
 }
