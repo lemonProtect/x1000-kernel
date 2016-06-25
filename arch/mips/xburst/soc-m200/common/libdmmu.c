@@ -117,11 +117,12 @@ static void handle_add_map(struct device *dev,struct dmmu_handle *h,unsigned lon
 	list_add(&n->list,&h->map_list);
 }
 
-static unsigned int get_pfn(unsigned int vaddr)
+static unsigned int get_user_paddr(unsigned int vaddr)
 {
 	pgd_t *pgdir;
 	pmd_t *pmdir;
 	pte_t *pte;
+	unsigned int offset = vaddr & (PAGE_SIZE - 1);
 
 
 	pgdir = pgd_offset(current->mm, vaddr);
@@ -135,21 +136,21 @@ static unsigned int get_pfn(unsigned int vaddr)
 	pte = pte_offset(pmdir,vaddr);
 	if (pte_present(*pte)) {
 
-		return pte_pfn(*pte) << PAGE_SHIFT;
+		return pte_pfn(*pte) << PAGE_SHIFT | offset;
 	}
 
 	return 0;
 }
 
-static unsigned long dmmu_v2pfn(unsigned long vaddr)
+static unsigned long dmmu_v2paddr(unsigned long vaddr)
 {
 	if(vaddr < KSEG0_LOW_LIMIT)
-		return get_pfn(vaddr);
+		return get_user_paddr(vaddr);
 
 	if(vaddr >= KSEG0_LOW_LIMIT && vaddr < KSEG1_HEIGH_LIMIT)
 		return virt_to_phys((void *)vaddr);
 
-	panic("dmmu_v2pfn error!");
+	panic("dmmu_v2paddr error!");
 	return 0;
 }
 
@@ -198,7 +199,7 @@ static unsigned long map_node(struct pmd_node *n,unsigned int vaddr,unsigned int
 
 			down_write(&current->mm->mmap_sem);
 
-			pfn = dmmu_v2pfn(vaddr) >> PAGE_SHIFT;
+			pfn = dmmu_v2paddr(vaddr) >> PAGE_SHIFT;
 			page = pfn_to_page(pfn);
 
 			SetPageReserved(page);
@@ -247,7 +248,7 @@ static struct pmd_node *add_node(struct dmmu_handle *h,unsigned int vaddr)
 
 	list_add(&n->list, &h->pmd_list);
 
-	pgd[vaddr>>22] = dmmu_v2pfn(n->page) | DMMU_PMD_VLD;
+	pgd[vaddr>>22] = dmmu_v2paddr(n->page) | DMMU_PMD_VLD;
 	return n;
 }
 
@@ -483,7 +484,7 @@ unsigned long dmmu_map(struct device *dev,unsigned long vaddr,unsigned long len)
 	if(check_map(h,vaddr,len))
 	{
 		mutex_unlock(&h->lock);
-		return dmmu_v2pfn(h->pdg);
+		return dmmu_v2paddr(h->pdg);
 	}
 
 	if(dmmu_make_present(vaddr,vaddr+len))
@@ -508,7 +509,7 @@ unsigned long dmmu_map(struct device *dev,unsigned long vaddr,unsigned long len)
 #endif
 	mutex_unlock(&h->lock);
 
-	return dmmu_v2pfn(h->pdg);
+	return dmmu_v2paddr(h->pdg);
 }
 
 int dmmu_unmap(struct device *dev,unsigned long vaddr, int len)
@@ -659,7 +660,7 @@ int __init dmmu_init(void)
 		return ENOMEM;
 	}
 	SetPageReserved(virt_to_page((void *)reserved_page));
-	reserved_pte = dmmu_v2pfn(reserved_page) | DMMU_PTE_VLD;
+	reserved_pte = dmmu_v2paddr(reserved_page) | DMMU_PTE_VLD;
 
 	res_page_paddr = virt_to_phys((void *)reserved_page) | 0xFFF;
 
