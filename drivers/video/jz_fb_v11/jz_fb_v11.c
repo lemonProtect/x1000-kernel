@@ -3103,6 +3103,7 @@ static void jzfb_change_dma_desc(struct fb_info *info)
 	jzfb->osd.fg0.w = mode->xres;
 	jzfb->osd.fg0.h = mode->yres;
 	jzfb->osd.fg0.is_enabled = 1;
+        jzfb->osd.fg0.blend_coef = COEF_1;
 
 	info->mode = mode;
 	jzfb_prepare_dma_desc(info);
