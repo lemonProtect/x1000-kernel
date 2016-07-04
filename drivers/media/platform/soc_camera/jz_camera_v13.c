@@ -62,17 +62,6 @@ static void cim_dump_reg(struct jz_camera_dev *pcdev)
 	printk("REG_CIM_WOFFSET" STRING, readl(pcdev->base + CIM_OFFSET));
 
 	printk("REG_CIM_FS" STRING, readl(pcdev->base + CIM_FS));
-	printk("REG_CIM_YFA" STRING, readl(pcdev->base + CIM_YFA));
-	printk("REG_CIM_YCMD" STRING, readl(pcdev->base + CIM_YCMD));
-	printk("REG_CIM_CBFA" STRING, readl(pcdev->base + CIM_CBFA));
-
-	printk("REG_CIM_CBCMD" STRING, readl(pcdev->base + CIM_CBCMD));
-	printk("REG_CIM_CRFA" STRING, readl(pcdev->base + CIM_CRFA));
-	printk("REG_CIM_CRCMD" STRING, readl(pcdev->base + CIM_CRCMD));
-	printk("REG_CIM_TC" STRING, readl(pcdev->base + CIM_TC));
-
-	printk("REG_CIM_TINX" STRING, readl(pcdev->base + CIM_TINX));
-	printk("REG_CIM_TCNT" STRING, readl(pcdev->base + CIM_TCNT));
 }
 #endif
 
@@ -762,29 +751,19 @@ static int jz_camera_set_bus_param(struct soc_camera_device *icd) {
 	cfg_reg = (common_flags & V4L2_MBUS_HSYNC_ACTIVE_LOW) ?
 		cfg_reg | CIM_CFG_HSP_HIGH : cfg_reg & (~CIM_CFG_HSP_HIGH);
 
-	cfg_reg |= CIM_CFG_DMA_BURST_INCR32 | CIM_CFG_DF_YUV422
-		| CIM_CFG_DSM_GCM | CIM_CFG_PACK_Y0UY1V;
+	cfg_reg |= CIM_CFG_DMA_BURST_INCR64 | CIM_CFG_DSM_GCM | CIM_CFG_PACK_Y0UY1V;
 
 	ctrl_reg |= CIM_CTRL_DMA_SYNC | CIM_CTRL_FRC_1;
 
-	ctrl2_reg |= CIM_CTRL2_APM | CIM_CTRL2_EME | CIM_CTRL2_OPE |
+	ctrl2_reg |= CIM_CTRL2_APM | CIM_CTRL2_OPE |
 		(1 << CIM_CTRL2_OPG_BIT) | CIM_CTRL2_FSC | CIM_CTRL2_ARIF;
 
 	fs_reg = (icd->user_width -1) << CIM_FS_FHS_BIT | (icd->user_height -1)
 		<< CIM_FS_FVS_BIT | 1 << CIM_FS_BPP_BIT;
 
-	if((pixfmt == V4L2_PIX_FMT_YUV420) || (pixfmt == V4L2_PIX_FMT_JZ420B)) {
-		ctrl2_reg |= CIM_CTRL2_CSC_YUV420;
-		cfg_reg |= CIM_CFG_SEP | CIM_CFG_ORDER_YUYV;
-	}
-
-	if(pixfmt == V4L2_PIX_FMT_JZ420B)
-		ctrl_reg |= CIM_CTRL_MBEN;
-
 	if(pixfmt == V4L2_PIX_FMT_SBGGR8) {
 		fs_reg = (icd->user_width -1) << CIM_FS_FHS_BIT | (icd->user_height -1)
 			<< CIM_FS_FVS_BIT | 0 << CIM_FS_BPP_BIT;
-		ctrl2_reg |= CIM_CTRL2_CSC_BYPASS;
 	}
 
 	/*BS0 BS1 BS2 BS3 must be 00,01,02,03 when pack is b100*/
