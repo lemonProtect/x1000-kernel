@@ -16,9 +16,11 @@
 #include <linux/bitops.h>
 
 #include <asm/irq_cpu.h>
-
 #include <soc/base.h>
 #include <soc/irq.h>
+#ifdef CONFIG_PCI
+#include <soc/pci.h>
+#endif
 
 #include <smp_cp0.h>
 
@@ -99,8 +101,13 @@ void __init arch_init_irq(void)
 
 
 	/* enable cpu interrupt mask */
-	set_c0_status(IE_IRQ0 | IE_IRQ1);
+#ifdef CONFIG_PCI
+	xburst_vpci_irq_init();
 
+	set_c0_status(IE_IRQ0 | IE_IRQ1 | IE_IRQ2);
+#else
+	set_c0_status(IE_IRQ0 | IE_IRQ1);
+#endif
 	return;
 }
 
@@ -129,6 +136,11 @@ asmlinkage void plat_irq_dispatch(void)
 
 	if(pending & CAUSEF_IP2)
 		intc_irq_dispatch();
+#ifdef CONFIG_PCI
+	if (pending & CAUSEF_IP4)
+		xburst_vpci_irqdispatch();
+#endif
+
 	cause = read_c0_cause();
 	pending = cause & read_c0_status() & ST0_IM;
 }

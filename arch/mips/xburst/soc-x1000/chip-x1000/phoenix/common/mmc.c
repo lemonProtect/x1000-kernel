@@ -15,6 +15,21 @@ int bcm_ap6212_wlan_init(void);
 
 #ifndef CONFIG_NAND
 #ifdef CONFIG_JZMMC_V12_MMC0
+
+#ifdef CONFIG_QEMU_SIMU
+struct  jzmmc_platform_data tf_pdata = {
+	.removal  			= DONTCARE,
+	.sdio_clk			= 0,
+	.ocr_avail			= MMC_VDD_32_33 | MMC_VDD_33_34,
+	.capacity  			= MMC_CAP_SD_HIGHSPEED | MMC_CAP_MMC_HIGHSPEED \
+	                                  | MMC_CAP_4_BIT_DATA | MMC_CAP_8_BIT_DATA | MMC_CAP_NONREMOVABLE,
+	.pm_flags			= 0,
+	.max_freq			= CONFIG_MMC0_MAX_FREQ,
+	.type               = NONREMOVABLE,
+	.pio_mode			= 1,
+	.private_init		= NULL,
+};
+#else
 static struct card_gpio tf_gpio = {
 	.cd				= {GPIO_SD0_CD_N,   LOW_ENABLE},
 	.wp             = {-1,	-1},
@@ -38,7 +53,9 @@ struct jzmmc_platform_data tf_pdata = {
 	.pio_mode                       = 0,
 #endif
 };
-#endif
+#endif /*CONFIG_QEMU_SIMU*/
+
+#endif /*CONFIG_JZMMC_V12_MMC0*/
 
 #ifdef CONFIG_JZMMC_V12_MMC1
 struct jzmmc_platform_data sdio_pdata = {
@@ -61,6 +78,5 @@ struct jzmmc_platform_data sdio_pdata = {
 };
 #endif
 #else /* CONFIG NAND*/
-
 
 #endif

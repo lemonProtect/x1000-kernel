@@ -67,8 +67,14 @@ config EXTAL_CLOCK
 
 config FPGA_TEST
 	depends on MACH_XBURST
-	bool "FPGA_TEST"
+	bool "xburst fpga test"
 	default n
+
+config QEMU_SIMU
+	depends on MACH_XBURST
+	bool "xburst qemu simulate"
+	default n
+	select HW_HAS_PCI
 
 config PM_POWERDOWN_P0
 	depends on MACH_XBURST

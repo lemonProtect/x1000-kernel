@@ -11,3 +11,4 @@ obj-y += mxu.o
 obj-y += proc.o
 obj-y += jz_notifier.o
 obj-$(CONFIG_MIPS_MM_HOOKS) += mmu_context.o
+obj-$(CONFIG_PCI) += xburst_vpci.o

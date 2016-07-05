@@ -1023,7 +1023,7 @@ static void jzmmc_request_timeout(unsigned long data)
 		host->data ? host->data->sg_len : 0);
 	jzmmc_dump_reg(host);
 
-	if (host->data) {
+	if (host->data && !is_pio_mode(host)) {
 		int i;
 		dev_err(host->dev, "Descriptor dump:\n");
 		for (i = 0; i < MAX_SEGS; i++) {

@@ -43,13 +43,13 @@ static void check_uart(char c)
 	/* We Couldn't use ioremap() here */
 	volatile u8 *base = (volatile u8*)CKSEG1ADDR(UART0_IOBASE);
 	int i;
-	for(i=0; i<4; i++) {
+	for(i=0; i < 3; i++) {
 		if(base[OFF_LCR])
 			break;
 		base += UART_OFF;
 	}
 
-	if(i<4) {
+	if(i < 3) {
 		uart_base = base;
 		putchar_f = putchar;
 		putchar_f(c);

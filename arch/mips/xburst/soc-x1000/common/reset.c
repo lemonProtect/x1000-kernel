@@ -80,7 +80,7 @@ static void wdt_stop_count(void)
 static int inline rtc_write_reg(int reg,int value)
 {
 	int timeout = 0x2000;
-	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY) && timeout--);
+	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY) && (--timeout));
 	if(!timeout)
 	{
 		printk("WARN:NO USE RTC!!!!!\n");
@@ -102,8 +102,7 @@ static int inline rtc_write_reg(int reg,int value)
  */
 int inline reset_keep_power(void)
 {
-	return rtc_write_reg(RTC_PWRONCR,
-			     inl(RTC_IOBASE + RTC_PWRONCR) & ~(1 << 0));
+	return rtc_write_reg(RTC_PWRONCR, inl(RTC_IOBASE + RTC_PWRONCR) & ~(1 << 0));
 }
 
 #define HWFCR_WAIT_TIME(x) ((x > 0x7fff ? 0x7fff: (0x7ff*(x)) / 2000) << 5)
