@@ -182,6 +182,7 @@ struct spi_quad_mode  flash_quad_mode[] = {
 		.WD_DATE_SIZE = 1,
 		.cmd_read = CMD_QUAD_READ,//
 		.sfc_mode = TRAN_SPI_QUAD,
+		.dummy_byte = 8,
 	},
 	{
 		.RDSR_CMD = CMD_RDSR,

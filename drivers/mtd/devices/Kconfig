@@ -84,11 +84,6 @@ config JZ_SFCNAND
 	depends on JZ_SFC
 	help
 		SFC driver for Ingenic JZ sfc nand
-config SFC_DMA
-	tristate "SFC dma mode"
-	depends on MACH_XBURST
-	help
-		SFC dma mode for Ingenic JZ series SoCs
 
 config SFC_SPEED
     int "JZ SFC speed in MHZ"

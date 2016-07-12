@@ -176,509 +176,94 @@
 #define N_MAX				6
 #define MAX_SEGS        128
 
-struct sfc_transfer {
-	/* it's ok if tx_buf == rx_buf (right?)
-	 * for MicroWire, one buffer must be null
-	 * buffers must work with dma_*map_single() calls, unless
-	 * spi_message.is_dma_mapped reports a pre-existing mapping
-	 */
-	void        *tx_buf;
-	void        *tx_buf1;
-	void        *rx_buf;
-	unsigned    len;
+#define CHANNEL_0		0
+#define CHANNEL_1		1
+#define CHANNEL_2		2
+#define CHANNEL_3		3
+#define CHANNEL_4		4
+#define CHANNEL_5		5
+
+#define ENABLE			1
+#define DISABLE			0
+
+#define COM_CMD			1	// common cmd
+#define POLL_CMD		2	// the cmd will poll the status of flash,ext: read status
+
+#define DMA_OPS			1
+#define CPU_OPS			0
+
+#define TM_STD_SPI		0
+#define TM_DI_DO_SPI	1
+#define TM_DIO_SPI		2
+#define TM_FULL_DIO_SPI	3
+#define TM_QI_QO_SPI	5
+#define TM_QIO_SPI		6
+#define	TM_FULL_QIO_SPI	7
+
+#define DEFAULT_ADDRSIZE	3
+
+struct cmd_info{
+	int cmd_type; //1:common cmd, 2: poll cmd
+	int cmd;
+	int addr_len;
+	unsigned int addr_plus;
+	int dummy_byte;
+	int dataen;
+	int sta_exp;
+	int sta_msk;
 };
 
-struct jz_sfc {
-	struct mtd_info     mtd;
-	struct device		*dev;
-	struct resource		*resource;
+struct sfc_transfer {
+	int direction;
+	unsigned int addr;
+
+	const unsigned char *data;
+	unsigned int len;
+	unsigned int tmp_len;
+
+	int sfc_mode;
+	int ops_mode;
+	struct cmd_info *cmd_info;
+	struct list_head transfer_list;
+};
+
+struct sfc_message {
+	struct list_head    transfers;
+	unsigned        actual_length;
+	int         status;
+
+};
+
+struct sfc{
+
 	void __iomem		*iomem;
-
 	struct resource     *ioarea;
-
-	unsigned int        clk_flag;
-	unsigned int        set_clk_flag;
-
-	u8          chnl;
 	int			irq;
 	struct clk		*clk;
 	struct clk		*clk_gate;
 	unsigned long src_clk;
 	struct completion	done;
-	struct completion	done_rx;
-	spinlock_t		lock_status;
-	spinlock_t		txrx_lock;
 	int			threshold;
-	int			clk_gate_flag;
-	int			status;
-	int			rlen;
-	int			len;
-	u8          use_dma;
-	unsigned int *rx;
-	const unsigned int *tx;
-	const unsigned int *tx1;
-
-	struct spi_nor_platform_data *board_info;
-	unsigned int board_info_size;
-
-	/* temp buffers */
-	unsigned char   *swap_buf;
-	u8			rw_mode;
-
-	unsigned int		rx_addr_plus;
-	unsigned int		tx_addr_plus;
-
-	spinlock_t		lock_rxtx;
-
+	irqreturn_t (*irq_callback)(struct sfc *);
 	unsigned long		phys;
-	struct jz_sfc_info *pdata;
-	irqreturn_t (*irq_callback)(struct jz_sfc *);
-	struct workqueue_struct *workqueue;
-	struct work_struct rw_work;
-	struct mutex        lock;
-	/*sfc use*/
-	unsigned int addr;
-	unsigned int sfc_mode;
-	struct sfc_nor_info *nor_info;
-	u8 addr_len;
+
+	struct sfc_transfer *transfer;
 };
 
 
-static void sfc_writel(struct jz_sfc *sfc, unsigned short offset, u32 value)
-{
-	writel(value, sfc->iomem + offset);
-}
+struct sfc_flash {
+	struct mtd_info     mtd;
+	struct device		*dev;
+	struct resource		*resource;
+	struct sfc			*sfc;
+	struct jz_sfc_info *pdata;
+	struct spi_nor_platform_data *flash_info;
+	unsigned int flash_info_num;
 
-static unsigned int sfc_readl(struct jz_sfc *sfc, unsigned short offset)
-{
-	return readl(sfc->iomem + offset);
-}
+	struct mutex        lock;
 
+	int			status;
+	spinlock_t		lock_status;
+};
 
-void sfc_init(struct jz_sfc *sfc)
-{
-	int n;
-	for(n = 0; n < N_MAX; n++) {
-		sfc_writel(sfc, SFC_TRAN_CONF(n), 0);
-		sfc_writel(sfc, SFC_DEV_ADDR(n), 0);
-		sfc_writel(sfc, SFC_DEV_ADDR_PLUS(n), 0);
-	}
-
-	sfc_writel(sfc, SFC_GLB, ((1 << 7) | (1 << 3)));
-	sfc_writel(sfc, SFC_DEV_CONF, 0);
-	sfc_writel(sfc, SFC_DEV_STA_EXP, 0);
-	sfc_writel(sfc, SFC_DEV_STA_MSK, 0);
-	sfc_writel(sfc, SFC_TRAN_LEN, 0);
-	sfc_writel(sfc, SFC_MEM_ADDR, 0);
-	sfc_writel(sfc, SFC_TRIG, 0);
-	sfc_writel(sfc, SFC_SCR, 0);
-	sfc_writel(sfc, SFC_INTC, 0);
-	sfc_writel(sfc, SFC_CGE, 0);
-	sfc_writel(sfc, SFC_RM_DR, 0);
-}
-
-void sfc_stop(struct jz_sfc *sfc)
-{
-	unsigned int tmp;
-	tmp = sfc_readl(sfc, SFC_TRIG);
-	tmp |= TRIG_STOP;
-	sfc_writel(sfc, SFC_TRIG, tmp);
-}
-
-void sfc_start(struct jz_sfc *sfc)
-{
-	unsigned int tmp;
-	tmp = sfc_readl(sfc, SFC_TRIG);
-	tmp |= TRIG_START;
-	sfc_writel(sfc, SFC_TRIG, tmp);
-}
-
-void sfc_flush_fifo(struct jz_sfc *sfc)
-{
-	unsigned int tmp;
-	tmp = sfc_readl(sfc, SFC_TRIG);
-	tmp |= TRIG_FLUSH;
-	sfc_writel(sfc, SFC_TRIG, tmp);
-}
-
-void sfc_ce_invalid_value(struct jz_sfc *sfc, int value)
-{
-	if(value == 0) {
-		unsigned int tmp;
-		tmp = sfc_readl(sfc, SFC_DEV_CONF);
-		tmp &= ~DEV_CONF_CEDL;
-		sfc_writel(sfc, SFC_DEV_CONF, tmp);
-	} else {
-		unsigned int tmp;
-		tmp = sfc_readl(sfc, SFC_DEV_CONF);
-		tmp |= DEV_CONF_CEDL;
-		sfc_writel(sfc, SFC_DEV_CONF, tmp);
-	}
-}
-
-void sfc_hold_invalid_value(struct jz_sfc *sfc, int value)
-{
-	if(value == 0) {
-		unsigned int tmp;
-		tmp = sfc_readl(sfc, SFC_DEV_CONF);
-		tmp &= ~DEV_CONF_HOLDDL;
-		sfc_writel(sfc, SFC_DEV_CONF, tmp);
-	} else {
-		unsigned int tmp;
-		tmp = sfc_readl(sfc, SFC_DEV_CONF);
-		tmp |= DEV_CONF_HOLDDL;
-		sfc_writel(sfc, SFC_DEV_CONF, tmp);
-	}
-}
-
-void sfc_wp_invalid_value(struct jz_sfc *sfc, int value)
-{
-	if(value == 0) {
-		unsigned int tmp;
-		tmp = sfc_readl(sfc, SFC_DEV_CONF);
-		tmp &= ~DEV_CONF_WPDL;
-		sfc_writel(sfc, SFC_DEV_CONF, tmp);
-	} else {
-		unsigned int tmp;
-		tmp = sfc_readl(sfc, SFC_DEV_CONF);
-		tmp |= DEV_CONF_WPDL;
-		sfc_writel(sfc, SFC_DEV_CONF, tmp);
-	}
-}
-
-void sfc_clear_end_intc(struct jz_sfc *sfc)
-{
-	int tmp = 0;
-	tmp = sfc_readl(sfc, SFC_SCR);
-	tmp |= CLR_END;
-	sfc_writel(sfc, SFC_SCR, tmp);
-}
-
-void sfc_clear_treq_intc(struct jz_sfc *sfc)
-{
-	int tmp = 0;
-	tmp = sfc_readl(sfc, SFC_SCR);
-	tmp |= CLR_TREQ;
-	sfc_writel(sfc, SFC_SCR, tmp);
-}
-
-void sfc_clear_rreq_intc(struct jz_sfc *sfc)
-{
-	int tmp = 0;
-	tmp = sfc_readl(sfc, SFC_SCR);
-	tmp |= CLR_RREQ;
-	sfc_writel(sfc, SFC_SCR, tmp);
-}
-
-void sfc_clear_over_intc(struct jz_sfc *sfc)
-{
-	int tmp = 0;
-	tmp = sfc_readl(sfc, SFC_SCR);
-	tmp |= CLR_OVER;
-	sfc_writel(sfc, SFC_SCR, tmp);
-}
-
-void sfc_clear_under_intc(struct jz_sfc *sfc)
-{
-	int tmp = 0;
-	tmp = sfc_readl(sfc, SFC_SCR);
-	tmp |= CLR_UNDER;
-	sfc_writel(sfc, SFC_SCR, tmp);
-}
-
-void sfc_clear_all_intc(struct jz_sfc *sfc)
-{
-	sfc_writel(sfc, SFC_SCR, 0x1f);
-}
-
-void sfc_mask_all_intc(struct jz_sfc *sfc)
-{
-	sfc_writel(sfc, SFC_INTC, 0x1f);
-}
-
-void sfc_mode(struct jz_sfc *sfc, int channel, int value)
-{
-	unsigned int tmp;
-	tmp = sfc_readl(sfc, SFC_TRAN_CONF(channel));
-	tmp &= ~(TRAN_CONF_TRAN_MODE_MSK << TRAN_CONF_TRAN_MODE_OFFSET);
-	tmp |= (value << TRAN_CONF_TRAN_MODE_OFFSET);
-	sfc_writel(sfc, SFC_TRAN_CONF(channel), tmp);
-}
-
-void sfc_clock_phase(struct jz_sfc *sfc, int value)
-{
-	if(value == 0) {
-		unsigned int tmp;
-		tmp = sfc_readl(sfc, SFC_DEV_CONF);
-		tmp &= ~DEV_CONF_CPHA;
-		sfc_writel(sfc, SFC_DEV_CONF, tmp);
-	} else {
-		unsigned int tmp;
-		tmp = sfc_readl(sfc, SFC_DEV_CONF);
-		tmp |= DEV_CONF_CPHA;
-		sfc_writel(sfc, SFC_DEV_CONF, tmp);
-	}
-}
-
-void sfc_clock_polarity(struct jz_sfc *sfc, int value)
-{
-	if(value == 0) {
-		unsigned int tmp;
-		tmp = sfc_readl(sfc, SFC_DEV_CONF);
-		tmp &= ~DEV_CONF_CPOL;
-		sfc_writel(sfc, SFC_DEV_CONF, tmp);
-	} else {
-		unsigned int tmp;
-		tmp = sfc_readl(sfc, SFC_DEV_CONF);
-		tmp |= DEV_CONF_CPOL;
-		sfc_writel(sfc, SFC_DEV_CONF, tmp);
-	}
-}
-
-void sfc_threshold(struct jz_sfc *sfc, int value)
-{
-	unsigned int tmp;
-	tmp = sfc_readl(sfc, SFC_GLB);
-	tmp &= ~GLB_THRESHOLD_MSK;
-	tmp |= value << GLB_THRESHOLD_OFFSET;
-	sfc_writel(sfc, SFC_GLB, tmp);
-}
-
-
-void sfc_smp_delay(struct jz_sfc *sfc, int value)
-{
-	unsigned int tmp;
-	tmp = sfc_readl(sfc, SFC_DEV_CONF);
-	tmp &= ~DEV_CONF_SMP_DELAY_MSK;
-	tmp |= value << DEV_CONF_SMP_DELAY_OFFSET | 1 << 9;
-	sfc_writel(sfc, SFC_DEV_CONF, tmp);
-}
-
-
-void sfc_transfer_direction(struct jz_sfc *sfc, int value)
-{
-	if(value == 0) {
-		unsigned int tmp;
-		tmp = sfc_readl(sfc, SFC_GLB);
-		tmp &= ~GLB_TRAN_DIR;
-		sfc_writel(sfc, SFC_GLB, tmp);
-	} else {
-		unsigned int tmp;
-		tmp = sfc_readl(sfc, SFC_GLB);
-		tmp |= GLB_TRAN_DIR;
-		sfc_writel(sfc, SFC_GLB, tmp);
-	}
-}
-
-void sfc_set_length(struct jz_sfc *sfc, int value)
-{
-	sfc_writel(sfc, SFC_TRAN_LEN, value);
-}
-
-void sfc_transfer_mode(struct jz_sfc *sfc, int value)
-{
-	if(value == 0) {
-		unsigned int tmp;
-		tmp = sfc_readl(sfc, SFC_GLB);
-		tmp &= ~GLB_OP_MODE;
-		sfc_writel(sfc, SFC_GLB, tmp);
-	} else {
-		unsigned int tmp;
-		tmp = sfc_readl(sfc, SFC_GLB);
-		tmp |= GLB_OP_MODE;
-		sfc_writel(sfc, SFC_GLB, tmp);
-	}
-}
-
-void sfc_read_data(struct jz_sfc *sfc, unsigned int *value)
-{
-	*value = sfc_readl(sfc, SFC_RM_DR);
-}
-
-void sfc_write_data(struct jz_sfc *sfc, const unsigned int *value)
-{
-	sfc_writel(sfc, SFC_RM_DR, *value);
-}
-
-unsigned int sfc_fifo_num(struct jz_sfc *sfc)
-{
-	unsigned int tmp;
-	tmp = sfc_readl(sfc, SFC_SR);
-	tmp &= (0x7f << 16);
-	tmp = tmp >> 16;
-	return tmp;
-}
-
-int ssi_underrun(struct jz_sfc *sfc)
-{
-	unsigned int tmp;
-	tmp = sfc_readl(sfc, SFC_SR);
-	if(tmp & CLR_UNDER)
-		return 1;
-	else
-		return 0;
-}
-
-int ssi_overrun(struct jz_sfc *sfc)
-{
-	unsigned int tmp;
-	tmp = sfc_readl(sfc, SFC_SR);
-	if(tmp & CLR_OVER)
-		return 1;
-	else
-		return 0;
-}
-
-int rxfifo_rreq(struct jz_sfc *sfc)
-{
-	unsigned int tmp;
-	tmp = sfc_readl(sfc, SFC_SR);
-	if(tmp & CLR_RREQ)
-		return 1;
-	else
-		return 0;
-}
-int txfifo_treq(struct jz_sfc *sfc)
-{
-	unsigned int tmp;
-	tmp = sfc_readl(sfc, SFC_SR);
-	if(tmp & CLR_TREQ)
-		return 1;
-	else
-		return 0;
-}
-int sfc_end(struct jz_sfc *sfc)
-{
-	unsigned int tmp;
-	tmp = sfc_readl(sfc, SFC_SR);
-	if(tmp & CLR_END)
-		return 1;
-	else
-		return 0;
-}
-
-void sfc_set_addr_length(struct jz_sfc *sfc, int channel, unsigned int value)
-{
-	unsigned int tmp;
-	tmp = sfc_readl(sfc, SFC_TRAN_CONF(channel));
-	tmp &= ~(ADDR_WIDTH_MSK);
-	tmp |= (value << ADDR_WIDTH_OFFSET);
-	sfc_writel(sfc, SFC_TRAN_CONF(channel), tmp);
-}
-
-void sfc_cmd_en(struct jz_sfc *sfc, int channel, unsigned int value)
-{
-	if(value == 1) {
-		unsigned int tmp;
-		tmp = sfc_readl(sfc, SFC_TRAN_CONF(channel));
-		tmp |= TRAN_CONF_CMDEN;
-		sfc_writel(sfc, SFC_TRAN_CONF(channel), tmp);
-	} else {
-		unsigned int tmp;
-		tmp = sfc_readl(sfc, SFC_TRAN_CONF(channel));
-		tmp &= ~TRAN_CONF_CMDEN;
-		sfc_writel(sfc, SFC_TRAN_CONF(channel), tmp);
-	}
-}
-
-void sfc_data_en(struct jz_sfc *sfc, int channel, unsigned int value)
-{
-	if(value == 1) {
-		unsigned int tmp;
-		tmp = sfc_readl(sfc, SFC_TRAN_CONF(channel));
-		tmp |= TRAN_CONF_DATEEN;
-		sfc_writel(sfc, SFC_TRAN_CONF(channel), tmp);
-	} else {
-		unsigned int tmp;
-		tmp = sfc_readl(sfc, SFC_TRAN_CONF(channel));
-		tmp &= ~TRAN_CONF_DATEEN;
-		sfc_writel(sfc, SFC_TRAN_CONF(channel), tmp);
-	}
-}
-
-void sfc_write_cmd(struct jz_sfc *sfc, int channel, unsigned int value)
-{
-	unsigned int tmp;
-	tmp = sfc_readl(sfc, SFC_TRAN_CONF(channel));
-	tmp &= ~TRAN_CONF_CMD_MSK;
-	tmp |= value;
-	sfc_writel(sfc, SFC_TRAN_CONF(channel), tmp);
-}
-
-void sfc_dev_addr(struct jz_sfc *sfc, int channel, unsigned int value)
-{
-	sfc_writel(sfc, SFC_DEV_ADDR(channel), value);
-}
-
-
-void sfc_dev_addr_dummy_bytes(struct jz_sfc *sfc, int channel, unsigned int value)
-{
-	unsigned int tmp;
-	tmp = sfc_readl(sfc, SFC_TRAN_CONF(channel));
-	tmp &= ~TRAN_CONF_DMYBITS_MSK;
-	tmp |= value << DMYBITS_OFFSET;
-	sfc_writel(sfc, SFC_TRAN_CONF(channel), tmp);
-}
-
-void sfc_dev_addr_plus(struct jz_sfc *sfc, int channel, unsigned int value)
-{
-	sfc_writel(sfc, SFC_DEV_ADDR_PLUS(channel), value);
-}
-
-void sfc_dev_pollen(struct jz_sfc *sfc, int channel, unsigned int value)
-{
-	unsigned int tmp;
-	tmp = sfc_readl(sfc, SFC_TRAN_CONF(channel));
-	if(value == 1)
-		tmp |= TRAN_CONF_POLLEN;
-	else
-		tmp &= ~(TRAN_CONF_POLLEN);
-
-	sfc_writel(sfc, SFC_TRAN_CONF(channel), tmp);
-}
-
-void sfc_dev_sta_exp(struct jz_sfc *sfc, unsigned int value)
-{
-	sfc_writel(sfc, SFC_DEV_STA_EXP, value);
-}
-
-void sfc_dev_sta_msk(struct jz_sfc *sfc, unsigned int value)
-{
-	sfc_writel(sfc, SFC_DEV_STA_MSK, value);
-}
-
-void sfc_enable_all_intc(struct jz_sfc *sfc)
-{
-	sfc_writel(sfc, SFC_INTC, 0);
-}
-
-void sfc_set_mem_addr(struct jz_sfc *sfc,unsigned int addr )
-{
-	sfc_writel(sfc, SFC_MEM_ADDR, addr);
-}
-void dump_sfc_reg(struct jz_sfc *sfc)
-{
-	int i = 0;
-	printk("SFC_GLB			:%08x\n", sfc_readl(sfc, SFC_GLB ));
-	printk("SFC_DEV_CONF	:%08x\n", sfc_readl(sfc, SFC_DEV_CONF ));
-	printk("SFC_DEV_STA_EXP	:%08x\n", sfc_readl(sfc, SFC_DEV_STA_EXP));
-	printk("SFC_DEV_STA_RT	:%08x\n", sfc_readl(sfc, SFC_DEV_STA_RT ));
-	printk("SFC_DEV_STA_MSK	:%08x\n", sfc_readl(sfc, SFC_DEV_STA_MSK ));
-	printk("SFC_TRAN_LEN		:%08x\n", sfc_readl(sfc, SFC_TRAN_LEN ));
-
-	for(i = 0; i < 6; i++)
-		printk("SFC_TRAN_CONF(%d)	:%08x\n", i,sfc_readl(sfc, SFC_TRAN_CONF(i)));
-
-	for(i = 0; i < 6; i++)
-		printk("SFC_DEV_ADDR(%d)	:%08x\n", i,sfc_readl(sfc, SFC_DEV_ADDR(i)));
-
-	printk("SFC_MEM_ADDR :%08x\n", sfc_readl(sfc, SFC_MEM_ADDR ));
-	printk("SFC_TRIG	 :%08x\n", sfc_readl(sfc, SFC_TRIG));
-	printk("SFC_SR		 :%08x\n", sfc_readl(sfc, SFC_SR));
-	printk("SFC_SCR		 :%08x\n", sfc_readl(sfc, SFC_SCR));
-	printk("SFC_INTC	 :%08x\n", sfc_readl(sfc, SFC_INTC));
-	printk("SFC_FSM		 :%08x\n", sfc_readl(sfc, SFC_FSM ));
-	printk("SFC_CGE		 :%08x\n", sfc_readl(sfc, SFC_CGE ));
-//	printk("SFC_RM_DR 	 :%08x\n", sfc_readl(spi, SFC_RM_DR));
-}
 #endif
