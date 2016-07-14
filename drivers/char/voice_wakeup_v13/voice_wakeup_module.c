@@ -87,8 +87,8 @@ static void setup_ops(void)
 
 	printk("get_resource_addr:%p\n", m_ops->get_resource_addr);
 
-	printk("_module_init:%p", m_ops->_module_init);
-	printk("_module_exit:%p", m_ops->_module_exit);
+	printk("_module_init:%p\n", m_ops->_module_init);
+	printk("_module_exit:%p\n", m_ops->_module_exit);
 	printk("###############ops end##############\n");
 }
 #ifdef VOICE_WAKEUP_DEBUG

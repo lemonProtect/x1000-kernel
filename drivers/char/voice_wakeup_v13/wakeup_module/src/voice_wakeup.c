@@ -33,8 +33,6 @@ int total_process_len = 0;
 unsigned char __attribute__((aligned(32))) pIvwObjBuf[20*1024];
 unsigned char __attribute__((aligned(32))) nReisdentBuf[38];
 
-ivPointer __attribute__((aligned(32))) pIvwObj;
-ivPointer __attribute__((aligned(32))) pResidentRAM;
 
 int send_data_to_process(ivPointer pIvwObj, unsigned char *pdata, unsigned int size)
 {
@@ -166,6 +164,9 @@ int wakeup_open(void)
 	unsigned int buf_end_pa;
 	//printf("wakeu module init#####\n");
 	//printf("pIvwObj:%x, pResidentRAM:%x, pResKey:%x\n", pIvwObj, pResidentRAM, pResKey);
+	ivPointer pIvwObj;
+	ivPointer pResidentRAM;
+
 	pIvwObj = (ivPointer)pIvwObjBuf;
 	pResidentRAM = (ivPointer)nReisdentBuf;
 
@@ -223,6 +224,9 @@ int process_nbytes(int nbytes)
 	int ret;
 	xfer = &rx_fifo->xfer;
 
+	ivPointer pIvwObj;
+	pIvwObj = (ivPointer)pIvwObjBuf;
+
 	while(1) {
 		int nread;
 		nread = CIRC_CNT(xfer->head, xfer->tail, rx_fifo->n_size);
@@ -277,6 +281,9 @@ int process_dma_data_2(void)
 	int nbytes;
 	volatile int ret;
 	struct circ_buf *xfer;
+	ivPointer pIvwObj;
+
+	pIvwObj = (ivPointer)pIvwObjBuf;
 
 	dma_addr = pdma_trans_addr(_dma_channel, DMA_DEV_TO_MEM);
 	xfer = &rx_fifo->xfer;
@@ -321,6 +328,9 @@ int process_dma_data(void)
 	int nbytes;
 	int ret;
 	struct circ_buf *xfer;
+	ivPointer pIvwObj;
+
+	pIvwObj = (ivPointer)pIvwObjBuf;
 
 	dma_addr = pdma_trans_addr(_dma_channel, DMA_DEV_TO_MEM);
 	xfer = &rx_fifo->xfer;
@@ -357,6 +367,10 @@ int process_buffer_data(unsigned char *buf, unsigned long len)
 {
 	int ret;
 	unsigned char *a_buf = (unsigned char *)((unsigned int)buf | 0xA0000000);
+	ivPointer pIvwObj;
+
+	pIvwObj = (ivPointer)pIvwObjBuf;
+
 	ret = send_data_to_process(pIvwObj, a_buf, len);
 	if(ret == IvwErr_WakeUp) {
 		return SYS_WAKEUP_OK;
