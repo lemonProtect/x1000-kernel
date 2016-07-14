@@ -138,7 +138,7 @@ struct fifo {
 	struct circ_buf xfer;
 	u32	n_size;
 };
-struct fifo rx_fifo[0];
+struct fifo rx_fifo[1];
 
 void wakeup_reset_fifo()
 {
