@@ -378,20 +378,18 @@ static unsigned int cpu_read_rxfifo(struct sfc *sfc)
 
 	align_len = ALIGN(sfc->transfer->len, 4);
 
-	if (((align_len - sfc->transfer->tmp_len) / 4) > THRESHOLD){
+	if(((align_len - sfc->transfer->tmp_len) / 4) > THRESHOLD) {
 		fifo_num = THRESHOLD;
 		last_word = 0;
-		ndummy = 0;
 	} else {
 		/* last aligned THRESHOLD data*/
 		if(sfc->transfer->len % 4) {
-			fifo_num = (align_len - sfc->transfer->tmp_len) / 4 - 1 ;
+			fifo_num = (align_len - sfc->transfer->tmp_len) / 4 - 1;
 			last_word = 1;
 		} else {
 			fifo_num = (align_len - sfc->transfer->tmp_len) / 4;
 			last_word = 0;
 		}
-		ndummy = THRESHOLD - fifo_num - last_word;
 	}
 
 	for(i = 0; i < fifo_num; i++) {
@@ -407,10 +405,6 @@ static unsigned int cpu_read_rxfifo(struct sfc *sfc)
 
 		sfc->transfer->data += sfc->transfer->len % 4;
 		sfc->transfer->tmp_len += 4;
-
-	}
-	for(i = 0; i < ndummy; i++) {
-		sfc_read_data(sfc, data);
 	}
 
 	return 0;
@@ -647,10 +641,7 @@ static void sfc_glb_info_config(struct sfc *sfc,struct sfc_transfer *transfer)
 		sfc_set_mem_addr(sfc, GET_PHYADDR(transfer->data));
 		sfc_transfer_mode(sfc, DMA_MODE);
 	}else{
-		if(transfer->direction == GLB_TRAN_DIR_READ)
-			sfc_set_length(sfc, ALIGN(transfer->len, THRESHOLD * 4));
-		else
-			sfc_set_length(sfc, transfer->len);
+		sfc_set_length(sfc, transfer->len);
 		sfc_set_mem_addr(sfc, 0);
 		sfc_transfer_mode(sfc, SLAVE_MODE);
 	}
