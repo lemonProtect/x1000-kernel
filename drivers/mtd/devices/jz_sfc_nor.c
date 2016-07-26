@@ -553,10 +553,17 @@ static int jz_spi_norflash_match_device(struct sfc_flash *flash)
 		for(i = 0; i < params->norflash_partitions.num_partition_info; i++){
 			flash_info->mtd_partition[i].name = params->norflash_partitions.nor_partition[i].name;
 			flash_info->mtd_partition[i].offset = params->norflash_partitions.nor_partition[i].offset;
-			flash_info->mtd_partition[i].size = params->norflash_partitions.nor_partition[i].size;
+
+			if(params->norflash_partitions.nor_partition[i].size == -1){
+				flash_info->mtd_partition[i].size = MTDPART_SIZ_FULL;
+			}else{
+				flash_info->mtd_partition[i].size = params->norflash_partitions.nor_partition[i].size;
+			}
+
 			if(params->norflash_partitions.nor_partition[i].mask_flags & NORFLASH_PART_RO){
 				flash_info->mtd_partition[i].mask_flags = MTD_CAP_NORFLASH;
 			}
+
 		}
 		flash_info->num_partition_info = params->norflash_partitions.num_partition_info;
 #ifdef CONFIG_SPI_QUAD
