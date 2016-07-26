@@ -146,12 +146,40 @@ int dmic_init_mode(int mode)
 
 			REG_DMIC_CR0 = 0;
 			REG_DMIC_CR0 |= 1<<6;
-			REG_DMIC_CR0 |= 0 << 16;
-			REG_DMIC_CR0 |= 1<<8;
-			REG_DMIC_FCR |= 1 << 31 | 48;
+			REG_DMIC_CR0 |= 0 << 16; /* mono 0 channel */
+			//REG_DMIC_CR0 |= (1<<8); /* data 16 bit once */
+			/*PACK_EN, UNPACK_DIS, UNPACK_MSB*/
+			REG_DMIC_CR0 |= (1<<13) | (1<<12) | (1<<8); /* 32 bit data port(2x16bit) */
+			REG_DMIC_CR0 |= 1<<2; /*hpf1en*/
+
+			dmic_set_channel(1);
+
+#if 1 //DMIC_USE_DMA
+			/* dma burst 128bytes = 32 DATA (32bit) = 16 fifo (64bit) */
+			//REG_DMIC_FCR = (1<<31) | 48;
+			REG_DMIC_FCR = (1<<31) | 16;
+#else
+			REG_DMIC_FCR = 0x20;
+#endif
 			REG_DMIC_IMR |= 0x3f; /*mask all ints*/
 			REG_DMIC_GCR = 10;
-			REG_DMIC_CR0 |= 1<<2; /*hpf1en*/
+
+
+			REG_DMIC_CR0 |= 1<<1; /*ENABLE DMIC tri*/
+			REG_DMIC_ICR |= 0x3f; /*clear all ints*/
+			REG_DMIC_IMR &= ~(1 << 0);/*enable tri int*/
+			REG_DMIC_IMR &= ~(1 << 4);/*enable tri int*/
+
+
+			/* ******************************************** */
+			/* trigger application path */
+
+			__dmic_reset();
+			//__dmic_reset_tri();
+
+			dmic_enable();
+
+			/* trigger configuration */
 			REG_DMIC_THRL = cur_thr_value;/*SET A MIDDLE THR_VALUE, AS INIT */
 			REG_DMIC_TRICR	|= 1 <<3; /*hpf2 en*/
 			REG_DMIC_TRICR	|= 2 << 1; /* prefetch 16k*/
@@ -166,22 +194,27 @@ int dmic_init_mode(int mode)
 			REG_DMIC_TRIMMAX = 3000000;
 #endif
 
-			REG_DMIC_CR0 |= 1<<1; /*ENABLE DMIC tri*/
-			REG_DMIC_ICR |= 0x3f; /*clear all ints*/
-			REG_DMIC_IMR &= ~(1 << 0);/*enable tri int*/
-			REG_DMIC_IMR &= ~(1 << 4);/*enable tri int*/
+			REG_DMIC_CR0 |= (3<<6); /* disable data path */
+
+			/* reset */
+			__dmic_reset();
+			__dmic_reset_tri();
+
 
 			break;
 		case NORMAL_RECORD:
 			REG_DMIC_CR0 = 0;
 			REG_DMIC_CR0 |= 1<<6;
 			/* channel = 1 */
-			REG_DMIC_CR0 |= 0 << 16;
-			/*packen ,unpack disable*/
-			REG_DMIC_CR0 |= 1<<8 ;//| 1 << 12;
-			//REG_DMIC_CR0 &= ~(1<<8 | 1 << 12);
+			REG_DMIC_CR0 |= 0 << 16; /* mono 0 channel */
+			/*PACK_EN, UNPACK_DIS, UNPACK_MSB*/
+			//REG_DMIC_CR0 |= 1<<8 ;//| 1 << 12;
+			REG_DMIC_CR0 |= (1<<13) | (1<<12) | (1<<8); /* 32 bit data port(2x16bit) */
 
-			REG_DMIC_FCR |= 1 << 31 | 48;
+			/* dma burst 128bytes = 32 DATA (32bit) = 16 fifo (64bit) */
+			//REG_DMIC_FCR = (1<<31) | 48;
+			REG_DMIC_FCR = (1<<31) | 16;
+
 			//REG_DMIC_IMR &= ~(0x1f);
 			REG_DMIC_IMR |= 0x3f; /*mask all ints*/
 			REG_DMIC_ICR |= 0x3f; /*mask all ints*/
@@ -193,12 +226,14 @@ int dmic_init_mode(int mode)
 			REG_DMIC_TRICR |= 0 << 16; /*trigger mode*/
 			REG_DMIC_TRICR	|= 1 <<3; /*hpf2 en*/
 			REG_DMIC_TRICR	|= 2 << 1; /* prefetch 16k*/
+			dmic_set_channel(1);
+
 			break;
 		default:
 			break;
 
 	}
-	dmic_set_channel(1);
+
 	return 0;
 }
 
@@ -229,6 +264,16 @@ int dmic_disable(void)
 
 void reconfig_thr_value()
 {
+
+	TCSM_PCHAR('\r');
+	TCSM_PCHAR('\n');
+	TCSM_PCHAR('t');
+	TCSM_PCHAR('h');
+	TCSM_PCHAR('r');
+	TCSM_PCHAR(' ');
+	serial_put_hex(dmic_current_state);
+	TCSM_PCHAR(' ');
+	serial_put_hex(dmic_recommend_thr);
 	if(dmic_current_state == WAITING_TRIGGER) {
 		/* called by rtc timer, or last wakeup failed .*/
 		if(dmic_recommend_thr != 0) {
@@ -287,9 +332,49 @@ int dmic_ioctl(int cmd, unsigned long args)
 int dmic_handler(int pre_ints)
 {
 	volatile int ret;
+	unsigned int dmic_icr;
 
-	REG_DMIC_ICR |= 0x3f;
-	REG_DMIC_IMR |= 1<<0 | 1<<4;
+	dmic_icr = REG_DMIC_ICR;
+#if 0
+	TCSM_PCHAR(' ');
+	TCSM_PCHAR('I');
+	TCSM_PCHAR('C');
+	TCSM_PCHAR('R');
+	serial_put_hex(dmic_icr);
+
+	TCSM_PCHAR(' ');
+	TCSM_PCHAR('I');
+	TCSM_PCHAR('M');
+	TCSM_PCHAR('R');
+	serial_put_hex(REG_DMIC_IMR);
+#endif
+	//TCSM_PCHAR(' ');
+	/* wakeuped by voice trigger */
+	if ( (dmic_icr & 0x11) == 0x11) {
+		TCSM_PCHAR('1');
+		TCSM_PCHAR('1');
+		TCSM_PCHAR(' ');
+		/* turn on data path */
+
+		//REG_DMIC_CR0 |= 3<<6; /* disable data path */
+		dmic_set_samplerate(16000);
+
+		/* reset dmic */
+		__dmic_reset();
+
+		REG_DMIC_IMR |= 1<<0 | 1<<4; /* mask wakeup ints and trigger ints */
+
+		//REG_DMIC_IMR = 0x1b; /* mask wakeup ints and trigger ints */
+		//REG_DMIC_IMR = 0x0b; /* mask wakeup ints and trigger ints */
+		REG_DMIC_IMR = 0x1f; /* mask all ints except fifo level trigger that wakeup cpu */
+		//REG_DMIC_IMR = 0x3f; /* mask all ints */
+
+		REG_DMIC_CR0 &= ~(1<<1);     /* disable trigger function */
+
+		REG_DMIC_ICR = 0xff;
+
+		//dmic_enable();
+	}
 
 	last_dma_count = REG_DMADTC(_dma_channel);
 
@@ -306,7 +391,7 @@ int dmic_handler(int pre_ints)
 #ifdef CONFIG_CPU_IDLE_SLEEP
 		tcu_timer_mod(ms_to_count(TCU_TIMER_MS)); /* start a timer */
 #else
-		REG_DMIC_THRL = 0;
+		//REG_DMIC_THRL = 0; /* ??? */
 #endif
 	} else if (dmic_current_state == WAITING_DATA){
 
@@ -323,13 +408,13 @@ int dmic_handler(int pre_ints)
 #ifdef CONFIG_CPU_IDLE_SLEEP
 		/* do nothing */
 #else
-		REG_DMIC_TRINMAX = 5;
-		REG_DMIC_CR0 |= 1 << 6;
-		REG_DMIC_IMR &= ~( 1<<4 | 1<<0);
+		//REG_DMIC_TRINMAX = 5;
+		//REG_DMIC_CR0 |= 1 << 6; /* 2 channel stereo??? */
+		//REG_DMIC_IMR &= ~( 1<<4 | 1<<0);
 #endif
 		last_dma_count = REG_DMADTC(_dma_channel);
 		return SYS_NEED_DATA;
-	} else if(ret == SYS_WAKEUP_FAILED) {
+	} else if( 0 && ret == SYS_WAKEUP_FAILED) {
 		/*
 		 * if current wakeup operation failed. we need reconfig dmic
 		 * to work at appropriate mode.
@@ -350,7 +435,7 @@ int dmic_handler(int pre_ints)
 
 		/* change trigger mode to > N times*/
 		//REG_DMIC_TRICR |= 2 << 16;
-		REG_DMIC_TRINMAX = 5;
+		//REG_DMIC_TRINMAX = 5;
 		REG_DMIC_TRICR |= 1<<0; /*clear trigger*/
 
 
@@ -358,6 +443,11 @@ int dmic_handler(int pre_ints)
 
 		REG_DMIC_ICR |= 0x3f;
 		REG_DMIC_IMR &= ~(1<<0 | 1<<4);
+
+		/* reset */
+		__dmic_reset();
+		__dmic_reset_tri();
+
 
 		return SYS_WAKEUP_FAILED;
 	}

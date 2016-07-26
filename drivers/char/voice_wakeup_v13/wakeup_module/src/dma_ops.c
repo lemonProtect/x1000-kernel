@@ -149,6 +149,7 @@ void dma_set_channel(int channel)
 }
 void dma_config_normal(void)
 {
+
 	REG32(CPM_IOBASE + CPM_CLKGR0) &= ~(1 << 21);
 
 	desc = (struct dma_desc *)(DMA_DESC_ADDR);
@@ -160,12 +161,12 @@ void dma_config_normal(void)
 	config.increment = 1; /*src no inc, dst inc*/
 	config.rdil = 64;
 	config.sp_dp = 0x0; /*32bit*/
-	config.sp_dp = 0xa; /*32bit*/
+	//config.sp_dp = 0xa; /*16bit*/
 	config.stde = 0;
 	config.descriptor = 1;
 	config.des8 = 1;
 	config.sd = 0;
-	config.tsz	 = 6;
+	config.tsz	 = 6;	/* 128 bytes */
 	config.burst_len = 128;
 
 	config.desc = V_TO_P(desc);
