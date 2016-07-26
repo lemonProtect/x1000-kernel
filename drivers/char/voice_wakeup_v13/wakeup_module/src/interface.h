@@ -47,9 +47,11 @@ struct sleep_buffer {
 
 #define UART1_IOBASE    0x10032000
 #define UART_IOBASE (UART1_IOBASE + 0xa0000000)
-#define TCSM_PCHAR(x)                           \
-	*((volatile unsigned int*)(UART_IOBASE+OFF_TDR)) = x;     \
-while ((*((volatile unsigned int*)(UART_IOBASE + OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT))
+#define TCSM_PCHAR(x)							\
+	do {								\
+		while ((*((volatile unsigned int*)(UART_IOBASE + OFF_LSR)) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT)); \
+		*((volatile unsigned int*)(UART_IOBASE+OFF_TDR)) = x;	\
+	}while(0)
 
 static inline void serial_put_hex(unsigned int x) {
 	int i;
