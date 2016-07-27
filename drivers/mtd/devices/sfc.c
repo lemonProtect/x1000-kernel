@@ -308,7 +308,34 @@ void sfc_smp_delay(struct sfc *sfc, int value)
 	unsigned int tmp;
 	tmp = sfc_readl(sfc, SFC_DEV_CONF);
 	tmp &= ~DEV_CONF_SMP_DELAY_MSK;
-	tmp |= value << DEV_CONF_SMP_DELAY_OFFSET | 1 << 9;
+	tmp |= value << DEV_CONF_SMP_DELAY_OFFSET;
+	sfc_writel(sfc, SFC_DEV_CONF, tmp);
+}
+
+void sfc_hold_delay(struct sfc *sfc, int value)
+{
+	unsigned int tmp;
+	tmp = sfc_readl(sfc, SFC_DEV_CONF);
+	tmp &= ~DEV_CONF_THOLD_MSK;
+	tmp |= value << DEV_CONF_THOLD_OFFSET;
+	sfc_writel(sfc, SFC_DEV_CONF, tmp);
+}
+
+void sfc_setup_delay(struct sfc *sfc, int value)
+{
+	unsigned int tmp;
+	tmp = sfc_readl(sfc, SFC_DEV_CONF);
+	tmp &= ~DEV_CONF_TSETUP_MSK;
+	tmp |= value << DEV_CONF_TSETUP_OFFSET;
+	sfc_writel(sfc, SFC_DEV_CONF, tmp);
+}
+
+void sfc_interval_delay(struct sfc *sfc, int value)
+{
+	unsigned int tmp;
+	tmp = sfc_readl(sfc, SFC_DEV_CONF);
+	tmp &= ~DEV_CONF_TSH_MSK;
+	tmp |= value << DEV_CONF_TSH_OFFSET;
 	sfc_writel(sfc, SFC_DEV_CONF, tmp);
 }
 

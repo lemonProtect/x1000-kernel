@@ -29,4 +29,11 @@ void sfc_transfer_del(struct sfc_transfer *t);
 int sfc_sync(struct sfc *sfc, struct sfc_message *message);
 int sfc_sync1(struct sfc *sfc, struct sfc_message *message);
 struct sfc *sfc_res_init(struct platform_device *pdev);
+
+
+void sfc_smp_delay(struct sfc *sfc, int value);
+void sfc_hold_delay(struct sfc *sfc, int value);
+void sfc_setup_delay(struct sfc *sfc, int value);
+void sfc_interval_delay(struct sfc *sfc, int value);
+
 #endif

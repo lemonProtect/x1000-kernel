@@ -28,6 +28,7 @@
 #include <linux/mutex.h>
 #include <linux/mtd/mtd.h>
 #include <linux/mtd/partitions.h>
+#include <linux/kernel.h>
 
 
 #include <asm/uaccess.h>
@@ -42,7 +43,43 @@
 
 #define STATUS_SUSPND	(1<<0)
 
+
+#define	tCHSH	5	//hold
+#define tSLCH	5	//setup
+#define tSHSL_RD	20	//interval
+#define tSHSL_WR	30
+
 static int sfc_transfer_mode;
+
+static int set_flash_timing(struct sfc_flash *flash)
+{
+	unsigned int t_hold, c_hold;
+	unsigned int t_setup, c_setup;
+	unsigned int t_in, c_in, val;
+	unsigned int cycle;
+
+	cycle = 1000000000 / flash->sfc->src_clk;
+
+	t_hold = tCHSH;
+	c_hold = t_hold / cycle;
+	if(c_hold > 0)
+		val = c_hold - 1;
+	sfc_hold_delay(flash->sfc, val);
+
+	t_setup = tSLCH;
+	c_setup = t_setup / cycle;
+	if(c_setup > 0)
+		val = c_setup - 1;
+	sfc_setup_delay(flash->sfc, val);
+
+	t_in = max(tSHSL_RD, tSHSL_WR);
+	c_in = t_in / cycle;
+	val = c_in - 1;
+	sfc_interval_delay(flash->sfc, val);
+
+	return 0;
+}
+
 
 
 struct sfc_flash *to_jz_spi_norflash(struct mtd_info *mtd_info)
@@ -267,6 +304,7 @@ static int sfc_write(struct sfc_flash *flash,loff_t to,size_t len, const unsigne
 	command = SPINOR_OP_PP;
 #endif
 
+
 	sfc_do_write(flash,command,to,flash->flash_info->addrsize,buf,len,dummy_byte);
 	return len;
 }
@@ -292,6 +330,7 @@ static int sfc_read(struct sfc_flash *flash, loff_t from, size_t len, unsigned c
 	command = SPINOR_OP_READ;
 	dummy_byte = 0;
 #endif
+
 
 	ret = sfc_do_read(flash, command, from, flash->flash_info->addrsize, buf, len, dummy_byte);
 
@@ -708,6 +747,8 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 	/* enable 4-byte addressing if the device exceeds 16MiB */
 	if(flash->mtd.size > 0x1000000)
 		set_flash_addr_width_4byte(flash,1);
+
+	set_flash_timing(flash);
 
 #ifdef CONFIG_SPI_QUAD
 	sfc_flash_set_quad_mode(flash);
