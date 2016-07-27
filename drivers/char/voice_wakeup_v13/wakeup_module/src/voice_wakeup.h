@@ -21,6 +21,9 @@ int process_buffer_data(unsigned char *buffer, unsigned long len);
 
 int process_dma_data_3(void);
 
+/* receive data in cpu mode */
+int voice_wakeup_process_data_cpu_mode(void * dmic);
+
 void wakeup_reset_fifo(void);
 
 #define SYS_WAKEUP_OK	0x1

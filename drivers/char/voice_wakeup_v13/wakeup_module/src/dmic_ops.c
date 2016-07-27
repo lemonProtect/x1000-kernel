@@ -133,7 +133,9 @@ int cpu_should_sleep(void)
 
 int dmic_init_mode(int mode)
 {
+
 	dmic_init();
+
 	switch (mode) {
 		case EARLY_SLEEP:
 
@@ -147,19 +149,21 @@ int dmic_init_mode(int mode)
 			REG_DMIC_CR0 = 0;
 			REG_DMIC_CR0 |= 1<<6;
 			REG_DMIC_CR0 |= 0 << 16; /* mono 0 channel */
-			//REG_DMIC_CR0 |= (1<<8); /* data 16 bit once */
+#if DMIC_FIFO_BIT_WIDTH == FIFO_32BIT
 			/*PACK_EN, UNPACK_DIS, UNPACK_MSB*/
 			REG_DMIC_CR0 |= (1<<13) | (1<<12) | (1<<8); /* 32 bit data port(2x16bit) */
+#else
+			REG_DMIC_CR0 |= (1<<8); /* data 16 bit once */
+#endif
 			REG_DMIC_CR0 |= 1<<2; /*hpf1en*/
 
 			dmic_set_channel(1);
 
-#if 1 //DMIC_USE_DMA
+#if DMIC_USE_DMA
 			/* dma burst 128bytes = 32 DATA (32bit) = 16 fifo (64bit) */
-			//REG_DMIC_FCR = (1<<31) | 48;
-			REG_DMIC_FCR = (1<<31) | 16;
+			REG_DMIC_FCR = (1<<31) | 48;
 #else
-			REG_DMIC_FCR = 0x20;
+			REG_DMIC_FCR = 48;
 #endif
 			REG_DMIC_IMR |= 0x3f; /*mask all ints*/
 			REG_DMIC_GCR = 10;
@@ -207,13 +211,19 @@ int dmic_init_mode(int mode)
 			REG_DMIC_CR0 |= 1<<6;
 			/* channel = 1 */
 			REG_DMIC_CR0 |= 0 << 16; /* mono 0 channel */
+#if DMIC_FIFO_BIT_WIDTH == FIFO_32BIT
 			/*PACK_EN, UNPACK_DIS, UNPACK_MSB*/
-			//REG_DMIC_CR0 |= 1<<8 ;//| 1 << 12;
 			REG_DMIC_CR0 |= (1<<13) | (1<<12) | (1<<8); /* 32 bit data port(2x16bit) */
+#else
+			REG_DMIC_CR0 |= (1<<8); /* data 16 bit once */
+#endif
 
 			/* dma burst 128bytes = 32 DATA (32bit) = 16 fifo (64bit) */
-			//REG_DMIC_FCR = (1<<31) | 48;
+#if DMIC_FIFO_BIT_WIDTH == FIFO_32BIT
 			REG_DMIC_FCR = (1<<31) | 16;
+#else
+			REG_DMIC_FCR = (1<<31) | 32;
+#endif
 
 			//REG_DMIC_IMR &= ~(0x1f);
 			REG_DMIC_IMR |= 0x3f; /*mask all ints*/
@@ -256,7 +266,7 @@ int dmic_disable_tri(void)
 }
 int dmic_disable(void)
 {
-	REG_DMIC_CR0 &= ~(1 << 0); /*DISABLE DMIC*/
+	REG_DMIC_CR0 &= ~(1 << 0); /* DISABLE DMIC */
 	return 0;
 }
 
@@ -275,6 +285,8 @@ void reconfig_thr_value()
 	TCSM_PCHAR(' ');
 	serial_put_hex(dmic_recommend_thr);
 	if(dmic_current_state == WAITING_TRIGGER) {
+		TCSM_PCHAR('T');
+		TCSM_PCHAR('T');
 		/* called by rtc timer, or last wakeup failed .*/
 		if(dmic_recommend_thr != 0) {
 			cur_thr_value = dmic_recommend_thr;
@@ -287,6 +299,8 @@ void reconfig_thr_value()
 		/* called only by rtc timer, we can not change thr here.
 		 * should wait dmic waiting trigger state.
 		 * */
+		TCSM_PCHAR('T');
+		TCSM_PCHAR('D');
 		dmic_recommend_thr = adjust_trigger_value(wakeup_failed_times+1, cur_thr_value);
 
 		wakeup_failed_times = 0;
@@ -326,6 +340,265 @@ int dmic_ioctl(int cmd, unsigned long args)
 
 	return 0;
 }
+
+int dmic_make_fifo_empty(void)
+{
+
+	TCSM_PCHAR('f');
+	TCSM_PCHAR('i');
+	TCSM_PCHAR('f');
+	TCSM_PCHAR('o');
+	TCSM_PCHAR('-');
+	TCSM_PCHAR('E');
+	TCSM_PCHAR('M');
+	TCSM_PCHAR('P');
+	TCSM_PCHAR('T');
+	TCSM_PCHAR('\r');
+	TCSM_PCHAR('\n');
+
+	while ( REG_DMIC_FSR & 0X3F ) {
+		volatile unsigned int data;
+		data = REG_DMIC_DR;
+		/* warning: variable 'data' set but not used [-Wunused-but-set-variable] */
+		data = data;
+	}
+
+	return 0;
+}
+
+
+
+int dmic_store_data_from_16bit_fifo_to_memory(char * buffer, int size)
+{
+	int read_bytes;
+	int fifo_cnt;
+	int iii;
+	/* unsigned int fifo_control; */
+	unsigned int fifo_state;
+	unsigned short * data_in_word; /* 16bit data */
+
+#if 0
+	/* fifo controll */
+	fifo_control = REG_DMIC_FCR;
+	TCSM_PCHAR('C');
+	serial_put_hex(fifo_control);
+#endif
+	/* fifo state */
+	fifo_state = REG_DMIC_FSR;
+	/* TCSM_PCHAR('S'); */
+	/* serial_put_hex(fifo_state); */
+	/* one channel, 16bit */
+
+	fifo_cnt = fifo_state & 0x3f;
+
+	/* overflow check, max 0x3B? */
+	if (fifo_cnt > 0x30 || (fifo_state&(1<<19))) { /* bit-19 */
+		/* fifo-over 0004003B */
+		TCSM_PCHAR('f');
+		TCSM_PCHAR('i');
+		TCSM_PCHAR('f');
+		TCSM_PCHAR('o');
+		TCSM_PCHAR('-');
+		TCSM_PCHAR('o');
+		TCSM_PCHAR('v');
+		TCSM_PCHAR('e');
+		TCSM_PCHAR('r');
+		TCSM_PCHAR(' ');
+		serial_put_hex(fifo_state);
+		TCSM_PCHAR('\r');
+		TCSM_PCHAR('\n');
+	}
+
+	fifo_cnt <<= 1;
+
+	read_bytes = fifo_cnt<<1; /* fifo 16bit sample data */
+	if (read_bytes > size) {
+		read_bytes = size;
+		fifo_cnt = read_bytes>>1;
+		read_bytes = fifo_cnt<<1;
+	}
+
+	data_in_word = (unsigned short *)buffer;
+
+	/* TCSM_PCHAR(' '); */
+	/* TCSM_PCHAR('r'); */
+	/* TCSM_PCHAR('c'); */
+	/* TCSM_PCHAR('n'); */
+	/* TCSM_PCHAR('t'); */
+	/* serial_put_hex(fifo_cnt); */
+	/* TCSM_PCHAR('\r'); TCSM_PCHAR('\n'); */
+
+	/* one channel, 16bit */
+	for (iii=0; iii<fifo_cnt; iii++) {
+		/* bytes order, endian? */
+		*data_in_word = REG_DMIC_DR;
+		/* TCSM_PCHAR('\t'); serial_put_hex(*data_in_word); */
+		/* TCSM_PCHAR('\r'); TCSM_PCHAR('\n'); */
+		data_in_word++;
+	}
+
+#if 0
+	TCSM_PCHAR(' ');
+	TCSM_PCHAR('I');
+	TCSM_PCHAR('C');
+	TCSM_PCHAR('R');
+	serial_put_hex(REG_DMIC_ICR);
+	if (1) {
+	TCSM_PCHAR('\r');
+	TCSM_PCHAR('\n');
+		fifo_cnt = 10;
+		while (fifo_cnt--) {
+			/* fifo state */
+			fifo_state = REG_DMIC_FSR;
+			TCSM_PCHAR('S');
+			serial_put_hex(fifo_state);
+			TCSM_PCHAR('\r');
+			TCSM_PCHAR('\n');
+		}
+		TCSM_PCHAR('\r');
+		TCSM_PCHAR('\n');
+	}
+
+	TCSM_PCHAR(' ');
+	TCSM_PCHAR('I');
+	TCSM_PCHAR('C');
+	TCSM_PCHAR('R');
+	serial_put_hex(REG_DMIC_ICR);
+
+	TCSM_PCHAR(' ');
+	TCSM_PCHAR('I');
+	TCSM_PCHAR('M');
+	TCSM_PCHAR('R');
+	serial_put_hex(REG_DMIC_IMR);
+
+#endif
+	return read_bytes;
+}
+
+int dmic_store_data_from_32bit_fifo_to_memory(char * buffer, int size)
+{
+	int read_bytes;
+	int fifo_cnt;
+	int iii;
+	/* unsigned int fifo_control; */
+	unsigned int fifo_state;
+	unsigned int * data_in_word; /* 16bit data */
+
+#if 0
+	/* fifo controll */
+	fifo_control = REG_DMIC_FCR;
+	TCSM_PCHAR('C');
+	serial_put_hex(fifo_control);
+#endif
+	/* fifo state */
+	fifo_state = REG_DMIC_FSR;
+	/* TCSM_PCHAR('S'); */
+	/* serial_put_hex(fifo_state); */
+	/* one channel, 16bit */
+
+	fifo_cnt = fifo_state & 0x3f;
+
+	/* overflow check, max 0x3B? */
+	if (fifo_cnt > 0x30 || (fifo_state&(1<<19))) { /* bit-19 */
+		/* fifo-over 0004003B */
+		TCSM_PCHAR('f');
+		TCSM_PCHAR('i');
+		TCSM_PCHAR('f');
+		TCSM_PCHAR('o');
+		TCSM_PCHAR('-');
+		TCSM_PCHAR('o');
+		TCSM_PCHAR('v');
+		TCSM_PCHAR('e');
+		TCSM_PCHAR('r');
+		TCSM_PCHAR(' ');
+		serial_put_hex(fifo_state);
+		TCSM_PCHAR('\r');
+		TCSM_PCHAR('\n');
+	}
+
+	fifo_cnt<<=1;		/* 64bit fifo to 32bit data */
+
+	read_bytes = fifo_cnt<<2; /* fifo 32bit sample data */
+	if (read_bytes > size) {
+		read_bytes = size;
+		fifo_cnt = read_bytes>>2;
+		read_bytes = fifo_cnt<<2;
+	}
+
+	data_in_word = (unsigned int *)buffer;
+
+	/* TCSM_PCHAR(' '); */
+	/* TCSM_PCHAR('r'); */
+	/* TCSM_PCHAR('c'); */
+	/* TCSM_PCHAR('n'); */
+	/* TCSM_PCHAR('t'); */
+	/* serial_put_hex(fifo_cnt); */
+	/* TCSM_PCHAR('\r'); TCSM_PCHAR('\n'); */
+
+	/* one channel, 16bit */
+	for (iii=0; iii<fifo_cnt; iii++) {
+		unsigned int data;
+		/* bytes order, endian? */
+		data = REG_DMIC_DR;
+		//data = ((data&0x0000ffff) <<16) | ((data &0xffff0000)>>16);
+		/* TCSM_PCHAR('\t'); serial_put_hex(data); */
+		/* TCSM_PCHAR('\r'); TCSM_PCHAR('\n'); */
+
+		*data_in_word = data;
+		data_in_word++;
+	}
+
+#if 0
+	TCSM_PCHAR(' ');
+	TCSM_PCHAR('I');
+	TCSM_PCHAR('C');
+	TCSM_PCHAR('R');
+	serial_put_hex(REG_DMIC_ICR);
+	if (1) {
+	TCSM_PCHAR('\r');
+	TCSM_PCHAR('\n');
+		fifo_cnt = 10;
+		while (fifo_cnt--) {
+			/* fifo state */
+			fifo_state = REG_DMIC_FSR;
+			TCSM_PCHAR('S');
+			serial_put_hex(fifo_state);
+			TCSM_PCHAR('\r');
+			TCSM_PCHAR('\n');
+		}
+		TCSM_PCHAR('\r');
+		TCSM_PCHAR('\n');
+	}
+
+	TCSM_PCHAR(' ');
+	TCSM_PCHAR('I');
+	TCSM_PCHAR('C');
+	TCSM_PCHAR('R');
+	serial_put_hex(REG_DMIC_ICR);
+
+	TCSM_PCHAR(' ');
+	TCSM_PCHAR('I');
+	TCSM_PCHAR('M');
+	TCSM_PCHAR('R');
+	serial_put_hex(REG_DMIC_IMR);
+
+#endif
+	return read_bytes;
+}
+
+int dmic_store_data_from_fifo_to_memory(char * buffer, int size)
+{
+#if DMIC_FIFO_BIT_WIDTH == FIFO_32BIT
+	/* 32bit fifo */
+	return dmic_store_data_from_32bit_fifo_to_memory(buffer, size);
+#else
+	/* 16bit fifo */
+	return dmic_store_data_from_16bit_fifo_to_memory(buffer, size);
+#endif
+}
+
+
+
 
 #define is_int_rtc(in)		(in & (1 << 0))
 
@@ -378,7 +651,7 @@ int dmic_handler(int pre_ints)
 
 	last_dma_count = REG_DMADTC(_dma_channel);
 
-	if(dmic_current_state == WAITING_TRIGGER) {
+	if( dmic_current_state == WAITING_TRIGGER) {
 		if(is_int_rtc(pre_ints)) {
 //			TCSM_PCHAR('F');
 			REG_DMIC_ICR |= 0x3f;
@@ -396,11 +669,15 @@ int dmic_handler(int pre_ints)
 	} else if (dmic_current_state == WAITING_DATA){
 
 	}
+
 #ifdef CONFIG_CPU_SWITCH_FREQUENCY
+	/* X1000 */
+	//TCSM_PCHAR('3');
 	ret = process_dma_data_3();
 #else
 	ret = process_dma_data_2();
 #endif
+
 	if(ret == SYS_WAKEUP_OK) {
 		return SYS_WAKEUP_OK;
 
@@ -435,7 +712,7 @@ int dmic_handler(int pre_ints)
 
 		/* change trigger mode to > N times*/
 		//REG_DMIC_TRICR |= 2 << 16;
-		//REG_DMIC_TRINMAX = 5;
+		REG_DMIC_TRINMAX = 5;
 		REG_DMIC_TRICR |= 1<<0; /*clear trigger*/
 
 
@@ -444,12 +721,137 @@ int dmic_handler(int pre_ints)
 		REG_DMIC_ICR |= 0x3f;
 		REG_DMIC_IMR &= ~(1<<0 | 1<<4);
 
-		/* reset */
-		__dmic_reset();
-		__dmic_reset_tri();
-
-
 		return SYS_WAKEUP_FAILED;
 	}
 	return SYS_WAKEUP_FAILED;
+}
+
+
+
+int dmic_handler_cpu_mode(int pre_ints)
+{
+	volatile int ret;
+	unsigned int dmic_icr;
+
+	dmic_icr = REG_DMIC_ICR;
+
+	/* TCSM_PCHAR(' '); */
+	/* TCSM_PCHAR('I'); */
+	/* TCSM_PCHAR('C'); */
+	/* TCSM_PCHAR('R'); */
+	/* serial_put_hex(dmic_icr); */
+
+	/* TCSM_PCHAR(' '); */
+	/* TCSM_PCHAR('I'); */
+	/* TCSM_PCHAR('M'); */
+	/* TCSM_PCHAR('R'); */
+	/* serial_put_hex(REG_DMIC_IMR); */
+
+	/* wrong intterrupt */
+	if ( (dmic_icr & 0xff) == 0x37) {
+		TCSM_PCHAR(' '); TCSM_PCHAR('F'); TCSM_PCHAR('S'); TCSM_PCHAR('R'); serial_put_hex(REG_DMIC_FSR);
+		REG_DMIC_ICR |= 0x3f;
+		return SYS_WAKEUP_FAILED;
+	}
+
+	//TCSM_PCHAR(' ');
+	/* wakeuped by voice trigger */
+	if ( (dmic_icr & 0x11) == 0x11) {
+		TCSM_PCHAR('1');
+		TCSM_PCHAR('1');
+		TCSM_PCHAR(' ');
+		/* turn on data path */
+
+		//REG_DMIC_CR0 |= 3<<6; /* disable data path */
+		dmic_set_samplerate(16000);
+
+		/* reset dmic */
+		__dmic_reset();
+
+		//REG_DMIC_IMR |= 1<<0 | 1<<4; /* mask wakeup ints and trigger ints */
+
+		REG_DMIC_IMR = 0x3f; /* mask wakeup ints and trigger ints */
+
+		REG_DMIC_CR0 &= ~(1<<1);     /* disable trigger function */
+
+		REG_DMIC_ICR = 0xff;
+
+		//dmic_enable();
+	}
+
+	/* wait fifo num > 0 */
+	if (1) {
+		unsigned int fifo_state;
+		do {
+			fifo_state = REG_DMIC_FSR;
+			/* TCSM_PCHAR(' '); */
+			/* TCSM_PCHAR('S'); */
+			/* serial_put_hex(fifo_state); */
+		} while ( (fifo_state&0x3f) < 1 );
+	}
+
+
+
+
+	//REG_DMIC_ICR |= 0x3f;
+
+	if(0 && dmic_current_state == WAITING_TRIGGER) {
+		if(is_int_rtc(pre_ints)) {
+//			TCSM_PCHAR('F');
+			REG_DMIC_ICR |= 0x3f;
+			REG_DMIC_IMR &= ~(1<<0 | 1<<4);
+			return SYS_WAKEUP_FAILED;
+		}
+
+		dmic_current_state = WAITING_DATA;
+		/*change trigger value to 0, make dmic wakeup cpu all the time*/
+#ifdef CONFIG_CPU_IDLE_SLEEP
+		tcu_timer_mod(ms_to_count(TCU_TIMER_MS)); /* start a timer */
+#else
+		REG_DMIC_THRL = 0;
+#endif
+	} else if (dmic_current_state == WAITING_DATA){
+
+	}
+
+	/* TCSM_PCHAR('\r'); */
+	/* TCSM_PCHAR('\n'); */
+	/* TCSM_PCHAR('C'); */
+	/* TCSM_PCHAR('P'); */
+	/* TCSM_PCHAR('U'); */
+	ret = voice_wakeup_process_data_cpu_mode(NULL);
+	/* TCSM_PCHAR('\r'); */
+	/* TCSM_PCHAR('\n'); */
+
+	/* TCSM_PCHAR(' '); */
+	/* TCSM_PCHAR('I'); */
+	/* TCSM_PCHAR('C'); */
+	/* TCSM_PCHAR('R'); */
+	/* serial_put_hex(REG_DMIC_ICR); */
+
+
+	/* dmic_make_fifo_empty(); */
+
+
+	//REG_DMIC_IMR = 0x11;
+	//REG_DMIC_ICR |= 0x3f;
+
+	/* TCSM_PCHAR(' '); */
+	/* TCSM_PCHAR('I'); */
+	/* TCSM_PCHAR('M'); */
+	/* TCSM_PCHAR('R'); */
+	/* serial_put_hex(REG_DMIC_IMR); */
+	/* TCSM_PCHAR('\r'); */
+	/* TCSM_PCHAR('\n'); */
+
+
+	/* *************************** */
+	/* *************************** */
+	/* *************************** */
+	return ret;
+	/* *************************** */
+	/* *************************** */
+	/* *************************** */
+	/* *************************** */
+
 }

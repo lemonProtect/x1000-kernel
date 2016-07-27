@@ -23,6 +23,7 @@ extern int dmic_enable(void);
 extern int dmic_disable(void);
 
 extern int dmic_handler(int);
+extern int dmic_handler_cpu_mode(int);
 
 extern void reconfig_thr_value();
 
@@ -38,6 +39,9 @@ extern int dmic_ioctl(int, unsigned long);
 extern int cpu_should_sleep(void);
 
 extern int dmic_disable_tri(void);
+
+extern int dmic_store_data_from_fifo_to_memory(char * buffer, int size);
+
 #endif
 
 

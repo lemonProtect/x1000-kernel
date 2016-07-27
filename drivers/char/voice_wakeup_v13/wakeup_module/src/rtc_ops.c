@@ -147,6 +147,33 @@ int rtc_set_alarm(unsigned long alarm_seconds)
 	jzrtc_setl(RTC_HWCR,HWCR_EALM);
 	return 0;
 }
+
+int rtc_set_alarm_and_polling_rtc_alarm_flag(unsigned long alarm_seconds)
+{
+	int ret;
+	unsigned int rtc_state;
+	ret = rtc_set_alarm(alarm_seconds);
+
+	TCSM_PCHAR('\r');
+	TCSM_PCHAR('\n');
+	/* wait alarm flag */
+	do {
+		rtc_state = jzrtc_readl(RTC_RTCCR);
+		TCSM_PCHAR('R');
+		TCSM_PCHAR('T');
+		TCSM_PCHAR('C');
+		TCSM_PCHAR(' ');
+		serial_put_hex(rtc_state);
+		TCSM_PCHAR('\r');
+		TCSM_PCHAR('\n');
+
+	} while (!(rtc_state&(1<<4)));
+
+	return ret;
+}
+
+
+
 int rtc_init(void)
 {
 

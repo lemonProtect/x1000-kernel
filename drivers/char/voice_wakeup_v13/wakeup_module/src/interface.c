@@ -45,7 +45,8 @@ static int voice_wakeup_enabled = 0;
 static int dmic_record_enabled = 0;
 static unsigned int rtc_count = 0;
 static unsigned int dmic_working = 0;
-
+int g_dma_mode = 0;
+static int g_dmic_current_working_mode = 0;
 
 #ifdef INTERFACE_VOICE_DEBUG
 void dump_voice_wakeup(void)
@@ -66,6 +67,22 @@ void dump_voice_wakeup(void)
 
 int open(int mode)
 {
+
+
+	/* rtc irq test */
+	if (0 && mode == DEEP_SLEEP ) {
+		g_dma_mode = CPU_MODE;
+		/* DEEP_SLEEP */
+		dmic_disable_tri();
+		dmic_disable();
+		rtc_set_alarm_and_polling_rtc_alarm_flag(1);
+		return 0;
+	}
+
+	if ( g_dmic_current_working_mode == mode) {
+		return 0;
+	}
+
 	switch (mode) {
 	case EARLY_SLEEP:
 		break;
@@ -74,6 +91,11 @@ int open(int mode)
 		if(!voice_wakeup_enabled) {
 			return 0;
 		}
+#if DMIC_USE_DMA
+		g_dma_mode = DMA_MODE;
+#else
+		g_dma_mode = CPU_MODE;
+#endif
 		rtc_init();
 		dmic_init_mode(DEEP_SLEEP);
 		wakeup_open();
@@ -95,6 +117,7 @@ int open(int mode)
 		dmic_record_enabled = 1;
 		break;
 	case NORMAL_WAKEUP:
+		g_dma_mode = DMA_MODE;
 		wakeup_open();
 		dmic_init_mode(NORMAL_RECORD);
 		break;
@@ -102,16 +125,43 @@ int open(int mode)
 		printk("%s:bad open mode\n", TAG);
 		break;
 	}
-	dma_config_normal();
-	dma_start(_dma_channel);
-	dmic_enable();
+
+	if (g_dma_mode == DMA_MODE) { /* DMIC_USE_DMA	dma */
+		dma_config_normal();
+		dma_start(_dma_channel);
+	}
+	else {
+		dma_stop(_dma_channel);
+		/* dma_close(); ??? */
+	}
+
+	if ( mode != DEEP_SLEEP ) {
+		dmic_enable();
+	}
+	else {
+		/* DEEP_SLEEP */
+		/* if ( g_dmic_current_working_mode != mode) { */
+		/* 	rtc_set_alarm_and_polling_rtc_alarm_flag(1); */
+		/* } */
+	}
+
 	open_cnt++;
+
+	g_dmic_current_working_mode = mode;
+
 	printk("module open open_cnt = %d\n",open_cnt);
 	return 0;
 }
 int close(int mode)
 {
-	printk("module close open_cnt = %d\n",open_cnt);
+
+	/* if ( g_dmic_current_working_mode != mode) { */
+	/* 	return 0; */
+	/* } */
+
+	g_dmic_current_working_mode = -1;
+
+	printk("module close open_cnt = %d\n", open_cnt);
 	/* MASK INTC*/
 	if(mode == DEEP_SLEEP) {
 		if(voice_wakeup_enabled) {
@@ -124,6 +174,17 @@ int close(int mode)
 #ifdef INTERFACE_VOICE_DEBUG
 			dump_voice_wakeup();
 #endif
+
+			/* resume dma */
+			if (g_dma_mode == CPU_MODE) { /* DMIC_USE_DMA	dma */
+				g_dma_mode = DMA_MODE;
+				wakeup_open();
+				dmic_init_mode(NORMAL_RECORD);
+				dma_config_normal();
+				dma_start(_dma_channel);
+				dmic_enable();
+			}
+
 		} else {
 			return 0;
 		}
@@ -154,6 +215,13 @@ static inline void cpu_deep_sleep(void)
 	unsigned int opcr;
 	unsigned int val;
 	unsigned int lcr;
+
+	TCSM_PCHAR('D');
+	TCSM_PCHAR('s');
+	TCSM_PCHAR('l');
+	TCSM_PCHAR('p');
+	TCSM_PCHAR('\r');
+	TCSM_PCHAR('\n');
 
 	/* cpu enter sleep */
 	lcr = REG32(CPM_IOBASE + CPM_LCR);
@@ -205,6 +273,13 @@ static inline void cpu_normal_sleep(void)
 	unsigned int opcr;
 	unsigned int lcr;
 
+	/* TCSM_PCHAR('N'); */
+	/* TCSM_PCHAR('s'); */
+	/* TCSM_PCHAR('l'); */
+	/* TCSM_PCHAR('p'); */
+	/* TCSM_PCHAR('\r'); */
+	/* TCSM_PCHAR('\n'); */
+
 	/* cpu enter sleep */
 	lcr = REG32(CPM_IOBASE + CPM_LCR);
 	lcr &= ~(3|(0xfff<<8));
@@ -235,6 +310,13 @@ static inline void cpu_idle(void)
 {
 	unsigned int val;
 
+	/* TCSM_PCHAR('I'); */
+	/* TCSM_PCHAR('D'); */
+	/* TCSM_PCHAR('L'); */
+	/* TCSM_PCHAR('E'); */
+	/* TCSM_PCHAR('\r'); */
+	/* TCSM_PCHAR('\n'); */
+
 	/* cpu enter sleep */
 	val = REG32(CPM_IOBASE + CPM_LCR);
 	val &= ~(3);
@@ -263,21 +345,39 @@ static inline void cpu_idle(void)
 #define INTC0_MASK	0xfBfffffe
 #define INTC1_MASK	0xfffffffe
 #define RTC_IRQ         (0x1 << 0)
+#define DMIC_IRQ        (0x1 << 0)
+
 /* desc: this function is only called when cpu is in deep sleep
  * @par: no use.
  * @return : SYS_WAKEUP_OK, SYS_WAKEUP_FAILED.
  * */
-int handler(int par)
+static int dma_mode_handler(int par)
 {
 	volatile int ret;
 	volatile unsigned int int0;
 	volatile unsigned int int1;
 
+	//TCSM_PCHAR('H');
+
 	rtc_set_alarm(ALARM_VALUE);
 
 	while(1) {
+		//TCSM_PCHAR('w'); //TCSM_PCHAR('\r');TCSM_PCHAR('\n');
+
 		int0 = REG32(0xb0001010);
 		int1 = REG32(0xb0001030);
+#if 0
+		TCSM_PCHAR('\r');
+		TCSM_PCHAR('\n');
+		TCSM_PCHAR('i');
+		TCSM_PCHAR('r');
+		TCSM_PCHAR('p');
+		TCSM_PCHAR(' ');
+		serial_put_hex(int0);
+		TCSM_PCHAR(' ');
+		serial_put_hex(int1);
+		TCSM_PCHAR(' ');
+#endif
 
 		if((int0 & INTC0_MASK) || (int1 & INTC1_MASK)) {
 			/* serial_put_hex(REG32(0xb0001010)); */
@@ -286,6 +386,7 @@ int handler(int par)
 			ret = SYS_WAKEUP_OK;
 			break;
 		}
+
 		/* RTC interrupt pending */
 		if(int1 & RTC_IRQ) {
 			TCSM_PCHAR('R');
@@ -307,17 +408,17 @@ int handler(int par)
 					if(cpu_should_sleep()) {
 						rtc_count = 0;
 						rtc_exit();
-						/* TCSM_PCHAR('D'); */
-						/* TCSM_PCHAR('\r'); */
-						/* TCSM_PCHAR('\n'); */
+						TCSM_PCHAR('D');
+						TCSM_PCHAR('\r');
+						TCSM_PCHAR('\n');
 						cpu_deep_sleep();
 					}
 				} else {
 					if(cpu_should_sleep()) {
-						/* TCSM_PCHAR('N'); */
-						/* TCSM_PCHAR('T'); */
-						/* TCSM_PCHAR('\r'); */
-						/* TCSM_PCHAR('\n'); */
+						TCSM_PCHAR('N');
+						TCSM_PCHAR('T');
+						TCSM_PCHAR('\r');
+						TCSM_PCHAR('\n');
 						cpu_normal_sleep();
 						if(REG32(0xb0001030) & RTC_IRQ)
 							continue;
@@ -335,6 +436,7 @@ int handler(int par)
 			tcu_timer_handler();
 		}
 #endif
+		//TCSM_PCHAR('D');
 		ret = dmic_handler(int1);
 		if(ret == SYS_WAKEUP_OK) {
 			cpu_wakeup_by = WAKEUP_BY_DMIC;
@@ -351,15 +453,15 @@ int handler(int par)
 #endif
 		} else if(ret == SYS_WAKEUP_FAILED) {
 			rtc_count = 0;
-			/* TCSM_PCHAR('F'); */
-			/* TCSM_PCHAR('0'); */
-			/* TCSM_PCHAR('\r'); */
-			/* TCSM_PCHAR('\n'); */
+			TCSM_PCHAR('F');
+			TCSM_PCHAR('0');
+			TCSM_PCHAR('\r');
+			TCSM_PCHAR('\n');
 			if(cpu_should_sleep()) {
 				dmic_working = 0;
-				/* TCSM_PCHAR('N'); */
-				/* TCSM_PCHAR('\r'); */
-				/* TCSM_PCHAR('\n'); */
+				TCSM_PCHAR('N');
+				TCSM_PCHAR('\r');
+				TCSM_PCHAR('\n');
 				cpu_normal_sleep();
 			}
 		}
@@ -373,8 +475,160 @@ int handler(int par)
 #endif
 	}
 
+	TCSM_PCHAR('R');
 	return ret;
 }
+
+
+static int cpu_mode_handler(int par)
+{
+	volatile int ret;
+	volatile unsigned int int0;
+	volatile unsigned int int1;
+
+	//TCSM_PCHAR('H');
+
+	/* rtc irq wakeup test */
+	if (0) {
+
+		int0 = REG32(0xb0001010);
+		int1 = REG32(0xb0001030);
+
+		TCSM_PCHAR('i');
+		TCSM_PCHAR('r');
+		TCSM_PCHAR('p');
+		TCSM_PCHAR(' ');
+		serial_put_hex(int0);
+		TCSM_PCHAR(' ');
+		serial_put_hex(int1);
+		TCSM_PCHAR('\r');
+		TCSM_PCHAR('\n');
+
+		//return SYS_WAKEUP_OK;
+		return SYS_NEED_DATA;
+
+		rtc_set_alarm_and_polling_rtc_alarm_flag(1);
+
+		return SYS_NEED_DATA;
+	}
+
+	//rtc_set_alarm(ALARM_VALUE);
+
+
+	do {
+#if 0
+	TCSM_PCHAR('W');
+		int0 = REG32(0xb0001000);
+		int1 = REG32(0xb0001020);
+
+		TCSM_PCHAR('\r');
+		TCSM_PCHAR('\n');
+
+		TCSM_PCHAR('i');
+		TCSM_PCHAR('r');
+		TCSM_PCHAR('s');
+		TCSM_PCHAR(' ');
+		serial_put_hex(int0);
+		TCSM_PCHAR(' ');
+		serial_put_hex(int1);
+		TCSM_PCHAR(' ');
+#endif
+		int0 = REG32(0xb0001010);
+		int1 = REG32(0xb0001030);
+
+#if 0
+		TCSM_PCHAR('i');
+		TCSM_PCHAR('r');
+		TCSM_PCHAR('p');
+		TCSM_PCHAR(' ');
+		serial_put_hex(int0);
+		TCSM_PCHAR(' ');
+		serial_put_hex(int1);
+		TCSM_PCHAR(' ');
+#endif
+		if((int0 & INTC0_MASK) || (int1 & INTC1_MASK)) {
+			/* serial_put_hex(REG32(0xb0001010)); */
+			/* serial_put_hex(REG32(0xb0001030)); */
+			cpu_wakeup_by = WAKEUP_BY_OTHERS;
+			ret = SYS_WAKEUP_OK;
+			break;
+		}
+
+		/* if( !(int0 & DMIC_IRQ) ) { */
+		/* 	ret = SYS_NEED_DATA; */
+		/* 	break; */
+		/* } */
+
+		/* RTC interrupt pending */
+		if(0 && int1 & RTC_IRQ) {
+			TCSM_PCHAR('R');
+			TCSM_PCHAR('T');
+			TCSM_PCHAR('C');
+			TCSM_PCHAR('\r');
+			TCSM_PCHAR('\n');
+			ret = rtc_int_handler();
+			if(ret == SYS_TIMER) {
+				/* serial_put_hex(REG32(0xb0001010)); */
+				/* serial_put_hex(REG32(0xb0001030)); */
+				ret = SYS_WAKEUP_OK;
+				cpu_wakeup_by = WAKEUP_BY_OTHERS;
+				break;
+			} else if (ret == DMIC_TIMER) {
+				if(dmic_working)
+					continue;
+			}
+		}
+
+		/* TCSM_PCHAR('\r'); */
+		/* TCSM_PCHAR('\n'); */
+		ret = dmic_handler_cpu_mode(int1);
+		if(ret == SYS_WAKEUP_OK) {
+			TCSM_PCHAR('O');
+			TCSM_PCHAR('K');
+			TCSM_PCHAR('\r');
+			TCSM_PCHAR('\n');
+			cpu_wakeup_by = WAKEUP_BY_DMIC;
+			break;
+		} else if(ret == SYS_NEED_DATA){
+			dmic_working ++;
+		} else if(ret == SYS_WAKEUP_FAILED) {
+			rtc_count = 0;
+			TCSM_PCHAR('F');
+			TCSM_PCHAR('0');
+			TCSM_PCHAR('\r');
+			TCSM_PCHAR('\n');
+		}
+
+	} while(1);
+
+	if(ret == SYS_WAKEUP_OK) {
+		rtc_count = 0;
+		rtc_exit();
+#ifdef CONFIG_CPU_IDLE_SLEEP
+		tcu_timer_release(tcu_channel);
+#endif
+	}
+
+	//TCSM_PCHAR('R');
+	return ret;
+}
+
+
+int handler(int par)
+{
+	int ret;
+	if (g_dma_mode == DMA_MODE) {
+		ret = dma_mode_handler(par);
+	}
+	else {
+		ret = cpu_mode_handler(par);
+	}
+
+	return ret;
+}
+
+
+
 
 int set_handler(void *handler)
 {
@@ -436,7 +690,7 @@ int is_cpu_wakeup_by_dmic(void)
 	return cpu_wakeup_by == WAKEUP_BY_DMIC ? 1 : 0;
 }
 
-/* used by wakeup driver when earyl sleep. */
+/* used by wakeup driver when early sleep. */
 int set_sleep_buffer(struct sleep_buffer *sleep_buffer)
 {
 	g_sleep_buffer = sleep_buffer;
@@ -479,6 +733,7 @@ int get_sleep_process(void)
 	wakeup_reset_fifo();
 
 	dma_start(_dma_channel);
+
 	return ret;
 }
 
@@ -519,6 +774,9 @@ int module_init(void)
 	g_sleep_buffer = NULL;
 	voice_wakeup_enabled = 0;
 	dmic_record_enabled = 0;
+
+	g_dma_mode = DMA_MODE;
+
 	return 0;
 }
 

@@ -160,8 +160,11 @@ void dma_config_normal(void)
 	config.channel = dma_channel;
 	config.increment = 1; /*src no inc, dst inc*/
 	config.rdil = 64;
+#if DMIC_FIFO_BIT_WIDTH == FIFO_32BIT
 	config.sp_dp = 0x0; /*32bit*/
-	//config.sp_dp = 0xa; /*16bit*/
+#else
+	config.sp_dp = 0xa; /*16bit*/
+#endif
 	config.stde = 0;
 	config.descriptor = 1;
 	config.des8 = 1;

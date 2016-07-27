@@ -7,6 +7,7 @@
 #include "jz_dma.h"
 #include "circ_buf.h"
 #include "dmic_config.h"
+#include "dmic_ops.h"
 #include "interface.h"
 #include "voice_wakeup.h"
 #include <common.h>
@@ -52,8 +53,8 @@ int send_data_to_process(ivPointer pIvwObj, unsigned char *pdata, unsigned int s
 	ivStatus iStatus2;
 	Samples = 110;
 
-//	serial_put_hex(size);
-//	TCSM_PCHAR('D');
+	//serial_put_hex(size);
+	//TCSM_PCHAR('D');
 //	serial_put_hex(*(volatile unsigned int*)pData);
 	BytesPerSample = 2;
 	nSamples_count = nSize_PCM / (Samples * BytesPerSample);
@@ -194,6 +195,9 @@ int wakeup_open(void)
 	}
 	xfer->tail = xfer->head;
 
+	if ( g_dma_mode == CPU_MODE)
+		xfer->tail = xfer->head = 0;
+
 	//printk("pdma_trans_addr:%x, xfer->buf:%x, xfer->head:%x, xfer->tail:%x\n",pdma_trans_addr(_dma_channel, 2), xfer->buf, xfer->head, xfer->tail);
 	return 0;
 }
@@ -203,6 +207,56 @@ int wakeup_close(void)
 
 	return 0;
 }
+
+int receive_data_from_fifo(void *dmic)
+{
+	char * buffer;
+	int nbytes;
+	struct circ_buf *xfer;
+
+	xfer = &rx_fifo->xfer;
+	buffer = xfer->buf + xfer->head;
+	nbytes = rx_fifo->n_size- xfer->head;
+
+	/* TCSM_PCHAR('B'); */
+	/* serial_put_hex(nbytes); */
+
+	nbytes = dmic_store_data_from_fifo_to_memory(buffer, nbytes);
+
+	xfer->head += nbytes;
+
+	return nbytes;
+}
+
+int voice_wakeup_process_data_cpu_mode(void * dmic)
+{
+	int nbytes;
+	struct circ_buf * xfer;
+	int ret;
+
+	/* TCSM_PCHAR('C'); */
+
+	ret = SYS_NEED_DATA;
+	xfer = &rx_fifo->xfer;
+
+	nbytes = receive_data_from_fifo(NULL);
+	nbytes = CIRC_CNT(xfer->head, xfer->tail, rx_fifo->n_size);
+
+	/* TCSM_PCHAR('N'); */
+	/* TCSM_PCHAR('B'); */
+	/* serial_put_hex(nbytes); */
+	if(nbytes >= PROCESS_BYTES_PER_TIME) {
+		char * buffer;
+
+		buffer = xfer->buf;
+		ret = process_buffer_data((unsigned char *)buffer, (unsigned long)nbytes);
+		xfer->head = xfer->tail = 0;
+	}
+
+	return ret;
+}
+
+
 
 #ifdef CONFIG_CPU_SWITCH_FREQUENCY
 int get_valid_bytes()
@@ -235,6 +289,7 @@ int process_nbytes(int nbytes)
 		} else if(nread == 0) {
 			break;
 		}
+		//TCSM_PCHAR('P');
 		ret = send_data_to_process(pIvwObj, (unsigned char *)xfer->buf + xfer->tail, nread);
 		if(ret == IvwErr_WakeUp) {
 			return SYS_WAKEUP_OK;
@@ -338,7 +393,7 @@ int process_dma_data(void)
 
 	nbytes = CIRC_CNT(xfer->head, xfer->tail, rx_fifo->n_size);
 
-	//printk("xfer->head:%d, xfer->tail:%d, nbyts:%d\n", xfer->head, xfer->tail, nbytes);
+	//printk("xfer->head:%d, xfer->tail:%d, nbytes:%d\n", xfer->head, xfer->tail, nbytes);
 	if(nbytes > 220) {
 		while(1) {
 			int nread;

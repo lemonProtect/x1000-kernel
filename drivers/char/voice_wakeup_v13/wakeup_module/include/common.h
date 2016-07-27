@@ -111,8 +111,25 @@ while(0)
 /*#define CONFIG_CPU_IDLE_SLEEP*/
 #define CONFIG_CPU_SWITCH_FREQUENCY
 
+/*
+  0: use cpu process data in deep sleep
+  1: use dma process data in deep sleep
+ */
+//#define DMIC_USE_DMA 0
+#define DMIC_USE_DMA 1
 
+enum {
+	CPU_MODE,
+	DMA_MODE
+};
 
+extern int g_dma_mode;
+
+#define FIFO_16BIT 16
+#define FIFO_32BIT 32
+
+/* #define DMIC_FIFO_BIT_WIDTH FIFO_16BIT */
+#define DMIC_FIFO_BIT_WIDTH FIFO_32BIT
 
 
 #endif /* __COMMON_H__ */
