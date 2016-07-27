@@ -201,7 +201,6 @@ static unsigned  int sfc_do_write(struct sfc_flash *flash,u8 command,unsigned in
 	transfer[1].data = buf;
 	transfer[1].ops_mode = DMA_OPS;
 	transfer[1].sfc_mode = sfc_transfer_mode;
-	sfc_message_add_tail(&transfer[0], &message);
 	transfer[1].direction = GLB_TRAN_DIR_WRITE;
 	transfer[1].cmd_info = &cmd[1];
 	sfc_message_add_tail(&transfer[1], &message);
