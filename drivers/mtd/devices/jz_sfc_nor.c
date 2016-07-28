@@ -283,7 +283,7 @@ static int sfc_flash_set_quad_mode(struct sfc_flash *flash)
 		ret=-EIO;
 	}
 
-	sfc_transfer_mode = TM_QI_QO_SPI;
+	sfc_transfer_mode = flash->flash_info->quad_mode->sfc_mode;
 	return 0;
 }
 #endif
@@ -293,7 +293,7 @@ static int sfc_write(struct sfc_flash *flash,loff_t to,size_t len, const unsigne
 	int dummy_byte = 0;
 
 #ifdef CONFIG_SPI_QUAD
-	if(sfc_transfer_mode == TM_QI_QO_SPI){
+	if((sfc_transfer_mode == TM_QI_QO_SPI) || (sfc_transfer_mode == TM_QIO_SPI) || (sfc_transfer_mode == TM_FULL_QIO_SPI)){
 		command = SPINOR_OP_QPP;
 	}
 	else{
@@ -317,7 +317,7 @@ static int sfc_read(struct sfc_flash *flash, loff_t from, size_t len, unsigned c
 
 
 #ifdef CONFIG_SPI_QUAD
-	if(sfc_transfer_mode == TM_QI_QO_SPI){
+	if((sfc_transfer_mode == TM_QI_QO_SPI) || (sfc_transfer_mode == TM_QIO_SPI) || (sfc_transfer_mode == TM_FULL_QIO_SPI)){
 		command = flash->flash_info->quad_mode->cmd_read;
 		dummy_byte = flash->flash_info->quad_mode->dummy_byte;
 	}
@@ -754,7 +754,7 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 #endif
 
 #ifdef CONFIG_SPI_QUAD
-	if(sfc_transfer_mode == TM_DI_DO_SPI)
+	if((sfc_transfer_mode == TM_QI_QO_SPI) || (sfc_transfer_mode == TM_QIO_SPI) || (sfc_transfer_mode == TM_FULL_QIO_SPI))
 		dev_info(&pdev->dev,"the flash->flash_info->quad_mode = %x\n",flash->flash_info->quad_mode->cmd_read);
 #endif
 	jz_mtd_partition = flash->flash_info->mtd_partition;
