@@ -273,12 +273,12 @@ static inline void cpu_normal_sleep(void)
 	unsigned int opcr;
 	unsigned int lcr;
 
-	/* TCSM_PCHAR('N'); */
-	/* TCSM_PCHAR('s'); */
-	/* TCSM_PCHAR('l'); */
-	/* TCSM_PCHAR('p'); */
-	/* TCSM_PCHAR('\r'); */
-	/* TCSM_PCHAR('\n'); */
+	TCSM_PCHAR('N');
+	TCSM_PCHAR('s');
+	TCSM_PCHAR('l');
+	TCSM_PCHAR('p');
+	TCSM_PCHAR('\r');
+	TCSM_PCHAR('\n');
 
 	/* cpu enter sleep */
 	lcr = REG32(CPM_IOBASE + CPM_LCR);
@@ -378,6 +378,11 @@ static int dma_mode_handler(int par)
 		serial_put_hex(int1);
 		TCSM_PCHAR(' ');
 #endif
+		/* wakeup by rtc alarm, but irq miss. */
+		if ( int0 == 0 && int1 == 0 ) {
+			//int1 = RTC_IRQ;
+			//cpu_deep_sleep();
+		}
 
 		if((int0 & INTC0_MASK) || (int1 & INTC1_MASK)) {
 			/* serial_put_hex(REG32(0xb0001010)); */
@@ -428,13 +433,14 @@ static int dma_mode_handler(int par)
 		}
 
 #ifdef CONFIG_CPU_IDLE_SLEEP
-		if(REG32(0xb0001010) & (1 << 27)) {
-			tcu_timer_handler();
-		} else if(REG32(0xb0001010) & (1 << 26)) {
-			tcu_timer_handler();
-		} else if(REG32(0xb0001010) & (1 << 25)) {
+#define TCU0_MASK (1<<27)
+#define TCU1_MASK (1<<26)
+#define TCU2_MASK (1<<25)
+
+		if(int0 & TCU1_MASK) {
 			tcu_timer_handler();
 		}
+
 #endif
 		//TCSM_PCHAR('D');
 		ret = dmic_handler(int1);
@@ -443,14 +449,7 @@ static int dma_mode_handler(int par)
 			break;
 		} else if(ret == SYS_NEED_DATA){
 			dmic_working ++;
-#ifdef CONFIG_CPU_IDLE_SLEEP
-			cpu_idle();
-#else
-			if(cpu_should_sleep())
-				cpu_normal_sleep();
-			else
-				cpu_idle();
-#endif
+			cpu_idle(); /* wait dmic fifo or tcu timer */
 		} else if(ret == SYS_WAKEUP_FAILED) {
 			rtc_count = 0;
 			TCSM_PCHAR('F');

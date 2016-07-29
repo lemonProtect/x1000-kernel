@@ -157,7 +157,7 @@ int dmic_init_mode(int mode)
 #endif
 			REG_DMIC_CR0 |= 1<<2; /*hpf1en*/
 
-			dmic_set_channel(1);
+			dmic_set_channel(1); /* mono channel */
 
 #if DMIC_USE_DMA
 			/* dma burst 128bytes = 32 DATA (32bit) = 16 fifo (64bit) */
@@ -174,6 +174,8 @@ int dmic_init_mode(int mode)
 			REG_DMIC_IMR &= ~(1 << 0);/*enable tri int*/
 			REG_DMIC_IMR &= ~(1 << 4);/*enable tri int*/
 
+			//dmic_set_samplerate(16000);
+			REG_DMIC_CR0 |= 1<<6; /* 16k samplerate */
 
 			/* ******************************************** */
 			/* trigger application path */
@@ -185,20 +187,20 @@ int dmic_init_mode(int mode)
 
 			/* trigger configuration */
 			REG_DMIC_THRL = cur_thr_value;/*SET A MIDDLE THR_VALUE, AS INIT */
+			REG_DMIC_TRICR = 0; /* clear first */
 			REG_DMIC_TRICR	|= 1 <<3; /*hpf2 en*/
 			REG_DMIC_TRICR	|= 2 << 1; /* prefetch 16k*/
+			//REG_DMIC_TRICR	|= 1 << 1; /* prefetch 8k */
+			//REG_DMIC_TRICR	|= 0 << 1; /* disable prefetch */
 
-#ifdef CONFIG_CPU_IDLE_SLEEP
-			/* trigger mode config */
-			REG_DMIC_TRICR &= ~(0xf << 16); /* tri mode: larger than thr trigger.*/
-#else
-			REG_DMIC_TRICR &= ~(0xf << 16);
+			//REG_DMIC_TRICR &= ~(0xf << 16);
 			REG_DMIC_TRICR |= 2<<16;
 			REG_DMIC_TRINMAX = 5;
 			REG_DMIC_TRIMMAX = 3000000;
-#endif
 
-			REG_DMIC_CR0 |= (3<<6); /* disable data path */
+			/* disable data path */
+			REG_DMIC_CR0 |= (3<<6);
+			/* data path always on ???*/
 
 			/* reset */
 			__dmic_reset();
@@ -232,6 +234,7 @@ int dmic_init_mode(int mode)
 
 			REG_DMIC_CR0 |= 1<<2; /*hpf1en*/
 
+			REG_DMIC_TRICR = 0; /* clear first */
 			REG_DMIC_TRICR &= ~(0xf << 16);
 			REG_DMIC_TRICR |= 0 << 16; /*trigger mode*/
 			REG_DMIC_TRICR	|= 1 <<3; /*hpf2 en*/
@@ -305,6 +308,7 @@ void reconfig_thr_value()
 
 		wakeup_failed_times = 0;
 	}
+	TCSM_PCHAR(' ');
 }
 
 int dmic_set_samplerate(unsigned long rate)
@@ -620,33 +624,57 @@ int dmic_handler(int pre_ints)
 	TCSM_PCHAR('M');
 	TCSM_PCHAR('R');
 	serial_put_hex(REG_DMIC_IMR);
+	TCSM_PCHAR('\t');
 #endif
 	//TCSM_PCHAR(' ');
+
 	/* wakeuped by voice trigger */
-	if ( (dmic_icr & 0x11) == 0x11) {
-		TCSM_PCHAR('1');
-		TCSM_PCHAR('1');
+	//if ( (dmic_icr & 0x11) == 0x11) {
+	if ( (dmic_icr & 0x01) ) { /* check trigger flag */
+		TCSM_PCHAR(' ');
+		TCSM_PCHAR('T');
+		TCSM_PCHAR('R');
+		TCSM_PCHAR('G');
 		TCSM_PCHAR(' ');
 		/* turn on data path */
 
-		//REG_DMIC_CR0 |= 3<<6; /* disable data path */
+		/* data path always on */
 		dmic_set_samplerate(16000);
 
 		/* reset dmic */
-		__dmic_reset();
+		//__dmic_reset(); /* after reset dmic, cost 40ms waiting fifo level. */
 
-		REG_DMIC_IMR |= 1<<0 | 1<<4; /* mask wakeup ints and trigger ints */
+		/* use 40ms timer wakeup cpu, so mask all dmic irqs */
 
+		//REG_DMIC_IMR |= 1<<0 | 1<<4; /* mask wakeup ints and trigger ints */
 		//REG_DMIC_IMR = 0x1b; /* mask wakeup ints and trigger ints */
 		//REG_DMIC_IMR = 0x0b; /* mask wakeup ints and trigger ints */
-		REG_DMIC_IMR = 0x1f; /* mask all ints except fifo level trigger that wakeup cpu */
-		//REG_DMIC_IMR = 0x3f; /* mask all ints */
+		//REG_DMIC_IMR = 0x1f; /* mask all ints except fifo level trigger that wakeup cpu */
+		REG_DMIC_IMR = 0x3f; /* mask all ints */
+
+
 
 		REG_DMIC_CR0 &= ~(1<<1);     /* disable trigger function */
 
-		REG_DMIC_ICR = 0xff;
+		REG_DMIC_ICR = 0xff; /* clear irq flags */
 
 		//dmic_enable();
+
+		/* wait fifo num > 0 */
+		if (0) {
+			unsigned int fifo_state;
+			do {
+				fifo_state = REG_DMIC_FSR;
+				TCSM_PCHAR('\r');
+				TCSM_PCHAR('\n');
+				TCSM_PCHAR(' ');
+				TCSM_PCHAR('S');
+				serial_put_hex(fifo_state);
+			} while ( (fifo_state&0x3f) < 10 );
+			TCSM_PCHAR('\r');
+			TCSM_PCHAR('\n');
+		}
+
 	}
 
 	last_dma_count = REG_DMADTC(_dma_channel);
@@ -679,15 +707,16 @@ int dmic_handler(int pre_ints)
 #endif
 
 	if(ret == SYS_WAKEUP_OK) {
+		REG_DMIC_IMR = 0x3f; /* mask all ints */
+		REG_DMIC_ICR = 0x3f; /* clear irq flags */
+
 		return SYS_WAKEUP_OK;
 
 	} else if(ret == SYS_NEED_DATA) {
-#ifdef CONFIG_CPU_IDLE_SLEEP
-		/* do nothing */
-#else
-		//REG_DMIC_TRINMAX = 5;
-		//REG_DMIC_CR0 |= 1 << 6; /* 2 channel stereo??? */
-		//REG_DMIC_IMR &= ~( 1<<4 | 1<<0);
+#ifdef CONFIG_CPU_SWITCH_FREQUENCY
+		/* wakeup cpu by fifo trigger */
+		REG_DMIC_IMR &= ~( 1<<5); /* fifo trigger irq */
+		REG_DMIC_ICR = 0x3f; /* clear irq flags */
 #endif
 		last_dma_count = REG_DMADTC(_dma_channel);
 		return SYS_NEED_DATA;
@@ -766,7 +795,7 @@ int dmic_handler_cpu_mode(int pre_ints)
 		dmic_set_samplerate(16000);
 
 		/* reset dmic */
-		__dmic_reset();
+		//__dmic_reset();
 
 		//REG_DMIC_IMR |= 1<<0 | 1<<4; /* mask wakeup ints and trigger ints */
 
@@ -780,13 +809,13 @@ int dmic_handler_cpu_mode(int pre_ints)
 	}
 
 	/* wait fifo num > 0 */
-	if (1) {
+	if (0) {
 		unsigned int fifo_state;
 		do {
 			fifo_state = REG_DMIC_FSR;
-			/* TCSM_PCHAR(' '); */
-			/* TCSM_PCHAR('S'); */
-			/* serial_put_hex(fifo_state); */
+			TCSM_PCHAR(' ');
+			TCSM_PCHAR('S');
+			serial_put_hex(fifo_state);
 		} while ( (fifo_state&0x3f) < 1 );
 	}
 
