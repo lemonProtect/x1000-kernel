@@ -2,7 +2,8 @@
 #define __TCU_TIMER_H__
 
 
-#define TCU_TIMER_MS	(30)
+//#define TCU_TIMER_MS	(30)  /* actually 20ms */
+#define TCU_TIMER_MS	(40*3/2) /* actually 40ms */
 
 
 extern unsigned long ms_to_count(unsigned long ms);

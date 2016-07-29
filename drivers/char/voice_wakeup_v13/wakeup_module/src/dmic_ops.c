@@ -194,7 +194,7 @@ int dmic_init_mode(int mode)
 			//REG_DMIC_TRICR	|= 0 << 1; /* disable prefetch */
 
 			//REG_DMIC_TRICR &= ~(0xf << 16);
-			REG_DMIC_TRICR |= 2<<16;
+			REG_DMIC_TRICR |= 2<<16; /* trigger mode 2 */
 			REG_DMIC_TRINMAX = 5;
 			REG_DMIC_TRIMMAX = 3000000;
 
@@ -644,21 +644,15 @@ int dmic_handler(int pre_ints)
 		/* reset dmic */
 		//__dmic_reset(); /* after reset dmic, cost 40ms waiting fifo level. */
 
-		/* use 40ms timer wakeup cpu, so mask all dmic irqs */
-
-		//REG_DMIC_IMR |= 1<<0 | 1<<4; /* mask wakeup ints and trigger ints */
-		//REG_DMIC_IMR = 0x1b; /* mask wakeup ints and trigger ints */
-		//REG_DMIC_IMR = 0x0b; /* mask wakeup ints and trigger ints */
-		//REG_DMIC_IMR = 0x1f; /* mask all ints except fifo level trigger that wakeup cpu */
-		REG_DMIC_IMR = 0x3f; /* mask all ints */
-
-
 
 		REG_DMIC_CR0 &= ~(1<<1);     /* disable trigger function */
 
-		REG_DMIC_ICR = 0xff; /* clear irq flags */
+		/* use 40ms timer wakeup cpu, so mask all dmic irqs */
 
-		//dmic_enable();
+		//REG_DMIC_IMR |= 1<<0 | 1<<4; /* mask wakeup ints and trigger ints */
+		REG_DMIC_IMR = 0x3f; /* mask all ints */
+
+		REG_DMIC_ICR = 0x3f; /* clear irq flags */
 
 		/* wait fifo num > 0 */
 		if (0) {
@@ -675,36 +669,25 @@ int dmic_handler(int pre_ints)
 			TCSM_PCHAR('\n');
 		}
 
+		if( dmic_current_state == WAITING_TRIGGER) {
+			dmic_current_state = WAITING_DATA;
+			/*change trigger value to 0, make dmic wakeup cpu all the time*/
+		}
+#ifdef CONFIG_TCU_TIMER_WAKEUP
+		tcu_timer_mod(ms_to_count(TCU_TIMER_MS)); /* start a timer */
+#endif
+	}
+	else {
+		if( dmic_current_state == WAITING_TRIGGER) {
+			return SYS_WAKEUP_FAILED;
+		}
 	}
 
 	last_dma_count = REG_DMADTC(_dma_channel);
 
-	if( dmic_current_state == WAITING_TRIGGER) {
-		if(is_int_rtc(pre_ints)) {
-//			TCSM_PCHAR('F');
-			REG_DMIC_ICR |= 0x3f;
-			REG_DMIC_IMR &= ~(1<<0 | 1<<4);
-			return SYS_WAKEUP_FAILED;
-		}
 
-		dmic_current_state = WAITING_DATA;
-		/*change trigger value to 0, make dmic wakeup cpu all the time*/
-#ifdef CONFIG_CPU_IDLE_SLEEP
-		tcu_timer_mod(ms_to_count(TCU_TIMER_MS)); /* start a timer */
-#else
-		//REG_DMIC_THRL = 0; /* ??? */
-#endif
-	} else if (dmic_current_state == WAITING_DATA){
-
-	}
-
-#ifdef CONFIG_CPU_SWITCH_FREQUENCY
-	/* X1000 */
-	//TCSM_PCHAR('3');
 	ret = process_dma_data_3();
-#else
-	ret = process_dma_data_2();
-#endif
+	/* ret = process_dma_data_2(); */
 
 	if(ret == SYS_WAKEUP_OK) {
 		REG_DMIC_IMR = 0x3f; /* mask all ints */
@@ -713,45 +696,56 @@ int dmic_handler(int pre_ints)
 		return SYS_WAKEUP_OK;
 
 	} else if(ret == SYS_NEED_DATA) {
-#ifdef CONFIG_CPU_SWITCH_FREQUENCY
+#ifndef CONFIG_TCU_TIMER_WAKEUP
 		/* wakeup cpu by fifo trigger */
 		REG_DMIC_IMR &= ~( 1<<5); /* fifo trigger irq */
 		REG_DMIC_ICR = 0x3f; /* clear irq flags */
 #endif
 		last_dma_count = REG_DMADTC(_dma_channel);
 		return SYS_NEED_DATA;
-	} else if( 0 && ret == SYS_WAKEUP_FAILED) {
+	} else if( ret == SYS_WAKEUP_FAILED) {
 		/*
 		 * if current wakeup operation failed. we need reconfig dmic
 		 * to work at appropriate mode.
 		 * */
 		dmic_current_state = WAITING_TRIGGER;
 		wakeup_failed_times++;
+		TCSM_PCHAR(' ');
 		TCSM_PCHAR('F');
 		TCSM_PCHAR('A');
 		TCSM_PCHAR('I');
 		TCSM_PCHAR('L');
 		TCSM_PCHAR('E');
 		TCSM_PCHAR('D');
-		reconfig_thr_value();
-#ifdef CONFIG_CPU_IDLE_SLEEP
-		/* del a timer, when dmic trigger. it will re start a timer */
-		tcu_timer_del();
-#endif
+		TCSM_PCHAR(' ');
 
-		/* change trigger mode to > N times*/
-		//REG_DMIC_TRICR |= 2 << 16;
-		REG_DMIC_TRINMAX = 5;
-		REG_DMIC_TRICR |= 1<<0; /*clear trigger*/
+		/* ******************************************** */
+		/* trigger application path */
 
+		/* why voice wakeup failed when deep sleep again??? */
+		if (1) {
+			//dmic_init_mode(DEEP_SLEEP);
+		} else {
+			/* ******************************************** */
+			/* trigger application path */
+			__dmic_reset();
 
-		REG_DMIC_CR0 |= 3<<6; /* disable data path*/
+			REG_DMIC_CR0 |= 3<<6; /* disable data path*/
 
-		REG_DMIC_ICR |= 0x3f;
-		REG_DMIC_IMR &= ~(1<<0 | 1<<4);
+			reconfig_thr_value();
 
+			/* change trigger mode to > N times*/
+			//REG_DMIC_TRICR |= 2 << 16;
+			REG_DMIC_TRINMAX = 5;
+
+			REG_DMIC_TRICR |= 1<<0; /*clear trigger and reset trigger */
+
+			REG_DMIC_ICR |= 0x3f;
+			REG_DMIC_IMR &= ~(1<<0 | 1<<4); /* enable wakeup irq */
+		}
 		return SYS_WAKEUP_FAILED;
 	}
+
 	return SYS_WAKEUP_FAILED;
 }
 
@@ -834,7 +828,7 @@ int dmic_handler_cpu_mode(int pre_ints)
 
 		dmic_current_state = WAITING_DATA;
 		/*change trigger value to 0, make dmic wakeup cpu all the time*/
-#ifdef CONFIG_CPU_IDLE_SLEEP
+#ifdef CONFIG_TCU_TIMER_WAKEUP
 		tcu_timer_mod(ms_to_count(TCU_TIMER_MS)); /* start a timer */
 #else
 		REG_DMIC_THRL = 0;

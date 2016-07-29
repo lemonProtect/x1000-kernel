@@ -106,10 +106,13 @@ while(0)
 	} while(0)
 
 
+/* 
+ * config tcu timer wakeup when dmic working in dma mode 
+ * other wise wakeuped by dmic fifo trigger.
+ */
+#define CONFIG_TCU_TIMER_WAKEUP
 
-/* Choose One Work Mode: */
-/*#define CONFIG_CPU_IDLE_SLEEP*/
-#define CONFIG_CPU_SWITCH_FREQUENCY
+
 
 /*
   0: use cpu process data in deep sleep

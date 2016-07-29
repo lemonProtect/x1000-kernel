@@ -80,7 +80,8 @@ int open(int mode)
 	}
 
 	if ( g_dmic_current_working_mode == mode) {
-		return 0;
+		/* skip return for sleep again in pm_enter() */
+		//return 0;
 	}
 
 	switch (mode) {
@@ -99,14 +100,13 @@ int open(int mode)
 		rtc_init();
 		dmic_init_mode(DEEP_SLEEP);
 		wakeup_open();
-#ifdef CONFIG_CPU_IDLE_SLEEP
+
+#ifdef CONFIG_TCU_TIMER_WAKEUP
 		tcu_timer_request(tcu_channel);
-#endif
-			/* UNMASK INTC we used */
-		REG32(0xB000100C) = 1<<0; /*dmic int en*/
-#ifdef CONFIG_CPU_IDLE_SLEEP
 		REG32(0xB000100C) = 1<<26; /*tcu1 int en*/
 #endif
+		/* UNMASK INTC we used */
+		REG32(0xB000100C) = 1<<0; /*dmic int en*/
 		REG32(0xB000102C) = 1<<0; /*rtc int en*/
 #ifdef INTERFACE_VOICE_DEBUG
 		dump_voice_wakeup();
@@ -380,6 +380,8 @@ static int dma_mode_handler(int par)
 #endif
 		/* wakeup by rtc alarm, but irq miss. */
 		if ( int0 == 0 && int1 == 0 ) {
+			/* check rtc alarm flag */
+
 			//int1 = RTC_IRQ;
 			//cpu_deep_sleep();
 		}
@@ -407,32 +409,11 @@ static int dma_mode_handler(int par)
 				cpu_wakeup_by = WAKEUP_BY_OTHERS;
 				break;
 			} else if (ret == DMIC_TIMER) {
-				if(dmic_working)
 					continue;
-				if(++rtc_count >= 20) {
-					if(cpu_should_sleep()) {
-						rtc_count = 0;
-						rtc_exit();
-						TCSM_PCHAR('D');
-						TCSM_PCHAR('\r');
-						TCSM_PCHAR('\n');
-						cpu_deep_sleep();
-					}
-				} else {
-					if(cpu_should_sleep()) {
-						TCSM_PCHAR('N');
-						TCSM_PCHAR('T');
-						TCSM_PCHAR('\r');
-						TCSM_PCHAR('\n');
-						cpu_normal_sleep();
-						if(REG32(0xb0001030) & RTC_IRQ)
-							continue;
-					}
-				}
 			}
 		}
 
-#ifdef CONFIG_CPU_IDLE_SLEEP
+#ifdef CONFIG_TCU_TIMER_WAKEUP
 #define TCU0_MASK (1<<27)
 #define TCU1_MASK (1<<26)
 #define TCU2_MASK (1<<25)
@@ -440,7 +421,6 @@ static int dma_mode_handler(int par)
 		if(int0 & TCU1_MASK) {
 			tcu_timer_handler();
 		}
-
 #endif
 		//TCSM_PCHAR('D');
 		ret = dmic_handler(int1);
@@ -456,25 +436,22 @@ static int dma_mode_handler(int par)
 			TCSM_PCHAR('0');
 			TCSM_PCHAR('\r');
 			TCSM_PCHAR('\n');
-			if(cpu_should_sleep()) {
-				dmic_working = 0;
-				TCSM_PCHAR('N');
-				TCSM_PCHAR('\r');
-				TCSM_PCHAR('\n');
-				cpu_normal_sleep();
-			}
-		}
-	}
 
-	if(ret == SYS_WAKEUP_OK) {
+			break;
+		}
+
+	} /* while (1) */
+
+	if(1 || ret == SYS_WAKEUP_OK) {
+		dmic_working = 0;
 		rtc_count = 0;
 		rtc_exit();
-#ifdef CONFIG_CPU_IDLE_SLEEP
+#ifdef CONFIG_TCU_TIMER_WAKEUP
 		tcu_timer_release(tcu_channel);
 #endif
 	}
 
-	TCSM_PCHAR('R');
+	//TCSM_PCHAR('R');
 	return ret;
 }
 
@@ -603,7 +580,7 @@ static int cpu_mode_handler(int par)
 	if(ret == SYS_WAKEUP_OK) {
 		rtc_count = 0;
 		rtc_exit();
-#ifdef CONFIG_CPU_IDLE_SLEEP
+#ifdef CONFIG_TCU_TIMER_WAKEUP
 		tcu_timer_release(tcu_channel);
 #endif
 	}

@@ -447,9 +447,14 @@ static int x1000_pm_enter(suspend_state_t state)
 	volatile unsigned int lcr,opcr;
 	struct resume_reg *resume_reg = (struct resume_reg *)SLEEP_TCSM_RESUME_DATA;
 #ifdef CONFIG_JZ_DMIC_WAKEUP_V13
-	volatile unsigned int val;
+	volatile unsigned int wakeup;
 	int (*volatile func)(int);
 	int temp;
+
+	wakeup = wakeup_module_get_sleep_process();
+	if(wakeup == SYS_WAKEUP_OK)
+		return 0;
+sleep_agin:
 #endif
 #if 0
 	bypassmode = ddr_readl(DDRP_PIR) & DDRP_PIR_DLLBYP;
@@ -460,9 +465,6 @@ static int x1000_pm_enter(suspend_state_t state)
 #endif
 
 #ifdef CONFIG_JZ_DMIC_WAKEUP_V13
-	int ret=wakeup_module_get_sleep_process();
-	if(ret == SYS_WAKEUP_OK)
-		return 0;
 #endif
 	disable_fpu();
 	resume_reg->sleep_cpm_lcr =  cpm_inl(CPM_LCR);
@@ -502,11 +504,24 @@ static int x1000_pm_enter(suspend_state_t state)
 	local_flush_tlb_all();
 
 #ifdef CONFIG_JZ_DMIC_WAKEUP_V13
+	/*
+	  voice_wakeup_v13/wakeup_module/src/start.S
+	  interface:
+	  .word open
+	  .word handler // irq handler
+
+	  #define WAKEUP_HANDLER_ADDR	(0x81f00004)
+	*/
+
+
 	if(resume_reg->sleep_voice_enable==1)
 	{
 		temp = *(unsigned int *)WAKEUP_HANDLER_ADDR;
 		func = (int(*)(int))temp;
-		val = func(1);
+		wakeup = func(1); /* irq handler */
+	}
+	else {
+		wakeup = SYS_WAKEUP_OK;
 	}
 #endif
 
@@ -515,6 +530,14 @@ static int x1000_pm_enter(suspend_state_t state)
 
 
 #ifdef CONFIG_JZ_DMIC_WAKEUP_V13
+	/* sleep again */
+	if(resume_reg->sleep_voice_enable==1)
+	{
+		if ( wakeup != SYS_WAKEUP_OK ) {
+			goto sleep_agin;
+		}
+	}
+	//TCSM_PCHAR('P'); TCSM_PCHAR('8'); TCSM_PCHAR('\r'); TCSM_PCHAR('\n');
 	wakeup_module_close(DEEP_SLEEP);
 #endif
 	return 0;

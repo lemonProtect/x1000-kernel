@@ -258,7 +258,6 @@ int voice_wakeup_process_data_cpu_mode(void * dmic)
 
 
 
-#ifdef CONFIG_CPU_SWITCH_FREQUENCY
 int get_valid_bytes()
 {
 	unsigned int dma_addr;
@@ -328,7 +327,8 @@ int process_dma_data_3(void)
 
 	return ret;
 }
-#endif
+
+
 int process_dma_data_2(void)
 {
 
