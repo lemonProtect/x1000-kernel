@@ -92,6 +92,8 @@ int open(int mode)
 		if(!voice_wakeup_enabled) {
 			return 0;
 		}
+		/* stop dma */
+		dma_stop(_dma_channel);
 #if DMIC_USE_DMA
 		g_dma_mode = DMA_MODE;
 #else
@@ -126,16 +128,16 @@ int open(int mode)
 		break;
 	}
 
-	if (g_dma_mode == DMA_MODE) { /* DMIC_USE_DMA	dma */
-		dma_config_normal();
-		dma_start(_dma_channel);
-	}
-	else {
-		dma_stop(_dma_channel);
-		/* dma_close(); ??? */
-	}
-
 	if ( mode != DEEP_SLEEP ) {
+		if (g_dma_mode == DMA_MODE) { /* DMIC_USE_DMA	dma */
+			dma_config_normal();
+			dma_start(_dma_channel);
+		}
+		else {
+			dma_stop(_dma_channel);
+			/* dma_close(); ??? */
+		}
+
 		dmic_enable();
 	}
 	else {
@@ -143,11 +145,29 @@ int open(int mode)
 		/* if ( g_dmic_current_working_mode != mode) { */
 		/* 	rtc_set_alarm_and_polling_rtc_alarm_flag(1); */
 		/* } */
+
+		if (g_dma_mode == DMA_MODE) { /* DMIC_USE_DMA	dma */
+			/* reset dma, stop dma first. */
+			dma_stop(_dma_channel);
+			dma_config_normal();
+
+			/* WARNING:
+			 * Do not start dma before cpu resume.
+			 * So move dma_start() to dmic trigger handler.
+			 */
+			//dma_start(_dma_channel);
+		}
+		else {
+			dma_stop(_dma_channel);
+			/* dma_close(); ??? */
+		}
+
 	}
 
-	open_cnt++;
-
-	g_dmic_current_working_mode = mode;
+	if ( g_dmic_current_working_mode != mode) {
+		open_cnt++;
+		g_dmic_current_working_mode = mode;
+	}
 
 	printk("module open open_cnt = %d\n",open_cnt);
 	return 0;
@@ -359,7 +379,7 @@ static int dma_mode_handler(int par)
 
 	//TCSM_PCHAR('H');
 
-	rtc_set_alarm(ALARM_VALUE);
+	//rtc_set_alarm(ALARM_VALUE);
 
 	while(1) {
 		//TCSM_PCHAR('w'); //TCSM_PCHAR('\r');TCSM_PCHAR('\n');

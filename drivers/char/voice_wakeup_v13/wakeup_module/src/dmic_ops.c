@@ -6,6 +6,7 @@
 #include "interface.h"
 #include "trigger_value_adjust.h"
 #include "tcu_timer.h"
+#include "dma_ops.h"
 
 
 extern unsigned int _dma_channel;
@@ -644,6 +645,8 @@ int dmic_handler(int pre_ints)
 		/* reset dmic */
 		//__dmic_reset(); /* after reset dmic, cost 40ms waiting fifo level. */
 
+		/* start dma */
+		dma_start(_dma_channel);
 
 		REG_DMIC_CR0 &= ~(1<<1);     /* disable trigger function */
 
