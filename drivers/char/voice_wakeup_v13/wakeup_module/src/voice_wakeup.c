@@ -98,6 +98,8 @@ int send_data_to_process(ivPointer pIvwObj, unsigned char *pdata, unsigned int s
 			TCSM_PCHAR('P');
 			TCSM_PCHAR('O');
 			TCSM_PCHAR('K');
+			TCSM_PCHAR('\r');
+			TCSM_PCHAR('\n');
 			return IvwErr_WakeUp;
 		}
 		else if( iStatus2 == IvwErrID_OK ) {
@@ -155,14 +157,15 @@ int wakeup_open(void)
 	ivUInt16 nResidentRAMSize = 38;
 //	pResidentRAM = (ivPointer)nReisdentBuf;
 	unsigned char __attribute__((aligned(32))) *pResKey = (unsigned char *)wakeup_res;
-	unsigned int dma_addr;
-
 	ivUInt16 nWakeupNetworkID = 0;
 
 	ivStatus iStatus;
 	struct circ_buf *xfer = &rx_fifo->xfer;
+/*
+	unsigned int dma_addr;
 	unsigned int buf_start_pa;
 	unsigned int buf_end_pa;
+ */
 	//printf("wakeu module init#####\n");
 	//printf("pIvwObj:%x, pResidentRAM:%x, pResKey:%x\n", pIvwObj, pResidentRAM, pResKey);
 	ivPointer pIvwObj;
@@ -185,14 +188,20 @@ int wakeup_open(void)
 	/* code that need rewrite */
 	rx_fifo->n_size	= VOICE_TCSM_DATA_BUF_SIZE; /*tcsm 4kBytes*/
 	xfer->buf = (char *)VOICE_TCSM_DATA_BUF;
+
+	xfer->head = 0;
+#if 0
+	// if ( mode == NORMAL_WAKEUP)
 	buf_start_pa=V_TO_P(xfer->buf);
 	buf_end_pa=V_TO_P(xfer->buf + rx_fifo->n_size);
 	dma_addr = pdma_trans_addr(_dma_channel, DMA_DEV_TO_MEM);
+
 	if((dma_addr >= buf_start_pa) && (dma_addr <= buf_end_pa)) {
 		xfer->head = (char *)(dma_addr | 0xA0000000) - xfer->buf;
 	} else {
 		xfer->head = 0;
 	}
+#endif
 	xfer->tail = xfer->head;
 
 	if ( g_dma_mode == CPU_MODE)
@@ -300,8 +309,9 @@ int process_nbytes(int nbytes)
 
 	total_process_len += nbytes;
 	if(total_process_len >= MAX_PROCESS_LEN) {
-		TCSM_PCHAR('F');
-		serial_put_hex(total_process_len);
+		/* TCSM_PCHAR('X'); */
+		/* TCSM_PCHAR(' '); */
+		/* serial_put_hex(total_process_len); */
 		total_process_len = 0;
 		return SYS_WAKEUP_FAILED;
 	} else {
