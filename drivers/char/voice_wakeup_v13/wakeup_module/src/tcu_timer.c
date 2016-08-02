@@ -4,6 +4,18 @@
 #include <jz_cpm.h>
 #include <common.h>
 
+//#define TCU_VOICE_DEBUG
+
+
+/*
+  If x1000 rtc clock source, set 30ms, actually time is 20ms.
+  If x1000 ext clock source, set 30ms, actually time is 31 ms.
+
+  tcu use ext clk, otherwise tcu clock source use rtc clock.
+*/
+#define TCU_USE_EXT_CLK
+
+
 static int tcu_channel = 2; /*default 2*/
 unsigned int clk_enabled;
 #ifdef TCU_VOICE_DEBUG
@@ -12,11 +24,25 @@ unsigned long time = 0;
 
 #define TIME_1S		(1000)
 
-#define CLK_DIV         64
 #define CSRDIV(x)      ({int n = 0;int d = x; while(d){ d >>= 2;n++;};(n-1) << 3;})
 
 
-#define TIME_PER_COUNT	(1953)	/* 1.953ms * 1000 */
+#ifdef TCU_USE_EXT_CLK
+/* ext clock source: 24M Hz */
+#define TCU_CLK_FREQ (24000000)
+#define CLK_DIV         1024
+/* TIME_US_PER_COUNT:  1000000 us / (24000000/1024)  = 42.667 us/cycle */
+#else
+/* rtc clock source: 32k Hz */
+#define TCU_CLK_FREQ (32768)
+#define CLK_DIV         64
+/*  TIME_US_PER_COUNT  1000000 us / (32768/64) = 1953.125 us/cycle */
+#endif
+
+
+#define US_PER_SECOND (1000000)
+#define TIME_US_PER_COUNT	(US_PER_SECOND/((TCU_CLK_FREQ)/CLK_DIV))	/* 42 us */
+#define TCU_TIMER_MAX_MS	((0xFFFF*(TIME_US_PER_COUNT))/1000)
 
 
 unsigned int save_tcsr;
@@ -29,11 +55,27 @@ static inline void tcu_restore(void)
 {
 	tcu_writel(CH_TCSR(tcu_channel), save_tcsr);
 }
+
 #ifdef TCU_VOICE_DEBUG
 static void tcu_dump_reg(void)
 {
+	/* TCU Ext clock 24M Hz, DIV1024, 60ms:
+		*********** tcu_dump_reg() ***********
+		TCU_TCSR:0000002c
+		TCU_TDFR:00000595
+		TCU_TDHR:00000001
+		TCU_TCNT:00000134
+		TCU_TER:00008000
+		TCU_TFR:00018001
+		TCU_TMR:00ff80ff
+		TCU_TSR:00000000
+		TCU_TSTR:00040000
+	*/
 
+	printk("*********** tcu_dump_reg() ***********\n");
 	printk("TCU_TCSR:%08x\n", tcu_readl(CH_TCSR(tcu_channel)));
+	printk("TCU_TDFR:%08x\n", tcu_readl(CH_TDFR(tcu_channel)));
+	printk("TCU_TDHR:%08x\n", tcu_readl(CH_TDHR(tcu_channel)));
 	printk("TCU_TCNT:%08x\n", tcu_readl(CH_TCNT(tcu_channel)));
 	printk("TCU_TER:%08x\n", tcu_readl(TCU_TER));
 	printk("TCU_TFR:%08x\n", tcu_readl(TCU_TFR));
@@ -45,15 +87,21 @@ static void tcu_dump_reg(void)
 
 static void tcu_dump_reg_hex(void)
 {
+	/* TCU Ext clock 24M Hz, DIV1024, 60ms:
+	   [14.681352 0.062945] irp 04000000 00000000
+	   G 0000002C 00000595 000002CA 0000003C 00008020 00218001 00FF80DF 00000000 00040000 H
+	*/
 	TCSM_PCHAR('G');
-	serial_put_hex(tcu_readl(CH_TCSR(tcu_channel)));
-	serial_put_hex(tcu_readl(CH_TCNT(tcu_channel)));
-	serial_put_hex(tcu_readl(TCU_TER));
-	serial_put_hex(tcu_readl(TCU_TFR));
-	serial_put_hex(tcu_readl(TCU_TMR));
-	serial_put_hex(tcu_readl(TCU_TSR));
-	serial_put_hex(tcu_readl(TCU_TSTR));
-	TCSM_PCHAR('H');
+	TCSM_PCHAR(' '); serial_put_hex(tcu_readl(CH_TCSR(tcu_channel)));
+	TCSM_PCHAR(' '); serial_put_hex(tcu_readl(CH_TDFR(tcu_channel)));
+	TCSM_PCHAR(' '); serial_put_hex(tcu_readl(CH_TDHR(tcu_channel)));
+	TCSM_PCHAR(' '); serial_put_hex(tcu_readl(CH_TCNT(tcu_channel)));
+	TCSM_PCHAR(' '); serial_put_hex(tcu_readl(TCU_TER));
+	TCSM_PCHAR(' '); serial_put_hex(tcu_readl(TCU_TFR));
+	TCSM_PCHAR(' '); serial_put_hex(tcu_readl(TCU_TMR));
+	TCSM_PCHAR(' '); serial_put_hex(tcu_readl(TCU_TSR));
+	TCSM_PCHAR(' '); serial_put_hex(tcu_readl(TCU_TSTR));
+	TCSM_PCHAR(' '); TCSM_PCHAR('H');
 }
 #endif
 static inline void stop_timer()
@@ -97,8 +145,25 @@ void tcu_timer_del(void)
 unsigned long ms_to_count(unsigned long ms)
 {
 	unsigned long count;
+
+	if ( ms > TCU_TIMER_MAX_MS ) {
+		TCSM_PCHAR('\r');
+		TCSM_PCHAR('\n');
+		TCSM_PCHAR('T');
+		TCSM_PCHAR('M');
+		TCSM_PCHAR('M');
+		TCSM_PCHAR('A');
+		TCSM_PCHAR('X');
+		TCSM_PCHAR(' ');
+		serial_put_hex(ms);
+		TCSM_PCHAR('>');
+
+		serial_put_hex(TCU_TIMER_MAX_MS);
+		TCSM_PCHAR(' ');
+	}
+
 	 /* one count is about 1.953 ms */
-	count = (ms * 1000 + TIME_PER_COUNT - 1) / TIME_PER_COUNT;
+	count = (ms * 1000 + TIME_US_PER_COUNT - 1) / TIME_US_PER_COUNT;
 	return count;
 }
 
@@ -125,6 +190,8 @@ unsigned int tcu_timer_mod(unsigned long timer_cnt)
 		TCSM_PCHAR('.');
 	}
 	time += TCU_TIMER_MS;
+
+	tcu_dump_reg_hex();
 #endif
 	return current_count;
 }
@@ -136,6 +203,24 @@ unsigned int tcu_timer_mod(unsigned long timer_cnt)
  * */
 void tcu_timer_request(int tcu_chan)
 {
+#ifdef TCU_VOICE_DEBUG
+	if (1) {
+		TCSM_PCHAR('\r');
+		TCSM_PCHAR('\n');
+		TCSM_PCHAR('t');
+		TCSM_PCHAR('c');
+		TCSM_PCHAR('u');
+		TCSM_PCHAR('u');
+		TCSM_PCHAR('s');
+		TCSM_PCHAR(' ');
+		serial_put_hex(TIME_US_PER_COUNT);
+		TCSM_PCHAR(' ');
+
+		serial_put_hex(TCU_TIMER_MAX_MS);
+		TCSM_PCHAR(' ');
+	}
+#endif
+
 	tcu_channel = tcu_chan;
 	REG32(CPM_IOBASE + CPM_CLKGR0) &= ~(1<<30);
 #ifdef TCU_VOICE_DEBUG
@@ -158,10 +243,19 @@ void tcu_timer_request(int tcu_chan)
 	 * DIV:     64.
 	 * TCOUNT:  1: 1.953125ms
 	 * */
+#ifdef TCU_USE_EXT_CLK
+	tcu_writel(CH_TCSR(tcu_channel),CSRDIV(CLK_DIV) | CSR_EXT_EN);
+#else
 	tcu_writel(CH_TCSR(tcu_channel),CSRDIV(CLK_DIV) | CSR_RTC_EN);
+#endif
+
+
 #ifdef TCU_VOICE_DEBUG
 	tcu_dump_reg();
+	tcu_dump_reg_hex();
 #endif
+
+	return ;
 }
 
 /*
