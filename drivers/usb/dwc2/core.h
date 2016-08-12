@@ -38,12 +38,12 @@ dwc2_printk(const char *comp, const char *fmt, ...)
 #define DWC2_HOST_MODE_ENABLE	1
 #define DWC2_DEVICE_MODE_ENABLE	1
 
-#ifdef CONFIG_USB_DWC2_HOST_ONLY
+#if IS_ENABLED(CONFIG_USB_DWC2_HOST_ONLY)
 #undef DWC2_DEVICE_MODE_ENABLE
 #define DWC2_DEVICE_MODE_ENABLE	0
 #endif
 
-#ifdef CONFIG_USB_DWC2_DEVICE_ONLY
+#if IS_ENABLED(CONFIG_USB_DWC2_DEVICE_ONLY)
 #undef DWC2_HOST_MODE_ENABLE
 #define DWC2_HOST_MODE_ENABLE	0
 #endif
@@ -374,19 +374,12 @@ struct dwc2_host_if {
  * @hwcfg2: HWCFG2
  * @hwcfg3: HWCFG3
  * @hwcfg4: HWCFG4
- * @hptxfsiz: HPTXFSIZ
- * @hcfg: HCFG
- * @dcfg: DCFG
  */
 struct dwc2_hwcfgs {
 	hwcfg1_data_t	hwcfg1;
 	hwcfg2_data_t	hwcfg2;
 	hwcfg3_data_t	hwcfg3;
 	hwcfg4_data_t	hwcfg4;
-	fifosize_data_t hptxfsiz;
-
-	hcfg_data_t	hcfg;
-	dcfg_data_t	dcfg;
 };
 
 struct dwc2_platform_data {
@@ -507,18 +500,15 @@ struct dwc2 {
 	unsigned			 b_hnp_enable:1;
 	unsigned			 a_hnp_support:1;
 	unsigned			 a_alt_hnp_support:1;
-	unsigned			 plugin:1;
+	volatile unsigned	 plugin:1;
 	unsigned			 keep_phy_on:1;
 	/* for suspend/resume */
-	unsigned			 suspended:1;  /* 0: running, 1: suspended */
-	unsigned			 phy_status:1; /* 0: suspend, 1: on */
-	unsigned			 sftdiscon:1;
-	unsigned			 plug_status:1;
+	volatile unsigned		 suspended:1;  /* 0: running, 1: suspended */
 
 	unsigned int			 gintmsk;
-#ifdef CONFIG_USB_DWC2_ALLOW_WAKEUP
-	struct wake_lock                 resume_wake_lock;
-#endif
+//#ifdef CONFIG_USB_DWC2_ALLOW_WAKEUP
+//	struct wake_lock                 resume_wake_lock;
+//#endif
 
 	int pullup_on;
 	enum dwc2_ep0_state		 ep0state;
@@ -586,7 +576,7 @@ struct dwc2 {
 	u8			test_mode;
 	u8			test_mode_nr;
 
-        unsigned long           deps_align_addr;
+	unsigned long           deps_align_addr;
 };
 
 #define USECS_INFINITE		((unsigned int)~0)

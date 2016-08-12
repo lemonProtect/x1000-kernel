@@ -192,48 +192,16 @@ int jz_otg_phy_is_suspend(void)
 }
 EXPORT_SYMBOL(jz_otg_phy_is_suspend);
 
-static int sft_id_set = false;
-void jz_otg_sft_id(int level)
-{
-	if (level) {
-		cpm_set_bit(USBRDT_IDDIG_REG, CPM_USBRDT);
-		printk("sft id ==================== 1\n");
-	} else {
-		cpm_clear_bit(USBRDT_IDDIG_REG, CPM_USBRDT);
-		printk("sft id ==================== 0\n");
-	}
-	cpm_set_bit(USBRDT_IDDIG_EN, CPM_USBRDT);
-	if (!jz_otg_phy_is_suspend())
-		mdelay(150);
-	else
-		sft_id_set = true;
-}
-EXPORT_SYMBOL(jz_otg_sft_id);
-
-void jz_otg_sft_id_off(void)
-{
-	cpm_clear_bit(USBRDT_IDDIG_EN, CPM_USBRDT);
-	if (!jz_otg_phy_is_suspend())
-		mdelay(150);
-	else
-		sft_id_set = true;
-	printk("sft id =========================off\n");
-}
-EXPORT_SYMBOL(jz_otg_sft_id_off);
-
 void jz_otg_phy_suspend(int suspend)
 {
 	if (!suspend && jz_otg_phy_is_suspend()) {
-		printk("EN PHY\n");
 		cpm_set_bit(7, CPM_OPCR);
-		if (sft_id_set == true)
-			mdelay(150);	/*2d6c0 phy clocks*/
-		sft_id_set = false;
 		udelay(45);
+		printk("EN PHY\n");
 	} else if (suspend && !jz_otg_phy_is_suspend()) {
-		printk("DIS PHY\n");
 		cpm_clear_bit(7, CPM_OPCR);
 		udelay(5);
+		printk("DIS PHY\n");
 	}
 }
 EXPORT_SYMBOL(jz_otg_phy_suspend);

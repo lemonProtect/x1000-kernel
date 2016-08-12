@@ -286,8 +286,8 @@ struct i2c_board_info mensa_i2c1_devs_v4l2[2] = {
 
 #endif	/*I2C1*/
 
-#if (defined(CONFIG_USB_DWC2) || defined(CONFIG_USB_DWC_OTG)) && defined(GPIO_USB_DETE)
-struct jzdwc_pin dete_pin = {
+#if (defined(CONFIG_USB_JZ_DWC2) || defined(CONFIG_USB_DWC_OTG)) && defined(GPIO_USB_DETE)
+struct jzdwc_pin dwc2_dete_pin = {
         .num                            = GPIO_USB_DETE,
         .enable_level                   = HIGH_ENABLE,
 };

@@ -133,8 +133,8 @@ void dwc2_ep0_out_start(struct dwc2 *dwc) {
 	doeptsize0.d32 = dwc_readl(&dev_if->out_ep_regs[0]->doeptsiz);
 	doepdma = dwc_readl(&dev_if->out_ep_regs[0]->doepdma);
 
-        if (unlikely(dwc->last_ep0out_normal))
-            goto directly_start;
+	if (unlikely(dwc->last_ep0out_normal))
+		goto directly_start;
 
 	if (dwc->setup_prepared) {
 		if (!doepctl.b.epena) {
@@ -445,7 +445,6 @@ static void dwc2_ep0_start_transfer(struct dwc2 *dwc,
 			req->next_dma_addr = dwc->ep0out_shadow_dma;
 			req->zlp_transfered = 0;
 		}
-
 		dwc2_ep0_start_out_transfer(dwc, req);
 	}
 }
@@ -458,6 +457,7 @@ static int __dwc2_gadget_ep0_queue(struct dwc2_ep *outep0,
 	int		 can_queue = 0;
 
 	BUG_ON(outep0->is_in);
+	BUG_ON(dwc2_is_host_mode(dwc));
 
 	DWC2_EP0_DEBUG_MSG("ep0_queue: req = 0x%p len = %d zero = %d delayed_status = %d ep0state=%s three=%d\n",
 			   req, req->request.length, req->request.zero,
@@ -658,6 +658,7 @@ int dwc2_gadget_ep0_set_halt(struct usb_ep *ep, int value) {
 	struct dwc2_ep	*dep = to_dwc2_ep(ep);
 	struct dwc2	*dwc = dep->dwc;
 	unsigned long	 flags;
+	BUG_ON(dwc2_is_host_mode(dwc));
 
 	dwc2_spin_lock_irqsave(dwc, flags);
 	dwc2_ep0_stall_and_restart(dwc);
@@ -918,16 +919,7 @@ static void dwc2_ep0_inspect_setup(struct dwc2 *dwc)
 	else
 		ret = dwc2_ep0_delegate_req(dwc, ctrl);
 
-	/* copied from storage_common.c */
-#define EP0_BUFSIZE	256
-#define DELAYED_STATUS	(EP0_BUFSIZE + 999)	/* An impossibly large value */
-	/* seems that never return this value, but through the code,
-	 * this return value is possible, so print a warning here.
-	 */
-	if (unlikely(ret == DELAYED_STATUS))
-		DWC2_EP0_DEBUG_MSG("DELAYED_STATUS!!!\n");
-
-	if ((ret == DELAYED_STATUS) || (ret == USB_GADGET_DELAYED_STATUS)) {
+	if (ret == USB_GADGET_DELAYED_STATUS) {
 		dwc->ep0state = EP0_STATUS_PHASE;
 		dwc->delayed_status = true;
 		dwc->delayed_status_sent = false;

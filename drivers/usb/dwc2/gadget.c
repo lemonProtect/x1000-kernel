@@ -234,7 +234,7 @@ void dwc2_device_mode_init(struct dwc2 *dwc) {
 	}
 
 	dwc->setup_prepared = 0;
-        dwc->last_ep0out_normal = 0;
+	dwc->last_ep0out_normal = 0;
 
 	/*
 	 * DCFG settings
@@ -247,10 +247,13 @@ void dwc2_device_mode_init(struct dwc2 *dwc) {
 	 * 2'b11: Full speed (USB 1.1 FS transceiver clock is 48 MHz)
 	 */
 	dcfg.d32 = dwc_readl(&dev_if->dev_global_regs->dcfg);
+#ifdef CONFIG_USB_DWC2_FULLSPEED_DEVICE
+	dcfg.b.devspd = 1;
+#else
 	dcfg.b.devspd = 0;
+#endif
 	dcfg.b.descdma = (dwc->dma_desc_enable) ? 1 : 0;
 	dcfg.b.perfrint = DWC_DCFG_FRAME_INTERVAL_80;
-
 	/* Enable Device OUT NAK in case of DDMA mode*/
 	//dcfg.b.endevoutnak = 1;
 	dwc_writel(dcfg.d32, &dev_if->dev_global_regs->dcfg);
@@ -302,7 +305,8 @@ void dwc2_gadget_handle_session_end(struct dwc2 *dwc) {
 			}
 		}
 
-		dwc2_flush_rx_fifo(dwc);
+		if (dwc2_is_device_mode(dwc) && dwc->lx_state != DWC_OTG_L3)
+			dwc2_flush_rx_fifo(dwc);
 
 		dwc->ep0state = EP0_DISCONNECTED;
 		dwc->delayed_status = false;
@@ -661,7 +665,7 @@ static void dwc2_gadget_set_global_out_nak(struct dwc2 *dwc) {
 	dctl_data_t		 dctl;
 	gintmsk_data_t		 gintsts;
 	gintmsk_data_t		 gintmsk;
-	int			 timeout = 10000;
+	int			 timeout = 100000;
 
 	/* unmask OUTNakEff interrupt */
 	gintmsk.d32 = dwc_readl(&dwc->core_global_regs->gintmsk);
@@ -678,7 +682,7 @@ static void dwc2_gadget_set_global_out_nak(struct dwc2 *dwc) {
 	 */
 	do
 	{
-		udelay(10);
+		udelay(1);
 		gintsts.d32 = dwc_readl(&dwc->core_global_regs->gintsts);
 		timeout --;
 
@@ -713,7 +717,7 @@ static void __dwc2_gadget_disable_out_endpoint(struct dwc2 *dwc, int epnum, int 
 	struct dwc2_dev_if	*dev_if	 = &dwc->dev_if;
 	depctl_data_t		 depctl;
 	doepint_data_t		 doepint = {.d32 = 0};
-	int			 timeout = 10000;
+	int			 timeout = 100000;
 
 	/*
 	 * The Databook said that the application cannot disable OUT endpoint 0
@@ -746,7 +750,7 @@ static void __dwc2_gadget_disable_out_endpoint(struct dwc2 *dwc, int epnum, int 
 
 	do
 	{
-		udelay(10);
+		udelay(1);
 		doepint.d32 = dwc_readl(&dev_if->out_ep_regs[epnum]->doepint);
 		timeout --;
 
@@ -893,7 +897,7 @@ static void dwc2_gadget_set_in_nak(struct dwc2 *dwc, int epnum) {
 	struct dwc2_dev_if	*dev_if	 = &dwc->dev_if;
 	depctl_data_t		 depctl;
 	diepint_data_t		 diepint;
-	int			 timeout = 10000;
+	int			 timeout = 100000;
 
 	depctl.d32 = dwc_readl(&dev_if->in_ep_regs[epnum]->diepctl);
 	if (!depctl.b.epena)
@@ -903,7 +907,7 @@ static void dwc2_gadget_set_in_nak(struct dwc2 *dwc, int epnum) {
 
 	do
 	{
-		udelay(10);
+		udelay(1);
 		diepint.d32 = dwc_readl(&dev_if->in_ep_regs[epnum]->diepint);
 		timeout --;
 		if (timeout == 0) {
@@ -944,7 +948,7 @@ static void __dwc2_gadget_disable_in_ep(struct dwc2 *dwc, int epnum) {
 	struct dwc2_dev_if	*dev_if	 = &dwc->dev_if;
 	depctl_data_t		 depctl;
 	diepint_data_t		 diepint;
-	int			 timeout = 10000;
+	int			 timeout = 100000;
 
 	depctl.d32 = dwc_readl(&dev_if->in_ep_regs[epnum]->diepctl);
 	if (!depctl.b.epena)
@@ -955,7 +959,7 @@ static void __dwc2_gadget_disable_in_ep(struct dwc2 *dwc, int epnum) {
 
 	do
 	{
-		udelay(10);
+		udelay(1);
 		diepint.d32 = dwc_readl(&dev_if->in_ep_regs[epnum]->diepint);
 		timeout --;
 
@@ -1124,19 +1128,19 @@ static int __dwc2_gadget_ep_disable(struct dwc2_ep *dep, int remove)
 
 	DWC2_GADGET_DEBUG_MSG("disable %s\n", dep->name);
 
-	dwc2_gadget_ep_deactivate(dep);
-
-	if (dep->is_in) {
-		dwc2_gadget_disable_in_endpoint(dep);
+	if (dwc2_is_host_mode(dwc) || dwc->lx_state == DWC_OTG_L3) {
+		DWC2_GADGET_DEBUG_MSG("ep%d%s disabled when host mode or dwc powerdown\n",
+				dep->number, dep->is_in ? "in" : "out");
 	} else {
-		dwc2_gadget_disable_out_endpoint(dep, 0);
-	}
+		dwc2_gadget_ep_deactivate(dep);
 
-	if (dep->number == 0) {
-		/* EP0 requests are queued on OUT EP0 */
-		dwc2_remove_requests(dwc, dwc2_ep0_get_ep0(dwc), remove);
-	} else
-		dwc2_remove_requests(dwc, dep, remove);
+		if (dep->is_in) {
+			dwc2_gadget_disable_in_endpoint(dep);
+		} else {
+			dwc2_gadget_disable_out_endpoint(dep, 0);
+		}
+	}
+	dwc2_remove_requests(dwc, dep, remove);
 
 	snprintf(dep->name, sizeof(dep->name), "ep%d%s",
 		dep->number, dep->is_in ? "in" : "out");
@@ -1146,10 +1150,8 @@ static int __dwc2_gadget_ep_disable(struct dwc2_ep *dep, int remove)
 	dep->maxp = 0;
 	dep->flags = 0;
 
-	if (unlikely( (!dwc->plugin) && jz_otg_phy_is_suspend())) {
-		dwc2_suspend_controller(dwc);
-	}
-
+	if (unlikely(!dwc->plugin && !dwc2_has_ep_enabled(dwc) && !dwc->keep_phy_on))
+		dwc2_turn_off(dwc, true);
 	return 0;
 }
 
@@ -1255,12 +1257,12 @@ void dwc2_gadget_giveback(struct dwc2_ep *dep,
 		req->mapped = 0;
 	}
 
-        if ((unsigned int)(req->request.buf) % 4 &&
-            dep->align_dma_addr && status != 0) {
-                        dma_unmap_single(dwc->dev, dep->align_dma_addr, req->xfersize,
-                                         dep->is_in ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
-                        dep->align_dma_addr = 0;
-        }
+	if ((unsigned int)(req->request.buf) % 4 &&
+			dep->align_dma_addr && status != 0) {
+		dma_unmap_single(dwc->dev, dep->align_dma_addr, req->xfersize,
+				dep->is_in ? DMA_TO_DEVICE : DMA_FROM_DEVICE);
+		dep->align_dma_addr = 0;
+	}
 
 	dev_dbg(dwc->dev, "request %p from %s completed %d/%d ===> %d\n",
 		req, real_dep->name, req->request.actual,
@@ -1273,6 +1275,9 @@ void dwc2_gadget_giveback(struct dwc2_ep *dep,
 
 static void dwc2_remove_requests(struct dwc2 *dwc, struct dwc2_ep *dep, int remove) {
 	struct dwc2_request		*req;
+
+	if (dep->number == 0)
+		dep = dwc2_ep0_get_ep0(dwc);
 
 	while (!list_empty(&dep->request_list)) {
 		req = next_request(&dep->request_list);
@@ -1550,6 +1555,7 @@ static int dwc2_gadget_ep_queue(struct usb_ep *ep,
 
 	DWC2_GADGET_DEBUG_MSG("queing request %p to %s length %d\n",
 		request, ep->name, request->length);
+	BUG_ON(dwc2_is_host_mode(dwc));
 
 	dwc2_spin_lock_irqsave(dwc, flags);
 	if (!dep->desc) {
@@ -1593,6 +1599,9 @@ static int dwc2_gadget_ep_dequeue(struct usb_ep *ep,
 			ret = -EINVAL;
 			goto out;
 		}
+	} else if (unlikely(dwc2_is_host_mode(dwc) || dwc->lx_state == DWC_OTG_L3)) {
+		DWC2_GADGET_DEBUG_MSG("ep%d%s dequeue when host mode or controller powerdown\n",
+				dep->number, dep->is_in ? "in": "out");
 	} else if (r->transfering) {
 		dwc2_gadget_stop_active_transfer(dep);
 		if (dep->is_in) {
@@ -1607,7 +1616,6 @@ static int dwc2_gadget_ep_dequeue(struct usb_ep *ep,
 	}
 
 	dwc2_gadget_giveback(dep, req, -ECONNRESET);
-
 out:
 	dwc2_spin_unlock_irqrestore(dwc, flags);
 
@@ -1802,7 +1810,7 @@ static int dwc2_gadget_pullup(struct usb_gadget *g, int is_on)
 
 	dwc->pullup_on = is_on;
 
-	if (unlikely(!dwc2_clk_is_enabled(dwc)))
+	if (unlikely(dwc->lx_state == DWC_OTG_L3))
 		goto out;
 
 	if (is_on && !dwc->plugin)
@@ -1817,9 +1825,6 @@ static int dwc2_gadget_pullup(struct usb_gadget *g, int is_on)
 			dwc2_start_ep0state_watcher(dwc, DWC2_EP0STATE_WATCH_COUNT);
 			gotgctl.b.bvalidoven = 0;
 			dwc_writel(gotgctl.d32, &dwc->core_global_regs->gotgctl);
-
-			if (dwc->pullup_on)
-				jz_otg_phy_suspend(0);
 		}
 		dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 		dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
@@ -1833,7 +1838,6 @@ static int dwc2_gadget_pullup(struct usb_gadget *g, int is_on)
 		if (!dwc->pullup_on) {
 			udelay(300);
 			dwc2_gadget_handle_session_end(dwc);
-
 			gotgctl.b.bvalidoven = 1;
 			gotgctl.b.bvalidovval = 0;
 			dwc_writel(gotgctl.d32, &dwc->core_global_regs->gotgctl);
@@ -1860,7 +1864,7 @@ int dwc2_udc_start(struct usb_gadget *gadget,
 
 	dwc2_spin_lock_irqsave(dwc, flags);
 	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
-	if (unlikely(!dctl.b.sftdiscon && dwc2_clk_is_enabled(dwc) && dwc2_is_device_mode(dwc))) {
+	if (unlikely(!dctl.b.sftdiscon && dwc->lx_state != DWC_OTG_L3 && dwc2_is_device_mode(dwc))) {
 		/* default to 64 */
 		dwc2_gadget_ep0_desc.wMaxPacketSize = cpu_to_le16(64);
 
@@ -2559,14 +2563,14 @@ void dwc2_gadget_plug_change(int plugin)  {
 	if (dwc->suspended)
 		goto out;
 
-	if (!plugin && !dwc2_clk_is_enabled(dwc))
+	if (!plugin && dwc->lx_state ==	DWC_OTG_L3)
 		goto out_print;
 
 	if (plugin)
-		dwc2_resume_controller(dwc);
+		dwc2_turn_on(dwc);
 
 	if (!dwc2_is_device_mode(dwc))
-		goto out;
+		goto unplug;
 
 	dctl.d32 = dwc_readl(&dwc->dev_if.dev_global_regs->dctl);
 	if (plugin) {
@@ -2584,35 +2588,19 @@ void dwc2_gadget_plug_change(int plugin)  {
 			dwc2_start_ep0state_watcher(dwc, DWC2_EP0STATE_WATCH_COUNT);
 		}
 	} else {
-		if (!(dctl.b.sftdiscon && jz_otg_phy_is_suspend())) {
-			dctl.b.sftdiscon = 1;
-			dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
-#if !DWC2_HOST_MODE_ENABLE
-			{
-				gotgctl_data_t gotgctl;
+		dctl.b.sftdiscon = 1;
+		dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
 
-				gotgctl.d32 = dwc_readl(&dwc->core_global_regs->gotgctl);
-				gotgctl.b.bvalidoven = 1;
-				gotgctl.b.bvalidovval = 0;
-				dwc_writel(gotgctl.d32, &dwc->core_global_regs->gotgctl);
-			}
-#endif
-			/*
-			 * Note: the following commented code is used for testing what will
-			 *       happen if we unplug then quickly re-plug
-			 */
-#if 0
-			DWC_PR(0x004);
-			DWC_PR(0x014);
-			mdelay(1000);
-			DWC_PR(0x004);
-			DWC_PR(0x014);
-
-			dctl.b.sftdiscon = dwc->pullup_on ? 0 : 1;
-			dwc_writel(dctl.d32, &dwc->dev_if.dev_global_regs->dctl);
-#endif
+		if (IS_ENABLED(CONFIG_USB_DWC2_DEVICE_ONLY)){
+			gotgctl_data_t gotgctl;
+			gotgctl.d32 = dwc_readl(&dwc->core_global_regs->gotgctl);
+			gotgctl.b.bvalidoven = 1;
+			gotgctl.b.bvalidovval = 0;
+			dwc_writel(gotgctl.d32, &dwc->core_global_regs->gotgctl);
 		}
-		dwc2_suspend_controller(dwc);
+unplug:
+		if (!dwc->keep_phy_on)
+			dwc2_turn_off(dwc, true);
 	}
 out_print:
 	dev_info(dwc->dev,"enter %s:%d: plugin = %d pullup_on = %d suspend = %d\n",
