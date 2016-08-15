@@ -664,7 +664,10 @@ static void sfc_glb_info_config(struct sfc *sfc,struct sfc_transfer *transfer)
 	sfc_transfer_direction(sfc, transfer->direction);
 	if((transfer->ops_mode == DMA_OPS)){
 		sfc_set_length(sfc, transfer->len);
-		dma_cache_sync(NULL, (void *)transfer->data,transfer->len,transfer->direction);
+		if(transfer->direction == GLB_TRAN_DIR_READ)
+			dma_cache_sync(NULL, (void *)transfer->data,transfer->len, DMA_FROM_DEVICE);
+		else
+			dma_cache_sync(NULL, (void *)transfer->data,transfer->len, DMA_TO_DEVICE);
 		sfc_set_mem_addr(sfc, GET_PHYADDR(transfer->data));
 		sfc_transfer_mode(sfc, DMA_MODE);
 	}else{

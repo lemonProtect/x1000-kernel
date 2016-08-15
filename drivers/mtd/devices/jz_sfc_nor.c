@@ -34,8 +34,11 @@
 #include <asm/uaccess.h>
 #include <asm/irq.h>
 #include <asm/io.h>
+#include <asm/page.h>
 
 #include "sfc.h"
+
+#define L2_CACHE_ALIGN_SIZE	256
 
 
 /* Max time can take up to 3 seconds! */
@@ -148,7 +151,7 @@ static unsigned int sfc_do_read(struct sfc_flash *flash,u8 command,unsigned int 
 	transfer.len = len;
 	transfer.data = buf;
 	transfer.tmp_len = 0;
-	if(len > THRESHOLD * 4)
+	if(len >= L2_CACHE_ALIGN_SIZE)
 		transfer.ops_mode = DMA_OPS;
 	else
 		transfer.ops_mode = CPU_OPS;
@@ -199,7 +202,10 @@ static unsigned  int sfc_do_write(struct sfc_flash *flash,u8 command,unsigned in
 	transfer[1].len = len;
 	transfer[1].tmp_len = 0;
 	transfer[1].data = buf;
-	transfer[1].ops_mode = DMA_OPS;
+	if(len >= L2_CACHE_ALIGN_SIZE)
+		transfer[1].ops_mode = DMA_OPS;
+	else
+		transfer[1].ops_mode = CPU_OPS;
 	transfer[1].sfc_mode = sfc_transfer_mode;
 	transfer[1].direction = GLB_TRAN_DIR_WRITE;
 	transfer[1].cmd_info = &cmd[1];
@@ -291,6 +297,7 @@ static int sfc_write(struct sfc_flash *flash,loff_t to,size_t len, const unsigne
 {
 	unsigned char command;
 	int dummy_byte = 0;
+	unsigned int s_len = 0, f_len = 0, a_len = 0;
 
 #ifdef CONFIG_SPI_QUAD
 	if((sfc_transfer_mode == TM_QI_QO_SPI) || (sfc_transfer_mode == TM_QIO_SPI) || (sfc_transfer_mode == TM_FULL_QIO_SPI)){
@@ -303,9 +310,117 @@ static int sfc_write(struct sfc_flash *flash,loff_t to,size_t len, const unsigne
 	command = SPINOR_OP_PP;
 #endif
 
+	if(len > L2_CACHE_ALIGN_SIZE) {
+		s_len = ALIGN((unsigned int )buf, L2_CACHE_ALIGN_SIZE) - (unsigned int)buf;
+		if(s_len) {
+			sfc_do_write(flash, command, (unsigned int)to, flash->flash_info->addrsize, buf, s_len, dummy_byte);
+		}
 
-	sfc_do_write(flash,command,to,flash->flash_info->addrsize,buf,len,dummy_byte);
+		a_len = len - (len - s_len) % L2_CACHE_ALIGN_SIZE;
+		if(a_len) {
+			sfc_do_write(flash, command, (unsigned int)to + s_len , flash->flash_info->addrsize, &buf[s_len], a_len, dummy_byte);
+		}
+
+		f_len = len - s_len - a_len;
+		if(f_len) {
+			sfc_do_write(flash, command, (unsigned int)to + s_len + a_len , flash->flash_info->addrsize, &buf[s_len + a_len], f_len, dummy_byte);
+		}
+	} else {
+		sfc_do_write(flash, command, (unsigned int)to, flash->flash_info->addrsize, buf, len, dummy_byte);
+	}
+
 	return len;
+}
+
+
+static int sfc_read_cacheline_align(struct sfc_flash *flash,u8 command,unsigned int addr,int addr_len,unsigned char *buf,size_t len,int dummy_byte)
+{
+	unsigned int ret = 0;
+	unsigned int s_len = 0, f_len = 0, a_len = 0;
+
+	/**
+	 * s_len : start not align length
+	 * a_len : middle align length
+	 * f_len : end not align length
+	 */
+	if(len > L2_CACHE_ALIGN_SIZE) {
+		s_len = ALIGN((unsigned int )buf, L2_CACHE_ALIGN_SIZE) - (unsigned int)buf;
+		if(s_len) {
+			ret +=  sfc_do_read(flash, command, (unsigned int)addr, flash->flash_info->addrsize, buf, s_len, dummy_byte);
+		}
+
+		a_len = len - (len - s_len) % L2_CACHE_ALIGN_SIZE;
+		if(a_len) {
+			ret +=  sfc_do_read(flash, command, (unsigned int)addr + s_len , flash->flash_info->addrsize, &buf[s_len], a_len, dummy_byte);
+		}
+
+		f_len = len - s_len - a_len;
+		if(f_len) {
+			ret +=  sfc_do_read(flash, command, (unsigned int)addr + s_len + a_len , flash->flash_info->addrsize, &buf[s_len + a_len], f_len, dummy_byte);
+		}
+	} else {
+		ret = sfc_do_read(flash, command, (unsigned int)addr, flash->flash_info->addrsize, buf, len, dummy_byte);
+	}
+
+	return ret;
+}
+
+
+static unsigned int sfc_read_continue(struct sfc_flash *flash,u8 command,unsigned int addr,int addr_len,unsigned char *buf,size_t len,int dummy_byte)
+{
+	unsigned char *vaddr_start = 0;
+	unsigned char *vaddr_next = 0;
+	int pfn = 0, pfn_next = 0;
+	int off_len = 0, transfer_len = 0;
+	int page_num = 0, page_offset = 0;
+	int continue_times = 0;
+	unsigned char *vaddr = 0;
+	int ret = 0;
+
+
+	if(is_vmalloc_addr(buf)) {
+
+		vaddr_start = buf;
+		pfn = vmalloc_to_pfn(vaddr_start);
+		page_offset = (unsigned int)vaddr_start & 0xfff;
+
+		off_len = PAGE_SIZE - page_offset;
+
+		if(off_len >= len) {		//all in one page
+			ret = sfc_read_cacheline_align(flash, command, addr, addr_len, buf, len, dummy_byte);
+			return off_len;
+		} else {
+			page_num = (len - off_len) / PAGE_SIZE;		//more than one page
+		}
+
+		vaddr_next = vaddr_start + off_len;
+		while (page_num) {		//find continue page
+			pfn_next = vmalloc_to_pfn((unsigned char *)((unsigned int)vaddr_next));
+			if(pfn + 1 == pfn_next) {
+				page_num --;
+				continue_times++;
+				pfn++;
+				vaddr_next += PAGE_SIZE;
+			} else {
+				break;
+			}
+		}
+
+		transfer_len = PAGE_SIZE * continue_times + off_len;
+		ret += sfc_read_cacheline_align(flash, command, addr, addr_len, buf, transfer_len, dummy_byte);	//transfer continue page
+
+		if(page_num == 0) {		//last not continue page
+			if(transfer_len < len) {
+				ret += sfc_read_cacheline_align(flash, command, addr + transfer_len, addr_len, &buf[transfer_len], len - transfer_len, dummy_byte);
+			}
+		}
+
+	} else {
+		ret = sfc_read_cacheline_align(flash, command, addr, addr_len, buf, len, dummy_byte);
+	}
+
+	return ret;
+
 }
 
 static int sfc_read(struct sfc_flash *flash, loff_t from, size_t len, unsigned char *buf)
@@ -313,8 +428,9 @@ static int sfc_read(struct sfc_flash *flash, loff_t from, size_t len, unsigned c
 
 	unsigned char command;
 	int dummy_byte;
-	unsigned int ret;
-
+	unsigned int ret = 0;
+	unsigned int s_len = 0, f_len = 0, a_len = 0;
+	int tmp_len = 0, current_len = 0;
 
 #ifdef CONFIG_SPI_QUAD
 	if((sfc_transfer_mode == TM_QI_QO_SPI) || (sfc_transfer_mode == TM_QIO_SPI) || (sfc_transfer_mode == TM_FULL_QIO_SPI)){
@@ -330,10 +446,13 @@ static int sfc_read(struct sfc_flash *flash, loff_t from, size_t len, unsigned c
 	dummy_byte = 0;
 #endif
 
+	while(len) {
+		tmp_len = sfc_read_continue(flash, command, (unsigned int)from + current_len, flash->flash_info->addrsize, &buf[current_len], len, dummy_byte);
+		current_len += tmp_len;
+		len -= tmp_len;
+	}
 
-	ret = sfc_do_read(flash, command, from, flash->flash_info->addrsize, buf, len, dummy_byte);
-
-	return ret;
+	return current_len;
 }
 
 
