@@ -37,6 +37,7 @@
 #include <asm/page.h>
 
 #include "sfc.h"
+#include "jz_sfc_nor.h"
 
 #define L2_CACHE_ALIGN_SIZE	256
 
@@ -53,37 +54,6 @@
 #define tSHSL_WR	30
 
 static int sfc_transfer_mode;
-
-static int set_flash_timing(struct sfc_flash *flash)
-{
-	unsigned int t_hold, c_hold;
-	unsigned int t_setup, c_setup;
-	unsigned int t_in, c_in, val;
-	unsigned int cycle;
-
-	cycle = 1000000000 / flash->sfc->src_clk;
-
-	t_hold = tCHSH;
-	c_hold = t_hold / cycle;
-	if(c_hold > 0)
-		val = c_hold - 1;
-	sfc_hold_delay(flash->sfc, val);
-
-	t_setup = tSLCH;
-	c_setup = t_setup / cycle;
-	if(c_setup > 0)
-		val = c_setup - 1;
-	sfc_setup_delay(flash->sfc, val);
-
-	t_in = max(tSHSL_RD, tSHSL_WR);
-	c_in = t_in / cycle;
-	val = c_in - 1;
-	sfc_interval_delay(flash->sfc, val);
-
-	return 0;
-}
-
-
 
 struct sfc_flash *to_jz_spi_norflash(struct mtd_info *mtd_info)
 {
@@ -105,15 +75,14 @@ static int sfc_nor_read_id(struct sfc_flash *flash, u8 command, unsigned int add
 	memset(&cmd, 0, sizeof(cmd));
 
 	cmd.cmd = command;
-	cmd.addr_len = addr_len;
-	cmd.dummy_byte = dummy_byte;
 	cmd.dataen = ENABLE;
 
+	transfer.addr_len = addr_len;
+	transfer.data_dummy_bits = dummy_byte;
 	transfer.addr = addr;
 	transfer.len = len;
 	transfer.data =(unsigned char *)&chip_id;
 	transfer.ops_mode = CPU_OPS;
-
 	transfer.sfc_mode = TM_STD_SPI;
 	transfer.direction = GLB_TRAN_DIR_READ;
 	transfer.cmd_info = &cmd;
@@ -143,14 +112,14 @@ static unsigned int sfc_do_read(struct sfc_flash *flash,u8 command,unsigned int 
 	memset(&cmd, 0, sizeof(cmd));
 
 	cmd.cmd = command;
-	cmd.addr_len = addr_len;
-	cmd.dummy_byte = dummy_byte;
 	cmd.dataen = ENABLE;
 
+	transfer.addr_len = addr_len;
+	transfer.data_dummy_bits = dummy_byte;
 	transfer.addr = addr;
 	transfer.len = len;
 	transfer.data = buf;
-	transfer.tmp_len = 0;
+	transfer.cur_len = 0;
 	if(len >= L2_CACHE_ALIGN_SIZE)
 		transfer.ops_mode = DMA_OPS;
 	else
@@ -194,13 +163,13 @@ static unsigned  int sfc_do_write(struct sfc_flash *flash,u8 command,unsigned in
 
 	/* write ops */
 	cmd[1].cmd = command;
-	cmd[1].dummy_byte = dummy_byte;
 	cmd[1].dataen = ENABLE;
-	cmd[1].addr_len = addr_len;
 
 	transfer[1].addr = addr;
+	transfer[1].addr_len = addr_len;
 	transfer[1].len = len;
-	transfer[1].tmp_len = 0;
+	transfer[1].cur_len = 0;
+	transfer[1].data_dummy_bits = dummy_byte;
 	transfer[1].data = buf;
 	if(len >= L2_CACHE_ALIGN_SIZE)
 		transfer[1].ops_mode = DMA_OPS;
@@ -237,16 +206,20 @@ static int sfc_flash_set_quad_mode(struct sfc_flash *flash)
 	struct sfc_transfer transfer[3];
 	struct sfc_message message;
 	struct cmd_info cmd[3];
+	struct spi_nor_platform_data *flash_info;
 
-	if(flash->flash_info->quad_mode == NULL){
+	flash_info = (struct spi_nor_platform_data*)flash->flash_info;
+
+
+	if(flash_info->quad_mode == NULL){
 		printk("quad info is null, use standard spi mode\n");
 		sfc_transfer_mode = TM_STD_SPI;
 		return -1;
 	}
 
-	command = flash->flash_info->quad_mode->WRSR_CMD;
-	sent_data = flash->flash_info->quad_mode->WRSR_DATE;
-	len = flash->flash_info->quad_mode->WD_DATE_SIZE;
+	command = flash_info->quad_mode->WRSR_CMD;
+	sent_data = flash_info->quad_mode->WRSR_DATE;
+	len = flash_info->quad_mode->WD_DATE_SIZE;
 	dummy_byte = 0;
 
 	sfc_message_init(&message);
@@ -263,23 +236,23 @@ static int sfc_flash_set_quad_mode(struct sfc_flash *flash)
 
 	/* write ops */
 	cmd[1].cmd = command;
-	cmd[1].dummy_byte = dummy_byte;
 	cmd[1].dataen = ENABLE;
 
 	transfer[1].len = len;
 	transfer[1].data = &sent_data;
+	transfer[1].data_dummy_bits = dummy_byte;
 	transfer[1].ops_mode = DMA_OPS;
 	transfer[1].sfc_mode = TM_STD_SPI;
 	transfer[1].direction = GLB_TRAN_DIR_WRITE;
 	transfer[1].cmd_info = &cmd[1];
 	sfc_message_add_tail(&transfer[1], &message);
 
-	cmd[2].cmd = flash->flash_info->quad_mode->RDSR_CMD;
+	cmd[2].cmd = flash_info->quad_mode->RDSR_CMD;
 	cmd[2].dataen = DISABLE;
-	cmd[2].dummy_byte = 0;
 	cmd[2].sta_exp = 0x2;
 	cmd[2].sta_msk = 0x2;
 
+	transfer[2].data_dummy_bits = 0;
 	transfer[2].cmd_info = &cmd[2];
 	sfc_message_add_tail(&transfer[2], &message);
 
@@ -289,7 +262,7 @@ static int sfc_flash_set_quad_mode(struct sfc_flash *flash)
 		ret=-EIO;
 	}
 
-	sfc_transfer_mode = flash->flash_info->quad_mode->sfc_mode;
+	sfc_transfer_mode = flash_info->quad_mode->sfc_mode;
 	return 0;
 }
 #endif
@@ -298,6 +271,9 @@ static int sfc_write(struct sfc_flash *flash,loff_t to,size_t len, const unsigne
 	unsigned char command;
 	int dummy_byte = 0;
 	unsigned int s_len = 0, f_len = 0, a_len = 0;
+	struct spi_nor_platform_data *flash_info;
+
+	flash_info = (struct spi_nor_platform_data*)flash->flash_info;
 
 #ifdef CONFIG_SPI_QUAD
 	if((sfc_transfer_mode == TM_QI_QO_SPI) || (sfc_transfer_mode == TM_QIO_SPI) || (sfc_transfer_mode == TM_FULL_QIO_SPI)){
@@ -313,20 +289,20 @@ static int sfc_write(struct sfc_flash *flash,loff_t to,size_t len, const unsigne
 	if(len > L2_CACHE_ALIGN_SIZE) {
 		s_len = ALIGN((unsigned int )buf, L2_CACHE_ALIGN_SIZE) - (unsigned int)buf;
 		if(s_len) {
-			sfc_do_write(flash, command, (unsigned int)to, flash->flash_info->addrsize, buf, s_len, dummy_byte);
+			sfc_do_write(flash, command, (unsigned int)to, flash_info->addrsize, buf, s_len, dummy_byte);
 		}
 
 		a_len = len - (len - s_len) % L2_CACHE_ALIGN_SIZE;
 		if(a_len) {
-			sfc_do_write(flash, command, (unsigned int)to + s_len , flash->flash_info->addrsize, &buf[s_len], a_len, dummy_byte);
+			sfc_do_write(flash, command, (unsigned int)to + s_len , flash_info->addrsize, &buf[s_len], a_len, dummy_byte);
 		}
 
 		f_len = len - s_len - a_len;
 		if(f_len) {
-			sfc_do_write(flash, command, (unsigned int)to + s_len + a_len , flash->flash_info->addrsize, &buf[s_len + a_len], f_len, dummy_byte);
+			sfc_do_write(flash, command, (unsigned int)to + s_len + a_len , flash_info->addrsize, &buf[s_len + a_len], f_len, dummy_byte);
 		}
 	} else {
-		sfc_do_write(flash, command, (unsigned int)to, flash->flash_info->addrsize, buf, len, dummy_byte);
+		sfc_do_write(flash, command, (unsigned int)to, flash_info->addrsize, buf, len, dummy_byte);
 	}
 
 	return len;
@@ -337,6 +313,9 @@ static int sfc_read_cacheline_align(struct sfc_flash *flash,u8 command,unsigned 
 {
 	unsigned int ret = 0;
 	unsigned int s_len = 0, f_len = 0, a_len = 0;
+	struct spi_nor_platform_data *flash_info;
+
+	flash_info = (struct spi_nor_platform_data*)flash->flash_info;
 
 	/**
 	 * s_len : start not align length
@@ -346,20 +325,20 @@ static int sfc_read_cacheline_align(struct sfc_flash *flash,u8 command,unsigned 
 	if(len > L2_CACHE_ALIGN_SIZE) {
 		s_len = ALIGN((unsigned int )buf, L2_CACHE_ALIGN_SIZE) - (unsigned int)buf;
 		if(s_len) {
-			ret +=  sfc_do_read(flash, command, (unsigned int)addr, flash->flash_info->addrsize, buf, s_len, dummy_byte);
+			ret +=  sfc_do_read(flash, command, (unsigned int)addr, flash_info->addrsize, buf, s_len, dummy_byte);
 		}
 
 		a_len = len - (len - s_len) % L2_CACHE_ALIGN_SIZE;
 		if(a_len) {
-			ret +=  sfc_do_read(flash, command, (unsigned int)addr + s_len , flash->flash_info->addrsize, &buf[s_len], a_len, dummy_byte);
+			ret +=  sfc_do_read(flash, command, (unsigned int)addr + s_len , flash_info->addrsize, &buf[s_len], a_len, dummy_byte);
 		}
 
 		f_len = len - s_len - a_len;
 		if(f_len) {
-			ret +=  sfc_do_read(flash, command, (unsigned int)addr + s_len + a_len , flash->flash_info->addrsize, &buf[s_len + a_len], f_len, dummy_byte);
+			ret +=  sfc_do_read(flash, command, (unsigned int)addr + s_len + a_len , flash_info->addrsize, &buf[s_len + a_len], f_len, dummy_byte);
 		}
 	} else {
-		ret = sfc_do_read(flash, command, (unsigned int)addr, flash->flash_info->addrsize, buf, len, dummy_byte);
+		ret = sfc_do_read(flash, command, (unsigned int)addr, flash_info->addrsize, buf, len, dummy_byte);
 	}
 
 	return ret;
@@ -374,7 +353,6 @@ static unsigned int sfc_read_continue(struct sfc_flash *flash,u8 command,unsigne
 	int off_len = 0, transfer_len = 0;
 	int page_num = 0, page_offset = 0;
 	int continue_times = 0;
-	unsigned char *vaddr = 0;
 	int ret = 0;
 
 
@@ -428,14 +406,15 @@ static int sfc_read(struct sfc_flash *flash, loff_t from, size_t len, unsigned c
 
 	unsigned char command;
 	int dummy_byte;
-	unsigned int ret = 0;
-	unsigned int s_len = 0, f_len = 0, a_len = 0;
 	int tmp_len = 0, current_len = 0;
+	struct spi_nor_platform_data *flash_info;
+
+	flash_info = (struct spi_nor_platform_data*)flash->flash_info;
 
 #ifdef CONFIG_SPI_QUAD
 	if((sfc_transfer_mode == TM_QI_QO_SPI) || (sfc_transfer_mode == TM_QIO_SPI) || (sfc_transfer_mode == TM_FULL_QIO_SPI)){
-		command = flash->flash_info->quad_mode->cmd_read;
-		dummy_byte = flash->flash_info->quad_mode->dummy_byte;
+		command = flash_info->quad_mode->cmd_read;
+		dummy_byte = flash_info->quad_mode->dummy_byte;
 	}
 	else{
 		command = SPINOR_OP_READ;
@@ -447,7 +426,7 @@ static int sfc_read(struct sfc_flash *flash, loff_t from, size_t len, unsigned c
 #endif
 
 	while(len) {
-		tmp_len = sfc_read_continue(flash, command, (unsigned int)from + current_len, flash->flash_info->addrsize, &buf[current_len], len, dummy_byte);
+		tmp_len = sfc_read_continue(flash, command, (unsigned int)from + current_len, flash_info->addrsize, &buf[current_len], len, dummy_byte);
 		current_len += tmp_len;
 		len -= tmp_len;
 	}
@@ -485,13 +464,13 @@ static int jz_spi_norflash_read_params(struct sfc_flash *flash, loff_t from, siz
 	memset(&cmd, 0, sizeof(cmd));
 
 	cmd.cmd = command;
-	cmd.addr_len = DEFAULT_ADDRSIZE;
-	cmd.dummy_byte = dummy_byte;
 	cmd.dataen = ENABLE;
 
 	transfer.addr = (unsigned int)from;
 	transfer.len = len;
 	transfer.data = buf;
+	transfer.addr_len = DEFAULT_ADDRSIZE;
+	transfer.data_dummy_bits = dummy_byte;
 	transfer.ops_mode = DMA_OPS;
 	transfer.direction = GLB_TRAN_DIR_READ;
 	transfer.sfc_mode = TM_STD_SPI;
@@ -523,9 +502,9 @@ static int set_flash_addr_width_4byte(struct sfc_flash *flash,int on)
 	memset(&cmd, 0, sizeof(cmd));
 
 	cmd.cmd = CMD_EN4B;
-	cmd.dummy_byte = 0;
 	cmd.dataen = DISABLE;
 
+	transfer.data_dummy_bits = 0;
 	transfer.cmd_info = &cmd;
 	sfc_message_add_tail(&transfer, &message);
 
@@ -543,6 +522,9 @@ static int jz_spi_norflash_erase_sector(struct sfc_flash *flash, uint32_t addr)
 	struct sfc_message message;
 	struct cmd_info cmd[3];
 	int ret;
+	struct spi_nor_platform_data *flash_info;
+
+	flash_info = (struct spi_nor_platform_data*)flash->flash_info;
 
 	sfc_message_init(&message);
 	memset(&transfer, 0, sizeof(transfer));
@@ -570,10 +552,10 @@ static int jz_spi_norflash_erase_sector(struct sfc_flash *flash, uint32_t addr)
 
 	/* erase ops */
 	cmd[1].cmd = command;
-	cmd[1].addr_len = flash->flash_info->addrsize;
-	cmd[1].dummy_byte = 0;
 	cmd[1].dataen = DISABLE;
 
+	transfer[1].addr_len = flash_info->addrsize;
+	transfer[1].data_dummy_bits = 0;
 	transfer[1].addr = addr;
 	transfer[1].sfc_mode = TM_STD_SPI;
 	transfer[1].direction = GLB_TRAN_DIR_WRITE;
@@ -642,13 +624,16 @@ static int jz_spi_norflash_write(struct mtd_info *mtd, loff_t to, size_t len,
 	u32 page_offset, actual_len;
 	struct sfc_flash *flash;
 	int ret;
+	struct spi_nor_platform_data *flash_info;
+
 	flash = to_jz_spi_norflash(mtd);
+	flash_info = (struct spi_nor_platform_data*)flash->flash_info;
 
 	mutex_lock(&flash->lock);
 
-	page_offset = to & (flash->flash_info->pagesize - 1);
+	page_offset = to & (flash_info->pagesize - 1);
 	/* do all the bytes fit onto one page? */
-	if (page_offset + len <= flash->flash_info->pagesize) {
+	if (page_offset + len <= flash_info->pagesize) {
 		ret = sfc_write(flash,to,len,buf);
 		*retlen = ret;
 
@@ -656,7 +641,7 @@ static int jz_spi_norflash_write(struct mtd_info *mtd, loff_t to, size_t len,
 		u32 i;
 
 		/* the size of data remaining on the first page */
-		actual_len = flash->flash_info->pagesize - page_offset;
+		actual_len = flash_info->pagesize - page_offset;
 		ret = sfc_write(flash,to,actual_len,buf);
 		*retlen += ret;
 
@@ -726,7 +711,7 @@ static int jz_spi_norflash_match_device(struct sfc_flash *flash)
 #ifdef CONFIG_SPI_QUAD
 		flash_info->quad_mode = &(params->norflash_params.quad_mode);
 #endif
-		flash->flash_info = flash_info;
+		flash->flash_info = (void *)flash_info;
 
 		}else{
 			dev_err(flash->dev,"norflash version miss match,the current version is %d.%d.%d,but the burner version is %d.%d.%d\n"\
@@ -772,7 +757,7 @@ static int jz_spi_norflash_match_device(struct sfc_flash *flash)
 			}
 		}
 
-		flash->flash_info = flash_info;
+		flash->flash_info = (void *)flash_info;
 
 
 		kfree(params);
@@ -821,8 +806,11 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 	const char *jz_probe_types[] = {"cmdlinepart",NULL};
 	int num_partition_info = 0;
 	int err = 0,ret = 0;
+	struct spi_nor_platform_data *flash_info;
+
 
 	flash = kzalloc(sizeof(struct sfc_flash), GFP_KERNEL);
+	flash_info = (struct spi_nor_platform_data*)flash->flash_info;
 	if (!flash) {
 		printk("ERROR: %s %d kzalloc() error !\n",__func__,__LINE__);
 		return -ENOMEM;
@@ -845,19 +833,20 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 
 	ret = jz_spi_norflash_match_device(flash);
 	if (ret) {
-		flash->flash_info = flash->pdata->board_info;
+		flash->flash_info = (void *)flash->pdata->board_info;
 		flash->flash_info_num = flash->pdata->board_info_size;
 		dev_err(&pdev->dev,"unknow id ,the id not match the spi bsp config,we will use the default config for the norflash\n");
 		return -ENODEV;
 	}
+	flash_info = flash->flash_info;
 
 	flash->mtd.name     = "sfc_mtd";
 	flash->mtd.owner    = THIS_MODULE;
 	flash->mtd.type     = MTD_NORFLASH;
 	flash->mtd.flags    = MTD_CAP_NORFLASH;
-	flash->mtd.erasesize    = flash->flash_info->erasesize;
-	flash->mtd.writesize    = flash->flash_info->pagesize;
-	flash->mtd.size     = flash->flash_info->chipsize;
+	flash->mtd.erasesize    = flash_info->erasesize;
+	flash->mtd.writesize    = flash_info->pagesize;
+	flash->mtd.size     = flash_info->chipsize;
 	flash->mtd._erase   = jz_spi_norflash_erase;
 	flash->mtd._read    = jz_spi_norflash_read;
 	flash->mtd._write   = jz_spi_norflash_write;
@@ -866,7 +855,7 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 	if(flash->mtd.size > 0x1000000)
 		set_flash_addr_width_4byte(flash,1);
 
-	set_flash_timing(flash);
+	set_flash_timing(flash->sfc, tCHSH, tSLCH, tSHSL_RD, tSHSL_WR);
 
 #ifdef CONFIG_SPI_QUAD
 	sfc_flash_set_quad_mode(flash);
@@ -874,10 +863,10 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 
 #ifdef CONFIG_SPI_QUAD
 	if((sfc_transfer_mode == TM_QI_QO_SPI) || (sfc_transfer_mode == TM_QIO_SPI) || (sfc_transfer_mode == TM_FULL_QIO_SPI))
-		dev_info(&pdev->dev,"the flash->flash_info->quad_mode = %x\n",flash->flash_info->quad_mode->cmd_read);
+		dev_info(&pdev->dev,"the flash->flash_info->quad_mode = %x\n",flash_info->quad_mode->cmd_read);
 #endif
-	jz_mtd_partition = flash->flash_info->mtd_partition;
-	num_partition_info = flash->flash_info->num_partition_info;
+	jz_mtd_partition = flash_info->mtd_partition;
+	num_partition_info = flash_info->num_partition_info;
 
 	ret = mtd_device_parse_register(&flash->mtd, jz_probe_types, NULL, jz_mtd_partition, num_partition_info);
 	if (ret) {

@@ -57,6 +57,7 @@ static unsigned int sfc_readl(struct sfc *sfc, unsigned short offset)
 	return readl(sfc->iomem + offset);
 }
 
+#ifdef DEBUG
 void dump_sfc_reg(struct sfc *sfc)
 {
 	int i = 0;
@@ -102,7 +103,7 @@ static void dump_reg(struct sfc *sfc)
 	printk("SFC_CGE = %08x\n",sfc_readl(sfc,0x0078));
 //	printk("SFC_DR = %08x\n",sfc_readl(sfc,0x1000));
 }
-
+#endif
 
 void sfc_init(struct sfc *sfc)
 {
@@ -339,6 +340,20 @@ void sfc_interval_delay(struct sfc *sfc, int value)
 	sfc_writel(sfc, SFC_DEV_CONF, tmp);
 }
 
+void sfc_set_cmd_length(struct sfc *sfc, unsigned int value)
+{
+	if(value == 1){
+		unsigned int tmp;
+		tmp = sfc_readl(sfc,SFC_DEV_CONF);
+		tmp &= ~TRAN_CONF_CMD_LEN;
+		sfc_writel(sfc,SFC_DEV_CONF,tmp);
+	} else {
+		unsigned int tmp;
+		tmp = sfc_readl(sfc,SFC_DEV_CONF);
+		tmp |= TRAN_CONF_CMD_LEN;
+		sfc_writel(sfc,SFC_DEV_CONF,tmp);
+	}
+}
 
 void sfc_transfer_direction(struct sfc *sfc, int value)
 {
@@ -353,6 +368,34 @@ void sfc_transfer_direction(struct sfc *sfc, int value)
 		tmp |= GLB_TRAN_DIR;
 		sfc_writel(sfc, SFC_GLB, tmp);
 	}
+}
+
+
+int set_flash_timing(struct sfc *sfc, unsigned int t_hold, unsigned int t_setup, unsigned int t_shslrd, unsigned int t_shslwr)
+{
+	unsigned int c_hold;
+	unsigned int c_setup;
+	unsigned int t_in, c_in, val;
+	unsigned int cycle;
+
+	cycle = 1000000000 / sfc->src_clk;
+
+	c_hold = t_hold / cycle;
+	if(c_hold > 0)
+		val = c_hold - 1;
+	sfc_hold_delay(sfc, val);
+
+	c_setup = t_setup / cycle;
+	if(c_setup > 0)
+		val = c_setup - 1;
+	sfc_setup_delay(sfc, val);
+
+	t_in = max(t_shslrd, t_shslwr);
+	c_in = t_in / cycle;
+	val = c_in - 1;
+	sfc_interval_delay(sfc, val);
+
+	return 0;
 }
 
 void sfc_set_length(struct sfc *sfc, int value)
@@ -399,22 +442,21 @@ static unsigned int cpu_read_rxfifo(struct sfc *sfc)
 	int i;
 	unsigned long align_len = 0;
 	unsigned int fifo_num = 0;
-	unsigned int ndummy = 0;
 	unsigned int data[1] = {0};
 	unsigned int last_word = 0;
 
 	align_len = ALIGN(sfc->transfer->len, 4);
 
-	if(((align_len - sfc->transfer->tmp_len) / 4) > THRESHOLD) {
+	if(((align_len - sfc->transfer->cur_len) / 4) > THRESHOLD) {
 		fifo_num = THRESHOLD;
 		last_word = 0;
 	} else {
 		/* last aligned THRESHOLD data*/
 		if(sfc->transfer->len % 4) {
-			fifo_num = (align_len - sfc->transfer->tmp_len) / 4 - 1;
+			fifo_num = (align_len - sfc->transfer->cur_len) / 4 - 1;
 			last_word = 1;
 		} else {
-			fifo_num = (align_len - sfc->transfer->tmp_len) / 4;
+			fifo_num = (align_len - sfc->transfer->cur_len) / 4;
 			last_word = 0;
 		}
 	}
@@ -422,7 +464,7 @@ static unsigned int cpu_read_rxfifo(struct sfc *sfc)
 	for(i = 0; i < fifo_num; i++) {
 		sfc_read_data(sfc, (unsigned int *)sfc->transfer->data);
 		sfc->transfer->data += 4;
-		sfc->transfer->tmp_len += 4;
+		sfc->transfer->cur_len += 4;
 	}
 
 	/* last word */
@@ -431,7 +473,7 @@ static unsigned int cpu_read_rxfifo(struct sfc *sfc)
 		memcpy((void *)sfc->transfer->data, data, sfc->transfer->len % 4);
 
 		sfc->transfer->data += sfc->transfer->len % 4;
-		sfc->transfer->tmp_len += 4;
+		sfc->transfer->cur_len += 4;
 	}
 
 	return 0;
@@ -446,16 +488,16 @@ static unsigned int cpu_write_txfifo(struct sfc *sfc)
 
 	align_len = ALIGN(sfc->transfer->len , 4);
 
-	if (((align_len - sfc->transfer->tmp_len) / 4) > THRESHOLD){
+	if (((align_len - sfc->transfer->cur_len) / 4) > THRESHOLD){
 		fifo_num = THRESHOLD;
 	} else {
-		fifo_num = (align_len - sfc->transfer->tmp_len) / 4;
+		fifo_num = (align_len - sfc->transfer->cur_len) / 4;
 	}
 
 	for(i = 0; i < fifo_num; i++) {
 		sfc_write_data(sfc, *(unsigned int *)sfc->transfer->data);
 		sfc->transfer->data += 4;
-		sfc->transfer->tmp_len += 4;
+		sfc->transfer->cur_len += 4;
 	}
 
 	return 0;
@@ -556,6 +598,21 @@ void sfc_data_en(struct sfc *sfc, int channel, unsigned int value)
 	}
 }
 
+void sfc_phase_format(struct sfc *sfc, int channel, unsigned int value)
+{
+	if(value == 1) {
+		unsigned int tmp;
+		tmp = sfc_readl(sfc, SFC_TRAN_CONF(channel));
+		tmp |= TRAN_CONF_FMAT;
+		sfc_writel(sfc, SFC_TRAN_CONF(channel), tmp);
+	} else {
+		unsigned int tmp;
+		tmp = sfc_readl(sfc, SFC_TRAN_CONF(channel));
+		tmp &= ~TRAN_CONF_FMAT;
+		sfc_writel(sfc, SFC_TRAN_CONF(channel), tmp);
+	}
+}
+
 void sfc_write_cmd(struct sfc *sfc, int channel, unsigned int value)
 {
 	unsigned int tmp;
@@ -571,7 +628,7 @@ void sfc_dev_addr(struct sfc *sfc, int channel, unsigned int value)
 }
 
 
-void sfc_dev_addr_dummy_bytes(struct sfc *sfc, int channel, unsigned int value)
+void sfc_dev_data_dummy_bytes(struct sfc *sfc, int channel, unsigned int value)
 {
 	unsigned int tmp;
 	tmp = sfc_readl(sfc, SFC_TRAN_CONF(channel));
@@ -633,14 +690,15 @@ static void sfc_phase_transfer(struct sfc *sfc,struct sfc_transfer *
 		transfer,int channel)
 {
 	sfc_flush_fifo(sfc);
-	sfc_set_addr_length(sfc,channel,transfer->cmd_info->addr_len);
+	sfc_set_addr_length(sfc,channel,transfer->addr_len);
 	sfc_cmd_enble(sfc,channel,ENABLE);
 	sfc_write_cmd(sfc,channel,transfer->cmd_info->cmd);
-	sfc_dev_addr_dummy_bytes(sfc,channel,transfer->cmd_info->dummy_byte);
+	sfc_dev_data_dummy_bytes(sfc,channel,transfer->data_dummy_bits);
 	sfc_data_en(sfc,channel,transfer->cmd_info->dataen);
 	sfc_dev_addr(sfc, channel,transfer->addr);
-	sfc_dev_addr_plus(sfc,channel,transfer->cmd_info->addr_plus);
+	sfc_dev_addr_plus(sfc,channel,transfer->addr_plus);
 	sfc_mode(sfc,channel,transfer->sfc_mode);
+	sfc_phase_format(sfc,channel,0);/*default 0,dummy bits is blow the addr*/
 
 }
 static void common_cmd_request_transfer(struct sfc *sfc,struct sfc_transfer *transfer,int channel)
@@ -676,13 +734,13 @@ static void sfc_glb_info_config(struct sfc *sfc,struct sfc_transfer *transfer)
 		sfc_transfer_mode(sfc, SLAVE_MODE);
 	}
 }
+#ifdef DEBUG
 static void  dump_transfer(struct sfc_transfer *xfer,int num)
 {
 	printk("\n");
-	printk("cmd[%d].cmd_type = %d\n",num,xfer->cmd_info->cmd_type);
 	printk("cmd[%d].cmd = 0x%02x\n",num,xfer->cmd_info->cmd);
-	printk("cmd[%d].addr_len = %d\n",num,xfer->cmd_info->addr_len);
-	printk("cmd[%d].dummy_byte = %d\n",num,xfer->cmd_info->dummy_byte);
+	printk("cmd[%d].addr_len = %d\n",num,xfer->addr_len);
+	printk("cmd[%d].dummy_byte = %d\n",num,xfer->data_dummy_bits);
 	printk("cmd[%d].dataen = %d\n",num,xfer->cmd_info->dataen);
 	printk("cmd[%d].sta_exp = %d\n",num,xfer->cmd_info->sta_exp);
 	printk("cmd[%d].sta_msk = %d\n",num,xfer->cmd_info->sta_msk);
@@ -695,6 +753,7 @@ static void  dump_transfer(struct sfc_transfer *xfer,int num)
 	printk("transfer[%d].sfc_mode = %d\n",num,xfer->sfc_mode);
 	printk("transfer[%d].ops_mode = %d\n",num,xfer->ops_mode);
 }
+#endif
 int sfc_sync(struct sfc *sfc, struct sfc_message *message)
 {
 	struct sfc_transfer *xfer;
@@ -707,7 +766,7 @@ int sfc_sync(struct sfc *sfc, struct sfc_message *message)
 		}else{
 			poll_cmd_request_transfer(sfc,xfer,phase_num);
 		}
-		if(xfer->cmd_info->addr_len || xfer->len)
+		if(xfer->addr_len || xfer->len)
 			sfc_glb_info_config(sfc,xfer);
 		phase_num++;
 		message->actual_length += xfer->len;
@@ -716,6 +775,7 @@ int sfc_sync(struct sfc *sfc, struct sfc_message *message)
 	}
 	sfc_set_phase_num(sfc,phase_num);
 	ret = sfc_start_transfer(sfc);
+	list_del_init(&message->transfers);
 	return ret;
 }
 

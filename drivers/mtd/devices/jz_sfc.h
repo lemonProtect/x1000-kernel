@@ -4,71 +4,6 @@
 #include <mach/jzssi.h>
 
 
-#define UNCACHE(addr)   ((typeof(addr))(((unsigned long)(addr)) | 0xa0000000))
-/* Flash opcodes. */
-#define SPINOR_OP_WREN		0x06	/* Write enable */
-#define SPINOR_OP_RDSR		0x05	/* Read status register */
-#define SPINOR_OP_RDSR_1	0x35	/* Read status1 register */
-#define SPINOR_OP_RDSR_2	0x15	/* Read status2 register */
-#define SPINOR_OP_WRSR		0x01	/* Write status register 1 byte */
-#define SPINOR_OP_WRSR_1	0x31	/* Write status1 register 1 byte */
-#define SPINOR_OP_WRSR_2	0x11	/* Write status2 register 1 byte */
-#define SPINOR_OP_READ		0x03	/* Read data bytes (low frequency) */
-#define SPINOR_OP_READ_FAST	0x0b	/* Read data bytes (high frequency) */
-#define SPINOR_OP_READ_1_1_2	0x3b	/* Read data bytes (Dual SPI) */
-#define SPINOR_OP_READ_1_1_4	0x6b	/* Read data bytes (Quad SPI) */
-#define SPINOR_OP_PP		0x02	/* Page program (up to 256 bytes) */
-#define SPINOR_OP_QPP		0x32	/* Page program (up to 256 bytes) */
-#define SPINOR_OP_BE_4K		0x20	/* Erase 4KiB block */
-#define SPINOR_OP_BE_4K_PMC	0xd7	/* Erase 4KiB block on PMC chips */
-#define SPINOR_OP_BE_32K	0x52	/* Erase 32KiB block */
-#define SPINOR_OP_CHIP_ERASE	0xc7	/* Erase whole flash chip */
-#define SPINOR_OP_SE		0xd8	/* Sector erase (usually 64KiB) */
-#define SPINOR_OP_RDID		0x9f	/* Read JEDEC ID */
-#define SPINOR_OP_RDCR		0x35	/* Read configuration register */
-#define SPINOR_OP_RDFSR		0x70	/* Read flag status register */
-
-/* 4-byte address opcodes - used on Spansion and some Macronix flashes. */
-#define SPINOR_OP_READ4		0x13	/* Read data bytes (low frequency) */
-#define SPINOR_OP_READ4_FAST	0x0c	/* Read data bytes (high frequency) */
-#define SPINOR_OP_READ4_1_1_2	0x3c	/* Read data bytes (Dual SPI) */
-#define SPINOR_OP_READ4_1_1_4	0x6c	/* Read data bytes (Quad SPI) */
-#define SPINOR_OP_PP_4B		0x12	/* Page program (up to 256 bytes) */
-#define SPINOR_OP_SE_4B		0xdc	/* Sector erase (usually 64KiB) */
-
-/* Used for SST flashes only. */
-#define SPINOR_OP_BP		0x02	/* Byte program */
-#define SPINOR_OP_WRDI		0x04	/* Write disable */
-#define SPINOR_OP_AAI_WP	0xad	/* Auto address increment word program */
-
-/* Used for Macronix and Winbond flashes. */
-#define SPINOR_OP_EN4B		0xb7	/* Enter 4-byte mode */
-#define SPINOR_OP_EX4B		0xe9	/* Exit 4-byte mode */
-
-/* Used for Spansion flashes only. */
-#define SPINOR_OP_BRWR		0x17	/* Bank register write */
-
-/* Status Register bits. */
-#define SR_WIP			1	/* Write in progress */
-#define SR_WEL			2	/* Write enable latch */
-#define SR_SQE			(1 << 1)	/* QUAD MODE enable */
-/* meaning of other SR_* bits may differ between vendors */
-#define SR_BP0			4	/* Block protect 0 */
-#define SR_BP1			8	/* Block protect 1 */
-#define SR_BP2			0x10	/* Block protect 2 */
-#define SR_SRWD			0x80	/* SR write protect */
-
-#define SR_QUAD_EN_MX		0x40	/* Macronix Quad I/O */
-
-/* Flag Status Register bits */
-#define FSR_READY		0x80
-
-/* Configuration Register bits. */
-#define CR_QUAD_EN_SPAN		0x2	/* Spansion Quad I/O */
-
-
-
-#define BUFFER_SIZE PAGE_SIZE
 
 /* SFC register */
 
@@ -140,6 +75,7 @@
 #define TRAN_CONF_DATEEN		(1 << 16)
 #define	TRAN_CONF_CMD_OFFSET		(0)
 #define	TRAN_CONF_CMD_MSK		(0xffff << CMD_OFFSET)
+#define	TRAN_CONF_CMD_LEN		(1 << 15)
 
 /* For SFC_TRIG */
 #define TRIG_FLUSH			(1 << 2)
@@ -203,11 +139,8 @@
 #define DEFAULT_ADDRSIZE	3
 
 struct cmd_info{
-	int cmd_type; //1:common cmd, 2: poll cmd
 	int cmd;
-	int addr_len;
-	unsigned int addr_plus;
-	int dummy_byte;
+	int cmd_len;/*reserved; not use*/
 	int dataen;
 	int sta_exp;
 	int sta_msk;
@@ -215,15 +148,23 @@ struct cmd_info{
 
 struct sfc_transfer {
 	int direction;
+
+	struct cmd_info *cmd_info;
+
+	int addr_len;
 	unsigned int addr;
+	unsigned int addr_plus;
+	int addr_dummy_bits;/*cmd + addr_dummy_bits + addr*/
 
 	const unsigned char *data;
+	int data_dummy_bits;/*addr + data_dummy_bits + data*/
 	unsigned int len;
-	unsigned int tmp_len;
+	unsigned int cur_len;
 
 	int sfc_mode;
 	int ops_mode;
-	struct cmd_info *cmd_info;
+	int phase_format;/*we just use default value;phase1:cmd+dummy+addr... phase0:cmd+addr+dummy...*/
+
 	struct list_head transfer_list;
 };
 
@@ -257,7 +198,7 @@ struct sfc_flash {
 	struct resource		*resource;
 	struct sfc			*sfc;
 	struct jz_sfc_info *pdata;
-	struct spi_nor_platform_data *flash_info;
+	void *flash_info;
 	unsigned int flash_info_num;
 
 	struct mutex        lock;
