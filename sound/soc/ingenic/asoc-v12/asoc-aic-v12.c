@@ -268,16 +268,16 @@ static int jz_aic_remove(struct platform_device *pdev)
 int jz_aic_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	struct jz_aic * jz_aic = platform_get_drvdata(pdev);
-	clk_disable(jz_aic->clk);
 	clk_disable(jz_aic->clk_gate);
+	clk_disable(jz_aic->clk);
 	return 0;
 }
 
 int jz_aic_resume(struct platform_device *pdev)
 {
 	struct jz_aic * jz_aic = platform_get_drvdata(pdev);
-	clk_enable(jz_aic->clk_gate);
 	clk_enable(jz_aic->clk);
+	clk_enable(jz_aic->clk_gate);
 	return 0;
 }
 #endif
