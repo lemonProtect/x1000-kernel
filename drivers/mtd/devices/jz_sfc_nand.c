@@ -39,24 +39,27 @@ int column_cmdaddr_bits = 0;
 int tRD = 0;
 int tPROG = 0;
 int tBERS = 0;
-static int jz_sfc_nand_ecc_en(struct sfc_flash *flash)
+#define	tCHSH	5	//hold
+#define tSLCH	5	//setup
+#define tSHSL_RD	20	//interval
+#define tSHSL_WR	20
+static int jz_sfc_nand_set_feature(struct sfc_flash *flash, u8 addr, u8 *feacture)
 {
 	int ret;
 	struct sfc_transfer transfer;
 	struct sfc_message message;
 	struct cmd_info cmd;
-	char feacture = 0x10;/*ECC_EN*/
 	memset(&transfer, 0, sizeof(transfer));
 	memset(&cmd, 0, sizeof(cmd));
 	sfc_message_init(&message);
 	cmd.cmd = SPINAND_CMD_SET_FEATURE;
 
-	transfer.addr = SPINAND_ADDR_FEATURE;
+	transfer.addr = addr;
 	transfer.addr_len = 1;
 	transfer.addr_dummy_bits = 0;
 
 	cmd.dataen = ENABLE;
-	transfer.data = (unsigned char *)&feacture;
+	transfer.data = feacture;
 	transfer.len = 1;
 	transfer.direction = GLB_TRAN_DIR_WRITE;
 	transfer.data_dummy_bits = 0;
@@ -72,8 +75,8 @@ static int jz_sfc_nand_ecc_en(struct sfc_flash *flash)
 	}
 	return ret;
 }
-#ifdef CONFIG_SPI_QUAD
-static int jz_sfc_nand_get_feature(struct sfc_flash *flash, u8 addr, u8 *status)
+
+static int jz_sfc_nand_get_feature(struct sfc_flash *flash, u8 addr, u8 *feacture)
 {
 	int ret;
 	struct sfc_transfer transfer;
@@ -89,7 +92,7 @@ static int jz_sfc_nand_get_feature(struct sfc_flash *flash, u8 addr, u8 *status)
 	transfer.addr_dummy_bits = 0;
 
 	cmd.dataen = ENABLE;
-	transfer.data = status;
+	transfer.data = feacture;
 	transfer.len = 1;
 	transfer.direction = GLB_TRAN_DIR_READ;
 	transfer.data_dummy_bits = 0;
@@ -103,51 +106,12 @@ static int jz_sfc_nand_get_feature(struct sfc_flash *flash, u8 addr, u8 *status)
 		dev_err(flash->dev,"sfc_sync error ! %s %s %d\n",__FILE__,__func__,__LINE__);
 		ret=-EIO;
 	}
-	return ret;
-}
-
-static int jz_sfc_nand_set_quad_mode(struct sfc_flash *flash)
-{
-	struct sfc_transfer transfer;
-	struct sfc_message message;
-	struct cmd_info cmd;
-	u8 status;
-	int ret;
-
-	jz_sfc_nand_get_feature(flash, SPINAND_ADDR_FEATURE, &status);
-	status |= 0x01; /*set FEATURE_REG QE bit*/
-
-	memset(&transfer, 0, sizeof(transfer));
-	memset(&cmd, 0, sizeof(cmd));
-	sfc_message_init(&message);
-	cmd.cmd = SPINAND_CMD_SET_FEATURE;
-
-	transfer.addr = SPINAND_ADDR_FEATURE;
-	transfer.addr_len = 1;
-	transfer.addr_dummy_bits = 0;
-
-	cmd.dataen = ENABLE;
-	transfer.data = (unsigned char*)&status;
-	transfer.len = 1;
-	transfer.direction = GLB_TRAN_DIR_WRITE;
-	transfer.data_dummy_bits = 0;
-
-	transfer.cmd_info = &cmd;
-	transfer.ops_mode = CPU_OPS;
-	transfer.sfc_mode = TM_STD_SPI;
-	sfc_message_add_tail(&transfer, &message);
-	ret = sfc_sync(flash->sfc, &message);
-	if(ret) {
-		dev_err(flash->dev,"sfc_sync error ! %s %s %d\n",__FILE__,__func__,__LINE__);
-		ret=-EIO;
-	}
 #if 0
-	jz_sfc_nand_get_feature(flash, SPINAND_ADDR_FEATURE, &status);
-	printk("function:%s;line:%d;%x\n",__func__,__LINE__,status);
+	printk("NAND:feacture addr:%x value:%x\n",addr, *feacture);
 #endif
 	return ret;
 }
-#endif
+
 static int jz_sfc_nand_read(struct sfc_flash *flash, int page, int column, char* buffer, size_t len, u8 *status)
 {
 	int ret;
@@ -172,7 +136,7 @@ static int jz_sfc_nand_read(struct sfc_flash *flash, int page, int column, char*
 		ret=-EIO;
 		return ret;
 	}
-	udelay(tRD);
+//	udelay(tRD);
 
 	cmd[1].cmd = SPINAND_CMD_GET_FEATURE;
 	transfer[1].addr = SPINAND_ADDR_STATUS;
@@ -311,6 +275,7 @@ static int jz_sfc_nand_read_param(struct sfc_flash *flash, struct jz_spi_nand_pl
 	column_cmdaddr_bits = 24;
 try:
 	page_size = get_pagesize_from_nand(flash);
+	trytime++;
 	if((page_size>0) && (page_size<4096)){
 		buffer = kzalloc(page_size, GFP_KERNEL);
 		if(!buffer){
@@ -318,7 +283,6 @@ try:
 			return -ENOMEM;
 		}
 	}else if(trytime < 2){
-		trytime++;
 		column_cmdaddr_bits = 32;
 		goto try;
 	}else{
@@ -408,6 +372,7 @@ struct jz_spi_support *jz_sfc_nand_read_id(struct sfc_flash *flash)
 #if 0
 	printk("**************************************************************\n");
 	printk("id_manufactory=0x%08x\n",params->id_manufactory);
+	printk("id_device=0x%08x\n",params->id_device);
 	printk("name=%s\n",params->name);
 	printk("page_size=%d\n",params->page_size);
 	printk("oob_size=%d\n",params->oobsize);
@@ -549,7 +514,7 @@ static int jz_sfc_nand_write(struct sfc_flash *flash, const u_char *buffer, int 
 		return ret;
 	}
 /*4. delay*/
-	udelay(tPROG);
+//	udelay(tPROG);
 /*5. get status to be sure nand wirte completed*/
 	cmd[3].cmd = SPINAND_CMD_GET_FEATURE;
 	transfer[3].addr = SPINAND_ADDR_STATUS;
@@ -688,7 +653,7 @@ static int jz_sfc_nand_erase_blk(struct sfc_flash *flash,uint32_t addr)
 		ret=-EIO;
 		return ret;
 	}
-	udelay(tBERS);
+//	udelay(tBERS);
 
 	cmd[2].cmd = SPINAND_CMD_GET_FEATURE;
 	transfer[2].addr = SPINAND_ADDR_STATUS;
@@ -886,6 +851,7 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 	struct nand_chip *chip;
 	int num_partitions;
 	int nand_magic= 0;
+	u8 feacture;
 	int err = 0;
 	int ret;
 
@@ -902,13 +868,20 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 	flash->flash_info = flash->pdata->board_info;
 	flash->flash_info_num = 1;
 	flash->sfc = sfc_res_init(pdev);
+	set_flash_timing(flash->sfc, tCHSH, tSLCH, tSHSL_RD, tSHSL_WR);
 	platform_set_drvdata(pdev, flash);
 	spin_lock_init(&flash->lock_status);
 	mutex_init(&flash->lock);
 
-	jz_sfc_nand_ecc_en(flash);
+	/*ecc enable*/
+	jz_sfc_nand_get_feature(flash, 0xb0, &feacture);
+	feacture |= (1<<4);
+	jz_sfc_nand_set_feature(flash, 0xb0, &feacture);
+	/*quad enable*/
 #ifdef CONFIG_SPI_QUAD
-	err = jz_sfc_nand_set_quad_mode(flash);
+	jz_sfc_nand_get_feature(flash, 0xb0, &feacture);
+	feacture |= (1<<0); /*set FEATURE_REG QE bit*/
+	err = jz_sfc_nand_set_feature(flash, 0xb0, &feacture);
 	if(err)
 	{
 		printk("failed to set quad mode\n");
@@ -945,12 +918,13 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 	flash->mtd.size = spi_flash->size;
 	flash->mtd.oobsize = spi_flash->oobsize;
 	flash->mtd.writebufsize = flash->mtd.writesize;
+	flash->mtd.bitflip_threshold = flash->mtd.ecc_strength = 2;
+
 	column_cmdaddr_bits = spi_flash->column_cmdaddr_bits;
 	tRD = spi_flash->tRD_maxbusy;
 	tPROG = spi_flash->tPROG_maxbusy;
 	tBERS = spi_flash->tBERS_maxbusy;
 
-	flash->mtd.bitflip_threshold = flash->mtd.ecc_strength = 2;
 	chip->select_chip = NULL;
 	chip->badblockbits = 8;
 	chip->scan_bbt = nand_default_bbt;
@@ -968,7 +942,6 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 		chip->badblockpos = NAND_SMALL_BADBLOCK_POS;
 
 	flash->mtd.priv = chip;
-
 	flash->mtd._erase = jz_sfcnand_erase;
 	flash->mtd._read = jz_sfcnand_read;
 	flash->mtd._write = jz_sfcnand_write;
