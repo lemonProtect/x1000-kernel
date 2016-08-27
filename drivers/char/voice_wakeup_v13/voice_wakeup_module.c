@@ -43,7 +43,7 @@ struct wakeup_module_ops {
 	int (*set_handler)(void *);
 	dma_addr_t (*get_dma_address)(void);
 	int (*ioctl)(int cmd, unsigned long args);
-	unsigned char (*get_resource_addr)(void);
+	unsigned char *(*get_resource_addr)(void);
 	int (*process_data)(void);
 	int (*is_cpu_wakeup_by_dmic)(void);
 	int (*set_sleep_buffer)(struct sleep_buffer *);
@@ -141,7 +141,7 @@ int wakeup_module_ioctl(int cmd, unsigned long args)
 }
 EXPORT_SYMBOL(wakeup_module_ioctl);
 
-unsigned char wakeup_module_get_resource_addr(void)
+unsigned char *wakeup_module_get_resource_addr(void)
 {
 	return m_ops->get_resource_addr();
 }

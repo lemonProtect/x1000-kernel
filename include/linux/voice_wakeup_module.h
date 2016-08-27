@@ -49,13 +49,18 @@ int wakeup_module_open(int mode);
 
 int wakeup_module_close(int mode);
 
+/* pm suspend operation */
+int wakeup_module_enter_suspend(int mode);
+int wakeup_module_exit_suspend(int mode);
+int wakeup_module_setup_voice_trigger(int mode);
+
 void wakeup_module_cache_prefetch(void);
 
 int wakeup_module_handler(int par);
 
 dma_addr_t wakeup_module_get_dma_address(void);
 
-unsigned char wakeup_module_get_resource_addr(void);
+unsigned char * wakeup_module_get_resource_addr(void);
 
 int wakeup_module_ioctl(int cmd, unsigned long args);
 

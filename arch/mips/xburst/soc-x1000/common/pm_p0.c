@@ -47,7 +47,11 @@
 
 #include <soc/tcsm_layout.h>
 
-#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
+#ifdef CONFIG_WAKEUP_MODULE_V14
+#define CONFIG_WAKEUP_MODULE_V13
+#endif
+
+#ifdef CONFIG_WAKEUP_MODULE_V13
 #include<linux/voice_wakeup_module.h>
 #endif
 
@@ -269,11 +273,6 @@ static noinline void cpu_sleep(void)
 	printk("clkgate = %x\n",cpm_inl(CPM_CLKGR));
 	printk("tcunt = %x\n",REG32(0xb0002068));
 
-#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
-	wakeup_module_open(DEEP_SLEEP);
-	resume_reg->sleep_voice_enable=wakeup_module_is_wakeup_enabled();
-	//wakeup_module_cache_prefetch();
-#endif
 	cache_prefetch(LABLE1,1024);
 LABLE1:
 	blast_icache32();
@@ -295,7 +294,7 @@ LABLE1:
 	/* REG32(0xb0000000) = 0x95800000; */
 	/* while((REG32(0xB00000D4) & 7)) */
 	/* 	TCSM_PCHAR('A'); */
-#ifndef CONFIG_JZ_DMIC_WAKEUP_V13
+#ifndef CONFIG_WAKEUP_MODULE_V13
 	{
 		unsigned int val;
 		val = REG32(0xb0000000);
@@ -446,16 +445,26 @@ static int x1000_pm_enter(suspend_state_t state)
 {
 	volatile unsigned int lcr,opcr;
 	struct resume_reg *resume_reg = (struct resume_reg *)SLEEP_TCSM_RESUME_DATA;
-#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
-	volatile unsigned int wakeup;
-	int (*volatile func)(int);
-	int temp;
 
-	wakeup = wakeup_module_get_sleep_process();
-	if(wakeup == SYS_WAKEUP_OK)
-		return 0;
-sleep_agin:
+#ifdef CONFIG_WAKEUP_MODULE_V13
+	volatile unsigned int wakeup;
+	int (*volatile wakeup_handler)(int);
+
+	resume_reg->sleep_voice_enable = wakeup_module_is_wakeup_enabled();
+	if (resume_reg->sleep_voice_enable) {
+		wakeup = wakeup_module_get_sleep_process();
+		if(wakeup == SYS_WAKEUP_OK)
+			return 0;
+
+#ifdef CONFIG_WAKEUP_MODULE_V14
+		/* save resource */
+		wakeup_module_enter_suspend(DEEP_SLEEP);
 #endif
+	}
+
+voice_trigger_again:
+#endif
+
 #if 0
 	bypassmode = ddr_readl(DDRP_PIR) & DDRP_PIR_DLLBYP;
 	printk("\nddr mode  = %d\n",bypassmode);
@@ -464,8 +473,6 @@ sleep_agin:
 	test_ddr_data_init();
 #endif
 
-#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
-#endif
 	disable_fpu();
 	resume_reg->sleep_cpm_lcr =  cpm_inl(CPM_LCR);
 	resume_reg->sleep_cpm_opcr =  cpm_inl(CPM_OPCR);
@@ -477,7 +484,7 @@ sleep_agin:
 	cpm_outl(lcr,CPM_LCR);
 
 	opcr = cpm_inl(CPM_OPCR);
-#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
+#ifdef CONFIG_WAKEUP_MODULE_V13
 	opcr &= ~((1 << 25) | (1 << 22) | (0xfff << 8) | (1 << 7) | (1 << 6) | (1 << 4) | (1 << 3) | (1 << 2));
 	opcr |= (1 << 31) | (1 << 30) | (1 << 25)| (1 << 23) | (0xfff << 8) | (1 << 4);
 #else
@@ -493,6 +500,18 @@ sleep_agin:
 	load_func_to_tcsm((unsigned int *)SLEEP_TCSM_BOOT_TEXT,(unsigned int *)cpu_resume_boot,SLEEP_TCSM_BOOT_LEN);
 	load_func_to_tcsm((unsigned int *)SLEEP_TCSM_RESUME_TEXT,(unsigned int *)cpu_resume,SLEEP_TCSM_RESUME_LEN);
 
+#ifdef CONFIG_WAKEUP_MODULE_V13
+	if (resume_reg->sleep_voice_enable) {
+#ifdef CONFIG_WAKEUP_MODULE_V14
+		/* setup voice trigger after CPM_OPCR? */
+		wakeup_module_setup_voice_trigger(DEEP_SLEEP);
+#else
+		wakeup_module_open(DEEP_SLEEP);
+		//wakeup_module_cache_prefetch();
+#endif
+	}
+#endif
+
 	mb();
 	save_goto((unsigned int)cpu_sleep);
 	mb();
@@ -503,7 +522,10 @@ sleep_agin:
 	__jz_flush_cache_all();
 	local_flush_tlb_all();
 
-#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
+	cpm_outl(resume_reg->sleep_cpm_lcr,CPM_LCR);
+	cpm_outl(resume_reg->sleep_cpm_opcr,CPM_OPCR);
+
+#ifdef CONFIG_WAKEUP_MODULE_V13
 	/*
 	  voice_wakeup_v13/wakeup_module/src/start.S
 	  interface:
@@ -513,32 +535,24 @@ sleep_agin:
 	  #define WAKEUP_HANDLER_ADDR	(0x81f00004)
 	*/
 
-
 	if(resume_reg->sleep_voice_enable==1)
 	{
-		temp = *(unsigned int *)WAKEUP_HANDLER_ADDR;
-		func = (int(*)(int))temp;
-		wakeup = func(1); /* irq handler */
-	}
-	else {
-		wakeup = SYS_WAKEUP_OK;
-	}
-#endif
+		wakeup_handler = (int(*)(int)) *(unsigned int *)WAKEUP_HANDLER_ADDR;
+		//wakeup = wakeup_handler(1); /* voice wakeup handler */
+		wakeup = wakeup_module_handler(1);
 
-	cpm_outl(resume_reg->sleep_cpm_lcr,CPM_LCR);
-	cpm_outl(resume_reg->sleep_cpm_opcr,CPM_OPCR);
-
-
-#ifdef CONFIG_JZ_DMIC_WAKEUP_V13
-	/* sleep again */
-	if(resume_reg->sleep_voice_enable==1)
-	{
 		if ( wakeup != SYS_WAKEUP_OK ) {
-			goto sleep_agin;
+			goto voice_trigger_again;
 		}
+
+#ifdef CONFIG_WAKEUP_MODULE_V14
+		/* restore resource */
+		wakeup_module_exit_suspend(DEEP_SLEEP);
+#else
+		//TCSM_PCHAR('P'); TCSM_PCHAR('8'); TCSM_PCHAR('\r'); TCSM_PCHAR('\n');
+		wakeup_module_close(DEEP_SLEEP);
+#endif
 	}
-	//TCSM_PCHAR('P'); TCSM_PCHAR('8'); TCSM_PCHAR('\r'); TCSM_PCHAR('\n');
-	wakeup_module_close(DEEP_SLEEP);
 #endif
 	return 0;
 }
