@@ -74,6 +74,6 @@ obj-$(CONFIG_TEST_SECOND_REFRESH)	+= second_refresh/
 
 obj-$(CONFIG_WAKEUP_MODULE_V13) += voice_wakeup_v13/
 obj-$(CONFIG_WAKEUP_MODULE_V14) += voice_wakeup_v14/
-#obj-$(CONFIG_WAKEUP_MODULE_V15) += voice_wakeup_v15_PIC/
+obj-$(CONFIG_WAKEUP_MODULE_V14_PIC) += voice_wakeup_v14_PIC/
 obj-$(CONFIG_JZ_DMIC_V13)	+= jz_dmic_v13.o
 obj-$(CONFIG_JZ_DMIC_WAKEUP_V13)	+= jz_wakeup_v13.o

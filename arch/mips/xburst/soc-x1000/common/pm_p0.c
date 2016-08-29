@@ -47,6 +47,10 @@
 
 #include <soc/tcsm_layout.h>
 
+#ifdef CONFIG_WAKEUP_MODULE_V14_PIC
+#define CONFIG_WAKEUP_MODULE_V14
+#endif
+
 #ifdef CONFIG_WAKEUP_MODULE_V14
 #define CONFIG_WAKEUP_MODULE_V13
 #endif
