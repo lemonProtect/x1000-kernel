@@ -10,8 +10,25 @@
 #include <soc/ddr.h>
 #include "clk.h"
 
-static int audio_div_apll[64];
-static int audio_div_mpll[64];
+static unsigned int audio_rate [] = {
+	8000, 11025, 12000, 16000, 22050, 24000,
+	32000, 44100, 48000, 88200, 96000,
+};
+#define AUDIO_RATE_NUM (sizeof(audio_rate))
+#define AUDIO_DIV_SIZE (ARRAY_SIZE(audio_rate) * 2)
+
+struct audio_div_values {
+	unsigned int savem:8;
+	unsigned int saven:24;
+};
+struct audio_div {
+	unsigned int rate;
+	unsigned int savem;
+	unsigned int saven;
+};
+static struct audio_div audiodiv_apll[AUDIO_RATE_NUM];
+static struct audio_div audiodiv_mpll[AUDIO_RATE_NUM];
+
 static DEFINE_SPINLOCK(cpm_cgu_lock);
 struct clk_selectors {
 	unsigned int route[4];
@@ -36,10 +53,10 @@ struct cgu_clk {
 	int off,en,maskm,bitm,maskn,bitn,maskd,bitd,sel,cache;
 };
 static struct cgu_clk cgu_clks[] = {
-	[CGU_AUDIO_I2S] = 	{ CPM_I2SCDR, 1<<29, 0x1f << 13, 13, 0x1fff, 0, SELECTOR_AUDIO},
-	[CGU_AUDIO_I2S1] = 	{ CPM_I2SCDR1, -1, -1, -1, -1, -1, -1},
-	[CGU_AUDIO_PCM] = 	{ CPM_PCMCDR, 1<<29, 0x1f << 13, 13, 0x1fff, 0, SELECTOR_AUDIO},
-	[CGU_AUDIO_PCM1] = 	{ CPM_PCMCDR1, -1, -1, -1, -1, -1, -1},
+	[CGU_AUDIO_I2S] = {CPM_I2SCDR, 1<<29, 0x1f << 13, 13, 0x1fff, 0, SELECTOR_AUDIO},
+	[CGU_AUDIO_I2S1] = {CPM_I2SCDR1, -1, -1, -1, -1, -1, -1},
+	[CGU_AUDIO_PCM] = {CPM_PCMCDR, 1<<29, 0x1f << 13, 13, 0x1fff, 0, SELECTOR_AUDIO},
+	[CGU_AUDIO_PCM1] = {CPM_PCMCDR1, -1, -1, -1, -1, -1, -1},
 };
 
 static unsigned long cgu_audio_get_rate(struct clk *clk)
@@ -53,7 +70,7 @@ static unsigned long cgu_audio_get_rate(struct clk *clk)
 
 	spin_lock_irqsave(&cpm_cgu_lock,flags);
 	m = cpm_inl(cgu_clks[no].off);
-	n = m&cgu_clks[no].maskn;
+	n = m & cgu_clks[no].maskn;
 	m &= cgu_clks[no].maskm;
 	if(no == CGU_AUDIO_I2S){
 		d = inl(I2S_PRI_DIV);
@@ -72,7 +89,9 @@ static int cgu_audio_enable(struct clk *clk,int on)
 	int no = CLK_CGU_AUDIO_NO(clk->flags);
 	int reg_val;
 	unsigned long flags;
+
 	spin_lock_irqsave(&cpm_cgu_lock,flags);
+
 	if(on){
 		reg_val = cpm_inl(cgu_clks[no].off);
 		if(reg_val & (cgu_clks[no].en))
@@ -92,8 +111,10 @@ cgu_enable_finish:
 	return 0;
 }
 
-static int get_div_val(int max1,int max2,int machval, int* res1, int* res2){
+static int get_div_val(int max1,int max2,int machval, int* res1, int* res2)
+{
 	int tmp1=0,tmp2=0;
+
 	for (tmp1=1; tmp1<max1; tmp1++)
 		for(tmp2=1; tmp2<max2; tmp2++)
 			if(tmp1*tmp2 == machval)
@@ -110,79 +131,81 @@ static int cgu_audio_calculate_set_rate(struct clk* clk, unsigned long rate, uns
 	int i,m,n,d,sync,tmp_val,d_max,sync_max;
 	int no = CLK_CGU_AUDIO_NO(clk->flags);
 	int n_max = cgu_clks[no].maskn >> cgu_clks[no].bitn;
-	int *audio_div;
+	struct audio_div *audio_div;
 	unsigned long flags;
-	if(pid == CLK_ID_MPLL){
-		audio_div = (int*)audio_div_mpll;
-	}
+
+	if(pid == CLK_ID_MPLL)
+		audio_div = audiodiv_mpll;
 	else if(pid == CLK_ID_SCLKA)
-		audio_div = (int*)audio_div_apll;
+		audio_div = audiodiv_apll;
 	else
 		return 0;
 
-	for(i=0;i<50;i+=3){
-		if(audio_div[i] == rate)
+	for(i=0; i < ARRAY_SIZE(audio_rate); i++){
+		if(audio_div[i].rate == rate)
 			break;
 	}
-	if(i >= 50){
+	if(i >= ARRAY_SIZE(audio_rate)){
 		printk("cgu aduio set rate err!\n");
 		return -EINVAL;
-	}else{
-		m = audio_div[i+1];
-		if(no == CGU_AUDIO_I2S){
+	}
+
+	m = audio_div[i].savem;
+
+	if(no == CGU_AUDIO_I2S) {
 #ifdef CONFIG_SND_ASOC_JZ_AIC_SPDIF_V13
-			m*=2;
+		m *= 2;
 #endif
-			d_max = 0x1ff;
-			tmp_val = audio_div[i+2]/64;
-			if(tmp_val > n_max){
-				if(get_div_val(n_max,d_max,tmp_val,&n,&d))
+		d_max = 0x1ff;
+		tmp_val = audio_div[i].saven / 64;
+		if(tmp_val > n_max){
+			if(get_div_val(n_max,d_max,tmp_val,&n,&d))
+				goto calculate_err;
+		} else {
+			n = tmp_val;
+			d = 1;
+		}
+		spin_lock_irqsave(&cpm_cgu_lock,flags);
+		tmp_val = cpm_inl(cgu_clks[no].off)&(~(cgu_clks[no].maskm|cgu_clks[no].maskn));
+		tmp_val |= (m<<cgu_clks[no].bitm)|(n<<cgu_clks[no].bitn);
+		if(tmp_val&cgu_clks[no].en){
+			cpm_outl(tmp_val,cgu_clks[no].off);
+		}else{
+			cgu_clks[no].cache = tmp_val;
+		}
+		writel(d-1,(volatile unsigned int*)I2S_PRI_DIV);
+		spin_unlock_irqrestore(&cpm_cgu_lock,flags);
+	}else if (no == CGU_AUDIO_PCM) {
+		tmp_val = audio_div[i].saven / 8;
+		d_max = 0x7f;
+		if(tmp_val > n_max){
+			if(get_div_val(n_max,d_max,tmp_val,&n,&d))
+				goto calculate_err;
+			if(d > 0x3f){
+				tmp_val = d;
+				d_max = 0x3f, sync_max = 0x1f;
+				if(get_div_val(d_max,sync_max,tmp_val,&d,&sync))
 					goto calculate_err;
 			}else{
-				n = tmp_val;
-				d = 1;
-			}
-			spin_lock_irqsave(&cpm_cgu_lock,flags);
-			tmp_val = cpm_inl(cgu_clks[no].off)&(~(cgu_clks[no].maskm|cgu_clks[no].maskn));
-			tmp_val |= (m<<cgu_clks[no].bitm)|(n<<cgu_clks[no].bitn);
-			if(tmp_val&cgu_clks[no].en){
-				cpm_outl(tmp_val,cgu_clks[no].off);
-			}else{
-				cgu_clks[no].cache = tmp_val;
-			}
-			writel(d-1,(volatile unsigned int*)I2S_PRI_DIV);
-			spin_unlock_irqrestore(&cpm_cgu_lock,flags);
-		}else if (no == CGU_AUDIO_PCM){
-			tmp_val = audio_div[i+2]/(8);
-			d_max = 0x7f;
-			if(tmp_val > n_max){
-				if(get_div_val(n_max,d_max,tmp_val,&n,&d))
-					goto calculate_err;
-				if(d > 0x3f){
-					tmp_val = d;
-					d_max = 0x3f, sync_max = 0x1f;
-					if(get_div_val(d_max,sync_max,tmp_val,&d,&sync))
-						goto calculate_err;
-				}else{
-					sync = 1;
-				}
-			}else{
-				n = tmp_val;
-				d = 1;
 				sync = 1;
 			}
-			spin_lock_irqsave(&cpm_cgu_lock,flags);
-			tmp_val = cpm_inl(cgu_clks[no].off)&(~(cgu_clks[no].maskm|cgu_clks[no].maskn));
-			tmp_val |= (m<<cgu_clks[no].bitm)|(n<<cgu_clks[no].bitn);
-			if(tmp_val&cgu_clks[no].en){
-				cpm_outl(tmp_val,cgu_clks[no].off);
-			}else{
-				cgu_clks[no].cache = tmp_val;
-			}
-			writel(((d-1)|(sync-1)<<6),(volatile unsigned int*)PCM_PRI_DIV);
-			spin_unlock_irqrestore(&cpm_cgu_lock,flags);
+		}else{
+			n = tmp_val;
+			d = 1;
+			sync = 1;
 		}
+		spin_lock_irqsave(&cpm_cgu_lock,flags);
+		tmp_val = cpm_inl(cgu_clks[no].off)&(~(cgu_clks[no].maskm|cgu_clks[no].maskn));
+		tmp_val |= (m<<cgu_clks[no].bitm)|(n<<cgu_clks[no].bitn);
+		if(tmp_val&cgu_clks[no].en){
+			cpm_outl(tmp_val,cgu_clks[no].off);
+		}else{
+			cgu_clks[no].cache = tmp_val;
+		}
+		writel(((d-1)|(sync-1)<<6),(volatile unsigned int*)PCM_PRI_DIV);
+		spin_unlock_irqrestore(&cpm_cgu_lock,flags);
 	}
+
 	clk->rate = rate;
 	return 0;
 calculate_err:
@@ -239,8 +262,6 @@ static int cgu_audio_set_parent(struct clk *clk, struct clk *parent)
 	return 0;
 }
 
-
-
 static int cgu_audio_set_rate(struct clk *clk, unsigned long rate)
 {
 	int tmp_val;
@@ -287,13 +308,38 @@ static struct clk_ops clk_cgu_audio_ops = {
 	.get_parent = cgu_audio_get_parent,
 	.set_parent = cgu_audio_set_parent,
 };
+static  void get_audio_div(void)
+{
+	int i, a,m;
+	struct audio_div_values divvalues[AUDIO_DIV_SIZE];
+
+	memcpy((void *)divvalues,(void*)(0xf4000000),sizeof(divvalues));
+	a = m = 0;
+	for(i = 0; i < ARRAY_SIZE(divvalues); i ++) {
+		if(a < ARRAY_SIZE(audio_rate)) {
+			audiodiv_apll[a].rate = audio_rate[a];
+			audiodiv_apll[a].savem = divvalues[i].savem;
+			audiodiv_apll[a].saven = divvalues[i].saven;
+			/* printk("audiodiv_apll[a].rate = %d, audiodiv_apll[a].savem =  %d, audiodiv_apll[a].saven = %d\n", */
+			/* 	audiodiv_apll[a].rate, audiodiv_apll[a].savem, audiodiv_apll[a].saven); */
+			a++;
+		} else {
+			audiodiv_mpll[m].rate = audio_rate[m];
+			audiodiv_mpll[m].savem = divvalues[i].savem;
+			audiodiv_mpll[m].saven = divvalues[i].saven;
+			/* printk("audiodiv_mpll[m].rate = %d, audiodiv_mpll[m].savem =  %d, audiodiv_mpll[m].saven = %d\n", */
+			/* 	audiodiv_mpll[m].rate, audiodiv_mpll[m].savem, audiodiv_mpll[m].saven); */
+			m ++;
+		}
+	}
+
+}
 void __init init_cgu_audio_clk(struct clk *clk)
 {
 	int no,id,tmp_val;
 	unsigned long flags;
-	memcpy(audio_div_apll,(void*)(0xf4000000),256);
-	memcpy(audio_div_mpll,(void*)(0xf4000000)+256,256);
-
+	if(audiodiv_apll[0].rate == 0 && audiodiv_mpll[0].rate == 0)
+		get_audio_div();
 	if (clk->flags & CLK_FLG_PARENT) {
 		id = CLK_PARENT(clk->flags);
 		clk->parent = get_clk_from_id(id);
@@ -314,6 +360,6 @@ void __init init_cgu_audio_clk(struct clk *clk)
 		cpm_outl(tmp_val,cgu_clks[no].off);
 	else
 		cgu_clks[no].cache = tmp_val;
-		spin_unlock_irqrestore(&cpm_cgu_lock,flags);
+	spin_unlock_irqrestore(&cpm_cgu_lock,flags);
 	clk->ops = &clk_cgu_audio_ops;
 }
