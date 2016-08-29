@@ -39,7 +39,7 @@
 #include "sfc.h"
 #include "jz_sfc_nor.h"
 
-#define L2_CACHE_ALIGN_SIZE	256
+#define L2CACHE_ALIGN_SIZE	256
 
 
 /* Max time can take up to 3 seconds! */
@@ -120,7 +120,7 @@ static unsigned int sfc_do_read(struct sfc_flash *flash,u8 command,unsigned int 
 	transfer.len = len;
 	transfer.data = buf;
 	transfer.cur_len = 0;
-	if(len >= L2_CACHE_ALIGN_SIZE)
+	if(len >= L2CACHE_ALIGN_SIZE)
 		transfer.ops_mode = DMA_OPS;
 	else
 		transfer.ops_mode = CPU_OPS;
@@ -171,7 +171,7 @@ static unsigned  int sfc_do_write(struct sfc_flash *flash,u8 command,unsigned in
 	transfer[1].cur_len = 0;
 	transfer[1].data_dummy_bits = dummy_byte;
 	transfer[1].data = buf;
-	if(len >= L2_CACHE_ALIGN_SIZE)
+	if(len >= L2CACHE_ALIGN_SIZE)
 		transfer[1].ops_mode = DMA_OPS;
 	else
 		transfer[1].ops_mode = CPU_OPS;
@@ -286,13 +286,13 @@ static int sfc_write(struct sfc_flash *flash,loff_t to,size_t len, const unsigne
 	command = SPINOR_OP_PP;
 #endif
 
-	if(len > L2_CACHE_ALIGN_SIZE) {
-		s_len = ALIGN((unsigned int )buf, L2_CACHE_ALIGN_SIZE) - (unsigned int)buf;
+	if(len > L2CACHE_ALIGN_SIZE) {
+		s_len = ALIGN((unsigned int )buf, L2CACHE_ALIGN_SIZE) - (unsigned int)buf;
 		if(s_len) {
 			sfc_do_write(flash, command, (unsigned int)to, flash_info->addrsize, buf, s_len, dummy_byte);
 		}
 
-		a_len = len - (len - s_len) % L2_CACHE_ALIGN_SIZE;
+		a_len = (len - s_len) - (len - s_len) % L2CACHE_ALIGN_SIZE;
 		if(a_len) {
 			sfc_do_write(flash, command, (unsigned int)to + s_len , flash_info->addrsize, &buf[s_len], a_len, dummy_byte);
 		}
@@ -322,13 +322,13 @@ static int sfc_read_cacheline_align(struct sfc_flash *flash,u8 command,unsigned 
 	 * a_len : middle align length
 	 * f_len : end not align length
 	 */
-	if(len > L2_CACHE_ALIGN_SIZE) {
-		s_len = ALIGN((unsigned int )buf, L2_CACHE_ALIGN_SIZE) - (unsigned int)buf;
+	if(len > L2CACHE_ALIGN_SIZE) {
+		s_len = ALIGN((unsigned int )buf, L2CACHE_ALIGN_SIZE) - (unsigned int)buf;
 		if(s_len) {
 			ret +=  sfc_do_read(flash, command, (unsigned int)addr, flash_info->addrsize, buf, s_len, dummy_byte);
 		}
 
-		a_len = len - (len - s_len) % L2_CACHE_ALIGN_SIZE;
+		a_len = (len - s_len) - (len - s_len) % L2CACHE_ALIGN_SIZE;
 		if(a_len) {
 			ret +=  sfc_do_read(flash, command, (unsigned int)addr + s_len , flash_info->addrsize, &buf[s_len], a_len, dummy_byte);
 		}
@@ -415,8 +415,7 @@ static int sfc_read(struct sfc_flash *flash, loff_t from, size_t len, unsigned c
 	if((sfc_transfer_mode == TM_QI_QO_SPI) || (sfc_transfer_mode == TM_QIO_SPI) || (sfc_transfer_mode == TM_FULL_QIO_SPI)){
 		command = flash_info->quad_mode->cmd_read;
 		dummy_byte = flash_info->quad_mode->dummy_byte;
-	}
-	else{
+	} else {
 		command = SPINOR_OP_READ;
 		dummy_byte = 0;
 	}
