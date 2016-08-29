@@ -253,6 +253,17 @@ static int reset_task(void *data) {
 
 	return 0;
 }
+
+static void jz_burner_boot(void)
+{
+	unsigned int val = 'b' << 24 | 'u' << 16 | 'r' << 8 | 'n';
+
+	cpm_outl(val, CPM_SLPC);
+
+	wdt_start_count(2);
+	while(1);
+}
+
 /* ============================wdt control proc=================================== */
 static int wdt_time_show(struct seq_file *filq, void *v)
 {
@@ -317,7 +328,7 @@ static struct jz_single_file_ops wdt_control_proc_fops = {
 };
 /* ============================wdt control proc end =============================== */
 /* ============================reset proc=================================== */
-static char *reset_command[] = {"wdt","hibernate","recovery"};
+static char *reset_command[] = {"wdt","hibernate","recovery", "burnerboot"};
 
 static int reset_show(struct seq_file *filq, void *v)
 {
@@ -357,6 +368,9 @@ static int reset_write(struct file *file, const char __user *buffer,
 		break;
 	case 2:
 		jz_wdt_restart("recovery");
+		break;
+	case 3:
+		jz_burner_boot();
 		break;
 	default:
 		printk("not support command %d\n", i);
