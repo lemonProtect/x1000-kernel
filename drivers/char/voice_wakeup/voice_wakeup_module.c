@@ -43,7 +43,7 @@ struct wakeup_module_ops {
 	int (*set_handler)(void *);
 	dma_addr_t (*get_dma_address)(void);
 	int (*ioctl)(int cmd, unsigned long args);
-	unsigned char (*get_resource_addr)(void);
+	unsigned char * (*get_resource_addr)(void);
 	int (*process_data)(void);
 	int (*is_cpu_wakeup_by_dmic)(void);
 	int (*set_sleep_buffer)(struct sleep_buffer *);
@@ -65,7 +65,7 @@ struct wakeup_module_ops {
 
 static struct wakeup_module_ops *m_ops;
 
-
+#if 0
 static void dump_firmware(void)
 {
 	int i;
@@ -76,8 +76,8 @@ static void dump_firmware(void)
 		printk("2.%p:%08x\n", p+i, *(p+i));
 	}
 	printk("###################dump_firmware end################\n");
-
 }
+#endif
 
 static void setup_ops(void)
 {
@@ -144,7 +144,7 @@ int wakeup_module_ioctl(int cmd, unsigned long args)
 }
 EXPORT_SYMBOL(wakeup_module_ioctl);
 
-unsigned char wakeup_module_get_resource_addr(void)
+unsigned char * wakeup_module_get_resource_addr(void)
 {
 	return m_ops->get_resource_addr();
 }
@@ -234,7 +234,7 @@ static int __init wakeup_module_init(void)
 {
 	/* load voice wakeup firmware */
 	memcpy((void*)FIRMWARE_LOAD_ADDRESS, wakeup_firmware, sizeof(wakeup_firmware));
-	dma_cache_sync(NULL, FIRMWARE_LOAD_ADDRESS, sizeof(wakeup_firmware), DMA_TO_DEVICE);
+	dma_cache_sync(NULL, (void*)FIRMWARE_LOAD_ADDRESS, sizeof(wakeup_firmware), DMA_TO_DEVICE);
 	setup_ops();
 
 
