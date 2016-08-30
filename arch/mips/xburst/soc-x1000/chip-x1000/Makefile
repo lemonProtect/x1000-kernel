@@ -2,3 +2,4 @@
 
 obj-$(CONFIG_PRODUCT_X1000_PHOENIX)		+= phoenix/
 obj-$(CONFIG_PRODUCT_X1000_HALLEY2)		+= halley2/
+obj-$(CONFIG_PRODUCT_X1000_PANSY)		+= pansy/
