@@ -35,14 +35,29 @@
 
 #define STATUS_SUSPND	(1<<0)
 #define to_jz_spi_nand(mtd_info) container_of(mtd_info, struct sfc_flash, mtd)
-int column_cmdaddr_bits = 0;
-int tRD = 0;
-int tPROG = 0;
-int tBERS = 0;
 #define	tCHSH	5	//hold
 #define tSLCH	5	//setup
 #define tSHSL_RD	20	//interval
 #define tSHSL_WR	20
+/*
+ * below is the informtion about nand
+ * that user should modify according to nand spec
+ * */
+int column_cmdaddr_bits = 0;
+/*nand time delay information*/
+int tRD = 0;
+int tPROG = 0;
+int tBERS = 0;
+/*nand ecc informtion*/
+int ecc_shift = 4;
+char ecc_mask = 0x3;//how many bits ecc has
+int ecc_max = 0x2;//greater than this value meaning read error page
+/*nand read id command information*/
+int id_addr = 0x0;//if read id command need addr or not
+int id_addr_len = 1;//if read id commad don't need add, this value equal 0
+int id_data_len = 2;//id length
+int id_data_dummy_bits = 0;//if read id command need sent dummy bits
+
 static int jz_sfc_nand_set_feature(struct sfc_flash *flash, u8 addr, u8 *feacture)
 {
 	int ret;
@@ -158,8 +173,8 @@ static int jz_sfc_nand_read(struct sfc_flash *flash, int page, int column, char*
 	}
 
 	*status = (u8)sfc_get_sta_rt(flash->sfc);
-	*status = ((*status)>>4)&(0x03);
-	if((*status) == (0x2)) {
+	*status = ((*status)>>ecc_shift)&(ecc_mask);
+	if((*status) == (ecc_max)) {
 		pr_info("spi nand read error page %d ret = %02x !!! %s %s %d \n",page,ret,__FILE__,__func__,__LINE__);
 	}
 
@@ -326,7 +341,7 @@ struct jz_spi_support *jz_sfc_nand_read_id(struct sfc_flash *flash)
 	struct sfc_transfer transfer;
 	struct sfc_message message;
 	struct cmd_info cmd;
-	unsigned char id_buf[2];
+	unsigned char id_buf[id_data_len];
 	int number_spi_flash;
 	int ret,i;
 	nand_info = (struct jz_spi_nand_platform_data *)(flash->flash_info);
@@ -339,15 +354,15 @@ struct jz_spi_support *jz_sfc_nand_read_id(struct sfc_flash *flash)
 	sfc_message_init(&message);
 	cmd.cmd = SPINAND_CMD_RDID;
 
-	transfer.addr = 0x0;
-	transfer.addr_len = 1;
+	transfer.addr = id_addr;
+	transfer.addr_len = id_addr_len;
 	transfer.addr_dummy_bits = 0;
 
 	cmd.dataen = ENABLE;
 	transfer.data = id_buf;
-	transfer.len = 2;
+	transfer.len = id_data_len;
 	transfer.direction = GLB_TRAN_DIR_READ;
-	transfer.data_dummy_bits = 0;
+	transfer.data_dummy_bits = id_data_dummy_bits;
 
 	transfer.cmd_info = &cmd;
 	transfer.ops_mode = CPU_OPS;
@@ -424,9 +439,9 @@ static int badblk_check(int len,unsigned char *buf)
 	int i,bit0_cnt = 0;
 	unsigned short *check_buf = (unsigned short *)buf;
 
-	if(check_buf[0] != 0xff){
+	if(check_buf[0] != 0xffff){
 		for(i = 0; i < len * 8; i++){
-			if(!((check_buf[0] >> 1) & 0x1))
+			if(!((check_buf[0] >> i) & 0x1))
 				bit0_cnt++;
 		}
 	}
@@ -918,7 +933,7 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 	flash->mtd.size = spi_flash->size;
 	flash->mtd.oobsize = spi_flash->oobsize;
 	flash->mtd.writebufsize = flash->mtd.writesize;
-	flash->mtd.bitflip_threshold = flash->mtd.ecc_strength = 2;
+	flash->mtd.bitflip_threshold = flash->mtd.ecc_strength = ecc_max;
 
 	column_cmdaddr_bits = spi_flash->column_cmdaddr_bits;
 	tRD = spi_flash->tRD_maxbusy;
@@ -981,7 +996,9 @@ static int __init jz_sfc_probe(struct platform_device *pdev)
 		}
 		*/
 	return 0;
+#ifdef CONFIG_SPI_QUAD
 err_failed_quad:
+#endif
 	kfree(flash);
 	kfree(chip);
 	return err;
