@@ -662,6 +662,23 @@ static void __init arch_mem_init(char **cmdline_p)
 				crashk_res.end - crashk_res.start + 1,
 				BOOTMEM_DEFAULT);
 #endif
+
+#ifdef CONFIG_RESERVE_VOICE_WAKEUP_MEM
+//#define CONFIG_VOICE_WAKEUP_MEM_START (0x01f00000) /* offset 31MB */
+//#define CONFIG_VOICE_WAKEUP_MEM_SIZE (0x00100000) /* size 1MB */
+	{
+		unsigned long start;
+		unsigned long size;
+		start = CONFIG_VOICE_WAKEUP_MEM_START;
+		start *= 0x100000; /* in MB */
+		size = CONFIG_VOICE_WAKEUP_MEM_SIZE;
+		size *= 1024;	/* in KB */
+		printk(KERN_INFO "RESERVE_VOICE_WAKEUP_MEM (%08x @ %08x)\n",
+		       (unsigned int)size, (unsigned int)start);
+		reserve_bootmem(start, size, BOOTMEM_DEFAULT);
+	}
+#endif	/* CONFIG_ */
+
 	device_tree_init();
 	sparse_init();
 	plat_swiotlb_setup();

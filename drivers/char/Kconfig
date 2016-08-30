@@ -6,6 +6,29 @@ menu "Character devices"
 
 source "drivers/tty/Kconfig"
 
+config RESERVE_VOICE_WAKEUP_MEM
+	bool "Reserve memory for Voice Wakeup firmware"
+	depends on SOC_X1000
+	default n
+	help
+		Say Y here if you want to enable vocie wakeup module.
+
+config VOICE_WAKEUP_MEM_START
+        int "(MB) set voice wakeup reserved memory start address"
+	default 31
+	depends on RESERVE_VOICE_WAKEUP_MEM
+	help
+	  set voice wakeup reserved memory start address.
+	  Note, start address keep sync with voice wakeup firmware.
+
+config VOICE_WAKEUP_MEM_SIZE
+        int "(KB) set voice wakeup reserved memory size"
+	default 512
+	depends on RESERVE_VOICE_WAKEUP_MEM
+	help
+	  set voice wakeup reserved memory size.
+	  Note, start address keep sync with voice wakeup firmware.
+
 config JZ_DMIC_V12
 	bool "Ingenic Dmic Driver"
 	depends on SOC_M200
@@ -34,6 +57,7 @@ config JZ_DMIC_WAKEUP
 config WAKEUP_MODULE_V13
 	bool "Ingenic Voice Wakeup Module v13"
 	depends on SOC_X1000
+	select RESERVE_VOICE_WAKEUP_MEM
 	select JZ_DMIC_WAKEUP_V13
 	default n
 	help
@@ -43,6 +67,7 @@ config WAKEUP_MODULE_V13
 config WAKEUP_MODULE_V14
 	bool "Ingenic Voice Wakeup Module v14"
 	depends on SOC_X1000
+	select RESERVE_VOICE_WAKEUP_MEM
 	select JZ_DMIC_WAKEUP_V13
 	default n
 	help
@@ -52,6 +77,7 @@ config WAKEUP_MODULE_V14
 config WAKEUP_MODULE_V14_PIC
 	bool "Ingenic Voice Wakeup Module v14 PIC"
 	depends on SOC_X1000
+	select RESERVE_VOICE_WAKEUP_MEM
 	select JZ_DMIC_WAKEUP_V13
 	default n
 	help
