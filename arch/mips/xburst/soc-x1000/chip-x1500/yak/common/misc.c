@@ -124,16 +124,3 @@ struct jzdwc_pin dwc2_drvvbus_pin = {
 		    .enable_level = GPIO_USB_DRVVBUS_LEVEL,
 };
 #endif
-
-#if defined(CONFIG_SND_ASOC_INGENIC)
-static struct snd_codec_data snd_alsa_platform_data = {
-	.gpio_spk_en = {.gpio = GPIO_SPEAKER_EN, .active_level = GPIO_SPEAKER_EN_LEVEL},
-};
-
-struct platform_device snd_alsa_device = {
-	.name = "ingenic-alsa",
-	.dev = {
-		.platform_data = &snd_alsa_platform_data,
-	},
-};
-#endif

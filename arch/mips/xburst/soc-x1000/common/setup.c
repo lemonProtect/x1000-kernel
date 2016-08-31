@@ -35,7 +35,7 @@ void __init cpm_reset(void)
 	unsigned int cpm_clkgr;
 
 	cpm_clkgr = cpm_inl(CPM_CLKGR);
-	cpm_clkgr |= 0x07defffe;
+	cpm_clkgr |= 0x07de3ffe;
 	/* default open pdma clk gate */
 	cpm_clkgr &= ~(1 << 21);
 	/* default open tcu clk gate */
