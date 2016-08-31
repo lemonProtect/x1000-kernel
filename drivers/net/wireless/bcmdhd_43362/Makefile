@@ -18,7 +18,7 @@ DHDCFLAGS = -Wall -Wstrict-prototypes -Dlinux -DBCMDRIVER                \
 	-DPROP_TXSTATUS -DPROP_TXSTATUS_VSDB                                  \
 	-DDHDTCPACK_SUPPRESS                                                  \
 	-DWL_SUPPORT_BACKPORTED_KPATCHES                                      \
-	-Idrivers/net/wireless/bcmdhd -Idrivers/net/wireless/bcmdhd/include
+	-Idrivers/net/wireless/bcmdhd_43362 -Idrivers/net/wireless/bcmdhd_43362/include
 
 DHDOFILES = aiutils.o bcmsdh_sdmmc_linux.o dhd_linux.o siutils.o bcmutils.o   \
 	dhd_linux_sched.o bcmwifi_channels.o dhd_sdio.o bcmevent.o dhd_bta.o hndpmu.o  \
@@ -26,7 +26,7 @@ DHDOFILES = aiutils.o bcmsdh_sdmmc_linux.o dhd_linux.o siutils.o bcmutils.o   \
 	bcmsdh_sdmmc.o dhd_custom_gpio.o sbutils.o wldev_common.o wl_android.o \
 	dhd_pno.o dhd_config.o
 
-obj-$(CONFIG_BCMDHD_43362) += bcmdhd.o
+obj-$(CONFIG_BCMDHD_43362) += bcmdhd_43362.o
 bcmdhd_43362-objs += $(DHDOFILES)
 obj-y += jz_6181_bsp.o
 
