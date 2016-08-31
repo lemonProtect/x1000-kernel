@@ -2,7 +2,7 @@
 
 choice
 	prompt "Board type"
-	depends on SOC_X1000
+	depends on CHIP_X1000
 	default PRODUCT_X1000_PHOENIX
 
 config  PRODUCT_X1000_PHOENIX
