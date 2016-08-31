@@ -788,12 +788,12 @@ static int jz_camera_set_bus_param(struct soc_camera_device *icd) {
 	temp = readl(pcdev->base + CIM_IMR);
 	temp &= (~CIM_IMR_STPM);
 	writel(temp, pcdev->base + CIM_IMR);
-
+#ifdef CONFIG_ENABLE_SOFT_OVERFLOW
 	/* enable rx overflow interrupt */
 	temp = readl(pcdev->base + CIM_IMR);
 	temp &= (~CIM_IMR_RFIFO_OFM);
 	writel(temp, pcdev->base + CIM_IMR);
-
+#endif
 	temp = readl(pcdev->base + CIM_IMR);
 	temp &= (~CIM_IMR_STPM_1);
 	writel(temp, pcdev->base + CIM_IMR);
@@ -964,7 +964,7 @@ static irqreturn_t jz_camera_irq_handler(int irq, void *data) {
 		spin_unlock_irqrestore(&pcdev->lock, flags);
 		return IRQ_HANDLED;
 	}
-
+#ifdef CONFIG_ENABLE_SOFT_OVERFLOW
 	if (status & CIM_STATE_RXF_OF) {
 		printk("RX FIFO OverFlow interrupt!\n");
 
@@ -998,7 +998,7 @@ static irqreturn_t jz_camera_irq_handler(int irq, void *data) {
 		spin_unlock_irqrestore(&pcdev->lock, flags);
 		return IRQ_HANDLED;
 	}
-
+#endif
 	if(status & CIM_STATE_DMA_STOP) {
 		/* clear dma interrupt status */
 		temp = readl(pcdev->base + CIM_STATE);

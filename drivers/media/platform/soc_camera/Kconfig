@@ -36,7 +36,10 @@ config VIDEO_JZ_CIM_HOST_V13
 	select V4L2_MEM2MEM_DEV
 	help
 		This is a v4l2 driver for OV camera(x1000).
-
+config ENABLE_SOFT_OVERFLOW
+   	tristate "software process overflow for cim driver"
+	depends on VIDEO_JZ_CIM_HOST_V13
+	default n
 
 config MX1_VIDEO
 	bool
@@ -109,4 +112,3 @@ config VIDEO_ATMEL_ISI
 	---help---
 	  This module makes the ATMEL Image Sensor Interface available
 	  as a v4l2 device.
-
