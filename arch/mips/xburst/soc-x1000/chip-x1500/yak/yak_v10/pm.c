@@ -14,8 +14,8 @@ __initdata int gpio_ss_table[][2] = {
 	{32*0+1,	GSS_OUTPUT_LOW	},	/* SLCD_D1 */
 	{32*0+2,	GSS_OUTPUT_LOW	},	/* SLCD_D2 */
 	{32*0+3,	GSS_OUTPUT_LOW	},	/* SLCD_D3 */
-	{32*0+4,	GSS_OUTPUT_LOW	},	/* SLCD_D4 */
-	{32*0+5,	GSS_OUTPUT_LOW	},	/* SLCD_D5 */
+	{32*0+4,	GSS_IGNORE},	/* SLCD_D4 */
+	{32*0+5,	GSS_IGNORE},	/* SLCD_D5 */
 	{32*0+6,	GSS_OUTPUT_LOW	},	/* SLCD_D6 */
 	{32*0+7,	GSS_OUTPUT_LOW	},	/* SLCD_D7 */
 	{32*0+8,	GSS_OUTPUT_LOW	},	/* SLCD_D8 */

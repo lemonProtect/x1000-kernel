@@ -77,7 +77,7 @@ static noinline void cpu_resume(void);
 //#define DDR_TRAINING
 //#define DDR_TEST
 
-#define PRINT_DEBUG
+//#define PRINT_DEBUG
 
 #ifdef PRINT_DEBUG
 #define U_IOBASE (UART2_IOBASE + 0xa0000000)
