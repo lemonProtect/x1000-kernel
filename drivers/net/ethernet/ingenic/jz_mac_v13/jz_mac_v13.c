@@ -1332,6 +1332,11 @@ static bool jzmac_clean_rx_irq(struct jz_mac_local *lp,
 		cleaned = true;
 		cleaned_count++;
 
+		dma_unmap_single(&lp->netdev->dev,
+				buffer_info->dma, buffer_info->length,
+				DMA_FROM_DEVICE);
+		buffer_info->dma = 0;
+
 		if(!synopGMAC_is_rx_desc_valid(rx_desc->status)) {
 			/* save the skb in buffer_info as good */
 			buffer_info->skb = skb;
@@ -1347,10 +1352,6 @@ static bool jzmac_clean_rx_irq(struct jz_mac_local *lp,
 				length - 4);
 		printk("============================================\n");
 #endif
-		dma_unmap_single(&lp->netdev->dev,
-				buffer_info->dma, buffer_info->length,
-				DMA_FROM_DEVICE);
-		buffer_info->dma = 0;
 
 
 		/* adjust length to remove Ethernet CRC, this must be
@@ -1387,17 +1388,21 @@ static bool jzmac_clean_rx_irq(struct jz_mac_local *lp,
 		skb->protocol = eth_type_trans(skb, netdev);
 
 		//jzmac_dump_skb_data(skb);
-		netif_receive_skb(skb);
+//		netif_receive_skb(skb);
+		napi_gro_receive(&lp->napi, skb);
 		//netdev->last_rx = jiffies;
 
 invalid_pkt:
+		if(buffer_info->skb) {
+			dev_kfree_skb_any(buffer_info->skb);
+			buffer_info->skb = NULL;
+		}
 		rx_desc->status = 0;
 		/* return some buffers to hardware, one at a time is too slow */
 		if (unlikely(cleaned_count >= JZMAC_RX_BUFFER_WRITE)) {
 			jzmac_alloc_rx_buffers(lp, cleaned_count, 1);
 			cleaned_count = 0;
 		}
-
 		/* use prefetched values */
 		rx_desc = next_rxd;
 		buffer_info = next_buffer;
