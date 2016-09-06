@@ -26,7 +26,7 @@ int cpm_start_tcu_clock(int ch)
 
 int cpm_stop_tcu_clock(int ch)
 {
-	REG32(CPM_IOBASE + CPM_CLKGR0) |= 1<<18;
+	/* REG32(CPM_IOBASE + CPM_CLKGR0) |= 1<<18; */
 	return 0;
 }
 

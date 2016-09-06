@@ -114,7 +114,13 @@ static int soc_pm_enter(suspend_state_t state)
 #ifdef CONFIG_WAKEUP_MODULE_V13
 	volatile unsigned int wakeup;
 	int (*volatile wakeup_handler)(int);
+#endif
 
+	memcpy(&s_reg.ddr_training_space,(void*)0x80000000,sizeof(s_reg.ddr_training_space));
+	s_reg.opcr = cpm_inl(CPM_OPCR);
+	s_reg.lcr = cpm_inl(CPM_LCR);
+
+#ifdef CONFIG_WAKEUP_MODULE_V13
 	s_reg.sleep_voice_enable = wakeup_module_is_wakeup_enabled();
 	if (s_reg.sleep_voice_enable) {
 		wakeup = wakeup_module_get_sleep_process();
@@ -135,10 +141,6 @@ voice_trigger_again:
 
 	sleep_param->post_resume_pc = (unsigned int)restore_goto;
 	sleep_param->uart_id = 2;
-
-	memcpy(&s_reg.ddr_training_space,(void*)0x80000000,sizeof(s_reg.ddr_training_space));
-	s_reg.opcr = cpm_inl(CPM_OPCR);
-	s_reg.lcr = cpm_inl(CPM_LCR);
 
         /*
 	 *   set OPCR.
