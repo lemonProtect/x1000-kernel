@@ -11,8 +11,14 @@
 /* #define GPIO_VOLUMEDOWN_KEY         GPIO_PD(18) */
 /* #define ACTIVE_LOW_VOLUMEDOWN	0 */
 
+/*SW5=WKUP on Halley2 board */
 #define GPIO_ENDCALL_KEY            GPIO_PB(31)
 #define ACTIVE_LOW_ENDCALL      0
+
+/*SW4=RST_N on Halley2 board */
+/*SW3=BOOT_SEL0 on Halley2 board */
+/*SW2=SLCD_D11=PA11 on Halley2 board */
+/*SW1=SLCD_D10=PA10 on Halley2 board */
 
 /* ****************************GPIO KEY END********************************** */
 
@@ -45,8 +51,8 @@
 
 /*wifi  LED */
 #ifdef CONFIG_LEDS_GPIO
-#define	WL_LED_R	-1//GPIO_PC(5)
-#define	WL_LED_G	-1//GPIO_PC(4)
+#define	WL_LED_R	GPIO_PA(8)
+#define	WL_LED_G	GPIO_PA(9)
 #define	WL_LED_B	-1//GPIO_PC(13)
 #endif
 

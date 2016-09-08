@@ -230,15 +230,13 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef	CONFIG_I2C2_DMA_V12
 	DEF_DEVICE(&jz_i2c2_dma_device, 0, 0),
 #endif
-
-
-
 };
 
 static int __init board_base_init(void)
 {
 	int pdevices_array_size, i;
 
+    printk("+%s\n", __func__);
 
 	pdevices_array_size = ARRAY_SIZE(platform_devices_array);
 	for(i = 0; i < pdevices_array_size; i++) {

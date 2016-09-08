@@ -296,6 +296,8 @@ static const struct usb_device_id id_table[] = {
 	{ USB_DEVICE(0x05C6, 0x3197) },
 	{ USB_DEVICE(0x05C6, 0x6000) },
 	{ USB_DEVICE(0x05C6, 0x9008) },
+	/* ME3630 */
+	{ USB_DEVICE(0x19d2, 0x1476) },
 	{ },
 };
 MODULE_DEVICE_TABLE(usb, id_table);

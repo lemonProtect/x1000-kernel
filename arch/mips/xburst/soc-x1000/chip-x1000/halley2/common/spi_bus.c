@@ -22,10 +22,10 @@
 #else
 #define BOOTLOADER_SIZE     0x40000 /* 256K */
 #define BOOTLOADER_OFFSET   0  /* 0K */
-#define KERNEL_SIZE     0x300000  /* 3M */
+#define KERNEL_SIZE     0x3C0000  /* 3.5M + 256K */
 #define KERNEL_OFFSET   BOOTLOADER_OFFSET +  BOOTLOADER_SIZE /* 256K */
-#define USERFS_SIZE     0xC80000  /* 12.5M */
-#define USERFS_OFFSET   0x360000  /* 3.5M */
+#define USERFS_SIZE     0xC00000  /* 12M */
+#define USERFS_OFFSET   KERNEL_OFFSET + KERNEL_SIZE  /*   */
 #endif
 
 struct mtd_partition jz_mtd_partition1[] = {
