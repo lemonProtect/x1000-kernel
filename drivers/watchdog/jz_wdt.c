@@ -67,6 +67,13 @@ struct jz_wdt_drvdata {
 	struct clk *wdt_clk;
 };
 
+static void __iomem *wdt_reg_base;
+
+static int __init feed_dog(void)
+{
+	writew(0x0, wdt_reg_base + JZ_REG_WDT_TIMER_COUNTER);
+}
+
 static int jz_wdt_ping(struct watchdog_device *wdt_dev)
 {
 	struct jz_wdt_drvdata *drvdata = watchdog_get_drvdata(wdt_dev);
@@ -188,6 +195,10 @@ static int jz_wdt_probe(struct platform_device *pdev)
 		goto err_disable_clk;
 
 	platform_set_drvdata(pdev, drvdata);
+
+        wdt_reg_base = drvdata->base;
+        feed_dog();
+
 	return 0;
 
 err_disable_clk:
@@ -217,6 +228,8 @@ static struct platform_driver jz_wdt_driver = {
 };
 
 module_platform_driver(jz_wdt_driver);
+
+late_initcall(feed_dog);
 
 MODULE_AUTHOR("bo liu <bo.liu@ingenic.com>");
 MODULE_DESCRIPTION("jz xburst Watchdog Driver");

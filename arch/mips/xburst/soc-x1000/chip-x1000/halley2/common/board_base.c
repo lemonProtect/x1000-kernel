@@ -140,6 +140,10 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
        DEF_DEVICE(&jz_pwm_device, 0, 0),
 #endif
 
+#ifdef CONFIG_JZ_WDT
+       DEF_DEVICE(&jz_wdt_device, 0, 0),
+#endif
+
 #ifdef CONFIG_FB_JZ_V13
 	DEF_DEVICE(&jz_fb_device, &jzfb_pdata, sizeof(struct jzfb_platform_data)),
 #endif
