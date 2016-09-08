@@ -140,7 +140,9 @@ static struct jz_platform_device platform_devices_array[] __initdata = {
 #ifdef	CONFIG_I2C2_DMA_V12
 	DEF_DEVICE(&jz_i2c2_dma_device, 0, 0),
 #endif
-
+#ifdef CONFIG_JZ_PWM_GENERIC
+	DEF_DEVICE(&jz_pwm_devs_platform_device, 0, 0),
+#endif
 
 
 };

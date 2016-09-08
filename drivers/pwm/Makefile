@@ -18,3 +18,4 @@ obj-$(CONFIG_PWM_TWL)		+= pwm-twl.o
 obj-$(CONFIG_PWM_TWL_LED)	+= pwm-twl-led.o
 obj-$(CONFIG_PWM_VT8500)	+= pwm-vt8500.o
 obj-$(CONFIG_JZ_PWM)		+= pwm-jz.o
+obj-$(CONFIG_JZ_PWM_GENERIC)		+= jz_pwm_dev/

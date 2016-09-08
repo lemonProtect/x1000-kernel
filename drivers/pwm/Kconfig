@@ -201,6 +201,14 @@ config PWM_VT8500
 	  To compile this driver as a module, choose M here: the module
 	  will be called pwm-vt8500.
 
+config JZ_PWM_GENERIC
+	tristate "JZ PWM support for LED or Beeper drivers"
+	depends on JZ_PWM
+	default n
+	help
+		Generic JZ PWM driver for LED or Beeper terminals
+
+
 config JZ_PWM
 	bool "JZ PWM driver"
 	default y

@@ -44,6 +44,11 @@ struct i2c_board_info jz_i2c0_devs[] __initdata = {
 int jz_i2c0_devs_size = ARRAY_SIZE(jz_i2c0_devs);
 
 struct i2c_board_info jz_v4l2_camera_devs[] __initdata = {
+#ifdef  CONFIG_SOC_CAMERA_OV7725
+	[FRONT_CAMERA_INDEX] = {
+		I2C_BOARD_INFO("ov772x_fornt", 0x21),
+	},
+#endif
 #ifdef CONFIG_SOC_CAMERA_OV5640
 	[FRONT_CAMERA_INDEX] = {
 		I2C_BOARD_INFO("ov5640-front", 0x3c),

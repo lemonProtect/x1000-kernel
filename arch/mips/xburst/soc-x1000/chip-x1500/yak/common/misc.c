@@ -16,6 +16,7 @@
 #include <gpio.h>
 #include <linux/jz_dwc.h>
 #include <linux/interrupt.h>
+#include <mach/jz_pwm_dev.h>
 //#include <sound/jz-aic.h>
 #include "board_base.h"
 
@@ -63,6 +64,31 @@ struct jz_efuse_platform_data jz_efuse_pdata = {
 	    .gpio_vddq_en_n = GPIO_EFUSE_VDDQ,
 };
 #endif
+
+#ifdef CONFIG_JZ_PWM_GENERIC
+static struct jz_pwm_dev pwm_devs[] = {
+	{
+		.name = "jz_pwm_dev0",
+		.pwm_id = 0,
+		.active_low = 0,
+		.max_duty_ratio = 255,
+		.period_ns = 100000,
+	},
+};
+static struct jz_pwm_dev_platform_data pwm_devs_data = {
+	.num_devs       = 1,
+	.devs           = pwm_devs,
+};
+struct platform_device jz_pwm_devs_platform_device = {
+	.name           = "jz_pwm_dev",
+	.id             = -1,
+	.num_resources  = 0,
+	.dev            = {
+		.platform_data  = &pwm_devs_data,
+	}
+};
+#endif
+
 
 
 #ifdef CONFIG_LEDS_GPIO

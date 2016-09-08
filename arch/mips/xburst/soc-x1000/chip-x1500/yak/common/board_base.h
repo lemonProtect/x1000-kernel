@@ -95,4 +95,7 @@ extern struct platform_device jz_i2c3_device;
 #ifdef CONFIG_MFD_JZ_SADC_V12
 extern struct platform_device jz_adc_device;
 #endif
+#if defined(CONFIG_JZ_PWM_GENERIC)
+extern struct platform_device jz_pwm_devs_platform_device;
+#endif
 #endif
