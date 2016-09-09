@@ -376,9 +376,11 @@ int set_flash_timing(struct sfc *sfc, unsigned int t_hold, unsigned int t_setup,
 	unsigned int c_hold;
 	unsigned int c_setup;
 	unsigned int t_in, c_in, val;
-	unsigned int cycle;
+	unsigned long cycle;
+	unsigned long ns;
 
-	cycle = 1000000000 / sfc->src_clk;
+	ns = 1000000000L;
+	cycle = do_div(ns, sfc->src_clk);
 
 	c_hold = t_hold / cycle;
 	if(c_hold > 0)
@@ -392,7 +394,8 @@ int set_flash_timing(struct sfc *sfc, unsigned int t_hold, unsigned int t_setup,
 
 	t_in = max(t_shslrd, t_shslwr);
 	c_in = t_in / cycle;
-	val = c_in - 1;
+	if(c_in > 0)
+		val = c_in - 1;
 	sfc_interval_delay(sfc, val);
 
 	return 0;
@@ -681,6 +684,8 @@ static int sfc_start_transfer(struct sfc *sfc)
 	sfc_start(sfc);
 	err = wait_for_completion_timeout(&sfc->done,10*HZ);
 	if (!err) {
+		sfc_mask_all_intc(sfc);
+		sfc_clear_all_intc(sfc);
 		printk("line:%d Timeout for ACK from SFC device\n",__LINE__);
 		return -ETIMEDOUT;
 	}
