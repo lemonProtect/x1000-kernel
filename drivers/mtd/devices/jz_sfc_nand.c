@@ -571,7 +571,7 @@ static int jz_sfcnand_write_oob(struct mtd_info *mtd,loff_t addr,struct mtd_oob_
 	}
 	if(status & P_FAIL){
 		pr_info("spi nand write oob fail %s %s %d\n",__FILE__,__func__,__LINE__);
-		ret = -EINVAL;
+		ret = -EIO;
 		goto write_oob_exit;
 	}
 	ops->retlen = ops->ooblen;
@@ -836,7 +836,7 @@ static int jz_sfcnand_write(struct mtd_info *mtd, loff_t to, size_t len, size_t 
 		ret = jz_sfc_nand_write(flash, buffer, page, column, wlen, &status);
 		if(status & P_FAIL){
 			pr_info("spi nand write fail %s %s %d\n",__FILE__,__func__,__LINE__);
-			ret= -EINVAL;
+			ret= -EIO;
 		}
 		*retlen += wlen;
 		ops_len -= wlen;
