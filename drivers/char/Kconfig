@@ -74,15 +74,15 @@ config WAKEUP_MODULE_V14
 		Say Y here if you want to enable vocie wakeup module, The Voice wakeup
 		module used by DMIC recorder, or DMIC Voice Wakeup.
 
-config WAKEUP_MODULE_V14_PIC
-	bool "Ingenic Voice Wakeup Module v14 PIC"
-	depends on SOC_X1000
-	select RESERVE_VOICE_WAKEUP_MEM
-	select JZ_DMIC_WAKEUP_V13
-	default n
-	help
-		Say Y here if you want to enable vocie wakeup module, The Voice wakeup
-		module used by DMIC recorder, or DMIC Voice Wakeup.
+#config WAKEUP_MODULE_V14_PIC
+#	bool "Ingenic Voice Wakeup Module v14 PIC"
+#	depends on SOC_X1000
+#	select RESERVE_VOICE_WAKEUP_MEM
+#	select JZ_DMIC_WAKEUP_V13
+#	default n
+#	help
+#		Say Y here if you want to enable vocie wakeup module, The Voice wakeup
+#		module used by DMIC recorder, or DMIC Voice Wakeup.
 
 config JZ_DMIC_V13
 	bool "Ingenic Dmic Driveri v13"
