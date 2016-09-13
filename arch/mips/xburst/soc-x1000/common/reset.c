@@ -76,22 +76,39 @@ static void wdt_stop_count(void)
 	outl(65535,WDT_IOBASE + WDT_TDR);	//data
 	outl(1 << 16,TCU_IOBASE + TCU_TSSR);
 }
-
+static inline int wait_write_ready(void)
+{
+	int timeout = 0x2000;
+	while (!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY) && timeout--);
+	if (timeout <= 0) {
+		printk("RTC : %s timeout!\n",__func__);
+		return -1;
+	}
+	return 0;
+}
 static int inline rtc_write_reg(int reg,int value)
 {
 	int timeout = 0x2000;
-	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY) && (--timeout));
-	if(!timeout)
-	{
-		printk("WARN:NO USE RTC!!!!!\n");
+	if(wait_write_ready()) {
 		return -1;
 	}
 	outl(0xa55a,(RTC_IOBASE + RTC_WENR));
-	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
-	while(!(inl(RTC_IOBASE + RTC_WENR) & WENR_WEN));
-	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
+	if(wait_write_ready()) {
+		return -1;
+	}
+	while(!(inl(RTC_IOBASE + RTC_WENR) & WENR_WEN) && timeout--);
+	if (timeout <= 0) {
+		printk("RTC : %s timeout!\n",__func__);
+		outl(inl(RTC_IOBASE + RTC_RTCCR) | (1 << 1), (RTC_IOBASE + RTC_RTCCR));
+		return -1;
+	}
+	if(wait_write_ready()) {
+		return -1;
+	}
 	outl(value,(RTC_IOBASE + reg));
-	while(!(inl(RTC_IOBASE + RTC_RTCCR) & RTCCR_WRDY));
+	if(wait_write_ready()) {
+		return -1;
+	}
 
 	return 0;
 }
@@ -102,7 +119,7 @@ static int inline rtc_write_reg(int reg,int value)
  */
 int inline reset_keep_power(void)
 {
-	return rtc_write_reg(RTC_PWRONCR, inl(RTC_IOBASE + RTC_PWRONCR) & ~(1 << 0));
+	return rtc_write_reg(RTC_PWRONCR, inl(RTC_IOBASE + RTC_PWRONCR) & ~(1 << 2));
 }
 
 #define HWFCR_WAIT_TIME(x) ((x > 0x7fff ? 0x7fff: (0x7ff*(x)) / 2000) << 5)
