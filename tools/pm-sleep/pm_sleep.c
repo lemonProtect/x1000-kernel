@@ -91,7 +91,7 @@ void core_sleep_enter(void)
 	unsigned int val;
 	struct save_register *p_save_register = &g_save_register;
 
-	if(p_slp_param->uart_id != -1)
+	if(p_slp_param->uart_id != 0xff)
 		serial_setid(p_slp_param->uart_id);
 
 	flush_cache_all();

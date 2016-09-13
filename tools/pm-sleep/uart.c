@@ -29,8 +29,10 @@ void serial_setid(int uart_id)
 }
 void serial_putc(char x)
 {
-	REG32(U_ADDR + OFF_TDR) = x;
-	while ((REG32(U_ADDR + OFF_LSR) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT));
+	if(U_ADDR){
+		REG32(U_ADDR + OFF_TDR) = x;
+		while ((REG32(U_ADDR + OFF_LSR) & (LSR_TDRQ | LSR_TEMT)) != (LSR_TDRQ | LSR_TEMT));
+	}
 }
 void serial_put_hex(unsigned int x)
 {

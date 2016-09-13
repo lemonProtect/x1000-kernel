@@ -140,7 +140,7 @@ voice_trigger_again:
 	sleep_param = (struct sleep_param *)SLEEP_TCSM_SPACE;
 
 	sleep_param->post_resume_pc = (unsigned int)restore_goto;
-	sleep_param->uart_id = 2;
+	sleep_param->uart_id = -1;
 
         /*
 	 *   set OPCR.
