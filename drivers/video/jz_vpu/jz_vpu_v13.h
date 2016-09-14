@@ -2,6 +2,8 @@
 #ifndef __JZ_VPU_V13_H__
 #define __JZ_VPU_V13_H__
 
+#include "jzm_jpeg_enc.h"
+
 #define REG_VPU_GLBC      0x00000
 #define VPU_INTE_ACFGERR     (0x1<<20)
 #define VPU_INTE_TLBERR      (0x1<<18)
@@ -51,6 +53,52 @@ struct vpu_dmmu_map_info {
 	unsigned int	len;
 };
 
+typedef struct {
+	unsigned char *buf;
+	unsigned char *BitStreamBuf;
+#ifdef CHECK_RESULT
+	uint8_t *soft_buf;
+	uint8_t *soft_bts;
+#endif
+	unsigned int des_va;	/* descriptor virtual address */
+	unsigned int des_pa;	/* descriptor physical address */
+	int width;
+	int height;
+	int ql_sel;
+	int bslen;
+} YUYV_INFO;
+
+#define uint8_t unsigned char
+#define uint32_t unsigned int
+
+/* JPEG encode quantization table select level */
+typedef enum {
+	LOW_QUALITY,
+	MEDIUMS_QUALITY,
+	HIGH_QUALITY,
+} QUANT_QUALITY;
+
+typedef struct _JPEGE_SliceInfo {
+	unsigned int des_va;	/* descriptor virtual address */
+	unsigned int des_pa;	/* descriptor physical address */
+	uint8_t ncol;		/* number of color/components of a MCU minus one */
+	uint8_t rsm;		/* Re-sync-marker enable */
+	uint8_t *bsa;		/* bitstream buffer address  */
+	uint8_t nrsm;		/* Re-Sync-Marker gap number */
+	uint32_t nmcu;		/* number of MCU minus one */
+	uint32_t raw[3];	/* {rawy, rawu, rawv} or {rawy, rawc, N/C} */
+	uint32_t stride[2];    /* {stride_y, stride_c}, only used in raster raw */
+	uint32_t mb_width;
+	uint32_t mb_height;
+	uint8_t raw_format;
+
+	/* Quantization level select,0-2 level */
+	QUANT_QUALITY ql_sel;
+	uint8_t huffenc_sel;           /* Huffman ENC Table select */
+}JPEGE_SliceInfo;
+
+#define DESC_SIZE_MAX 2500
+
 #define vpu_readl(vpu, offset)		__raw_readl((vpu)->iomem + offset)
 #define vpu_writel(vpu, offset, value)	__raw_writel((value), (vpu)->iomem + offset)
 
@@ -61,4 +109,26 @@ struct vpu_dmmu_map_info {
 #define CPM_VPU_SR           (0x1<<31)
 #define CPM_VPU_STP          (0x1<<30)
 #define CPM_VPU_ACK          (0x1<<29)
+
+#define MAX_LOCK_DEPTH		999
+#define CMD_VPU_CACHE 100
+#define CMD_VPU_PHY   101
+#define CMD_VPU_DMA_NOTLB 102
+#define CMD_VPU_DMA_TLB 103
+#define CMD_VPU_CLEAN_WAIT_FLAG 104
+#define CMD_VPU_RESET 105
+#define CMD_VPU_SET_REG 106
+#define CMD_VPU_DMMU_MAP 107
+#define CMD_VPU_DMMU_UNMAP 108
+#define CMD_VPU_DMMU_UNMAP_ALL 109
+#define CMD_WAIT_COMPLETE 110
+/* we add them to wait for vpu end before suspend */
+#define VPU_NEED_WAIT_END_FLAG 0x80000000
+#define VPU_WAIT_OK 0x40000000
+#define VPU_END 0x1
+
+#define JPGE_TILE_MODE  0
+#define JPGE_NV12_MODE  8
+#define JPGE_NV21_MODE  12
+
 #endif	/* __JZ_VPU_V13_H__ */

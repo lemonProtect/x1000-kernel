@@ -29,23 +29,14 @@
 #include <mach/jzcpm_pwc.h>
 
 #include "jz_vpu_v13.h"
+#include "vpu_common_v13.h"
+#include "jzm_jpeg_enc.h"
 
-#define MAX_LOCK_DEPTH		999
-#define CMD_VPU_CACHE 100
-#define CMD_VPU_PHY   101
-#define CMD_VPU_DMA_NOTLB 102
-#define CMD_VPU_DMA_TLB 103
-#define CMD_VPU_CLEAN_WAIT_FLAG 104
-#define CMD_VPU_RESET 105
-#define CMD_VPU_SET_REG 106
-#define CMD_VPU_DMMU_MAP 107
-#define CMD_VPU_DMMU_UNMAP 108
-#define CMD_VPU_DMMU_UNMAP_ALL 109
-#define CMD_WAIT_COMPLETE 110
-/* we add them to wait for vpu end before suspend */
-#define VPU_NEED_WAIT_END_FLAG 0x80000000
-#define VPU_WAIT_OK 0x40000000
-#define VPU_END 0x1
+struct jz_jpeg_encode{
+	void *desc_vidmem;
+	dma_addr_t desc_phys;
+	YUYV_INFO yuyv_info;
+};
 
 struct jz_vpu {
 	struct device		*dev;
@@ -185,6 +176,118 @@ static ssize_t vpu_write(struct file *filp, const char *buf, size_t size, loff_t
 {
 	return -1;
 }
+
+/*************************************************************************************
+ Padding JPEG Encoder Software and Hardware used Struct
+*************************************************************************************/
+static int JPEGE_Struct_Pad(JPEGE_SliceInfo *s, YUYV_INFO *yuyv_info)
+{
+	int width, height;
+
+	width = yuyv_info->width;
+	height = yuyv_info->height;
+
+	/* hardware struct padding */
+	s->des_va      = yuyv_info->des_va;//VDMA Chain first address.;
+	s->des_pa      = yuyv_info->des_pa;
+	s->bsa         = (uint8_t*)virt_to_phys((void *)yuyv_info->BitStreamBuf);
+	s->raw[0]      = virt_to_phys((void *)yuyv_info->buf);
+	s->nmcu        = width * height / 256 - 1;
+	s->nrsm        = 0;
+	s->rsm         = 0;
+	s->ncol        = 2; /* yuv(3) - 1 */
+	s->ql_sel      = yuyv_info->ql_sel;
+	s->huffenc_sel = 0;
+	s->mb_width    = width/16;
+	s->mb_height   = height/16;
+	s->stride[0]   = width * 2;
+	s->stride[1]   = width;
+	s->raw_format  = JPGE_NV21_MODE; /* EFE working, RAW data is NV21 */
+
+	//tabcheck((uint32_t)s->bsa, (uint32_t)bs_addr, ecs_LEN + 256);
+	return 0;
+}
+static void JPEGE_SliceInit(JPEGE_SliceInfo *s)
+{
+	unsigned int i;
+	volatile unsigned int *chn = (volatile unsigned int *)s->des_va;
+
+	GEN_VDMA_ACFG(chn, TCSM_FLUSH, 0, 0x0);
+
+	/* Open clock configuration */
+	GEN_VDMA_ACFG(chn, REG_JPGC_GLBI, 0, OPEN_CLOCK);
+
+	/**
+	 * Huffman Encode Table configuration
+	 */
+	for(i = 0; i < HUFFENC_LEN; i++)
+		GEN_VDMA_ACFG(chn, REG_JPGC_HUFE+i*4, 0, huffenc[s->huffenc_sel][i]);
+
+	/**
+	 * Quantization Table configuration
+	 */
+	for(i = 0; i < QMEM_LEN; i++)
+		GEN_VDMA_ACFG(chn, REG_JPGC_QMEM+i*4, 0, qmem[s->ql_sel][i]);
+
+	/**
+	* REGs configuration
+	*/
+	GEN_VDMA_ACFG(chn, REG_JPGC_STAT, 0,STAT_CLEAN);
+	GEN_VDMA_ACFG(chn,REG_JPGC_BSA, 0, (unsigned int)s->bsa);
+	GEN_VDMA_ACFG(chn, REG_JPGC_P0A, 0, VRAM_RAWY_BA);
+
+	GEN_VDMA_ACFG(chn,REG_JPGC_NMCU, 0,s->nmcu);
+	GEN_VDMA_ACFG(chn,REG_JPGC_NRSM, 0,s->nrsm);
+
+	GEN_VDMA_ACFG(chn,REG_JPGC_P0C, 0,YUV420P0C);
+	GEN_VDMA_ACFG(chn,REG_JPGC_P1C, 0,YUV420P1C);
+	GEN_VDMA_ACFG(chn,REG_JPGC_P2C, 0,YUV420P2C);
+
+	GEN_VDMA_ACFG(chn, REG_JPGC_GLBI, 0, (YUV420PVH          |
+					      JPGC_NCOL          |
+					      JPGC_SPEC/* MODE */|
+					      JPGC_EFE           |
+					      JPGC_EN));
+	GEN_VDMA_ACFG(chn, REG_JPGC_TRIG, 0,				\
+		      JPGC_BS_TRIG | JPGC_PP_TRIG | JPGC_CORE_OPEN);
+	/**
+	 * EFE configuration
+	 */
+	GEN_VDMA_ACFG(chn, REG_EFE_GEOM, 0, (EFE_JPGC_LST_MBY(s->mb_height-1) |
+					     EFE_JPGC_LST_MBX(s->mb_width-1)));
+
+	GEN_VDMA_ACFG(chn, REG_EFE_RAWY_SBA, 0, s->raw[0]);
+	GEN_VDMA_ACFG(chn, REG_EFE_RAWU_SBA, 0, s->raw[1]);
+	GEN_VDMA_ACFG(chn, REG_EFE_RAWV_SBA, 0, s->raw[2]);
+	GEN_VDMA_ACFG(chn, REG_EFE_RAW_STRD, 0, (EFE_RAW_STRDY(s->stride[0]) |
+						 EFE_RAW_STRDC(s->stride[1])));
+
+	GEN_VDMA_ACFG(chn, REG_EFE_RAW_DBA, 0, VRAM_RAWY_BA);
+	GEN_VDMA_ACFG(chn, REG_EFE_CTRL, VDMA_ACFG_TERM, (YUV_YUY2 |
+							  EFE_PLANE_NV12 |
+							  EFE_ID_JPEG    |
+							  EFE_EN         |
+							  (s->raw_format)|
+							  EFE_RUN));
+}
+
+static int jpge_struct_init(struct jz_jpeg_encode *jz_jpeg)
+{
+	JPEGE_SliceInfo vpu_s;
+	YUYV_INFO *yuyv_info = &jz_jpeg->yuyv_info;
+        yuyv_info->des_va = (unsigned int)jz_jpeg->desc_vidmem;
+        yuyv_info->des_pa = jz_jpeg->desc_phys;
+
+	JPEGE_Struct_Pad(&vpu_s, yuyv_info);
+
+	/* Write the JPEG Encoder VDMA chain */
+	JPEGE_SliceInit(&vpu_s);
+
+	/* refresh cache */
+	/*printk("refresh cache\n");*/
+	return 0;
+}
+
 unsigned long jz_tcsm_start;
 static long vpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -201,19 +304,52 @@ static long vpu_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
 	case CMD_WAIT_COMPLETE:
-		ret = wait_for_completion_interruptible_timeout(
-			&vpu->done, msecs_to_jiffies(200));
-		if (ret > 0) {
-			status = vpu->status;
-		} else {
-			dev_warn(vpu->dev, "[%d:%d] wait_for_completion timeout\n",
-				 current->tgid, current->pid);
-			if (vpu_reset(vpu) < 0)
-				status = 0;
-			vpu->done.done = 0;
-		}
-		if (copy_to_user((void *)arg, &status, sizeof(status)))
-			ret = -EFAULT;
+                {
+                        struct jz_jpeg_encode jpeg_encode;
+                        if (copy_from_user(&jpeg_encode.yuyv_info, (void *)arg, sizeof(jpeg_encode.yuyv_info)))
+                                return -EFAULT;
+
+                        jpeg_encode.desc_vidmem = dma_alloc_coherent(vpu->dev,
+                                        sizeof(DESC_SIZE_MAX),
+                                        &jpeg_encode.desc_phys, GFP_KERNEL);
+                        if (!jpeg_encode.desc_vidmem)
+                                return -ENOMEM;
+
+                        jpge_struct_init(&jpeg_encode);
+
+                        vpu_writel(vpu, REG_JPGC_STAT,  0);
+                        mutex_lock(&vpu->mutex);
+                        vpu_reset(vpu);
+                        vpu_writel(vpu,REG_SCH_GLBC,SCH_GLBC_HIAXI);
+                        vpu_writel(vpu,REG_VPU_GLBC,
+                                        vpu_readl(vpu, REG_VPU_GLBC)
+                                        | VPU_INTE_ACFGERR
+                                        | VPU_INTE_TLBERR
+                                        | VPU_INTE_BSERR
+                                        | VPU_INTE_ENDF);
+
+                        vpu_writel(vpu,REG_VMDA_TRIG,jpeg_encode.desc_phys | VDMA_ACFG_RUN);
+
+                        ret = wait_for_completion_interruptible_timeout(
+                                        &vpu->done, msecs_to_jiffies(200));
+                        if (ret > 0) {
+                                status = vpu->status;
+                        } else {
+                                dev_warn(vpu->dev, "[%d:%d] wait_for_completion timeout\n",
+                                                current->tgid, current->pid);
+                                if (vpu_reset(vpu) < 0)
+                                        status = 0;
+                                vpu->done.done = 0;
+                        }
+
+                        mutex_unlock(&vpu->mutex);
+
+                        jpeg_encode.yuyv_info.bslen = status & 0xffffff;
+                        if (copy_to_user((void *)arg, &jpeg_encode.yuyv_info, sizeof(jpeg_encode.yuyv_info)))
+                                ret = -EFAULT;
+
+                        dma_free_coherent(vpu->dev, sizeof(DESC_SIZE_MAX), jpeg_encode.desc_vidmem, &jpeg_encode.desc_phys);
+                }
 		break;
 	case LOCK:
 		if (vpu->owner_pid == current->pid) {
