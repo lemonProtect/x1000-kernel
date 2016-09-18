@@ -133,6 +133,7 @@ int enter_suspend(int mode)
 		return 0;
 	}
 
+	cpu_wakeup_by = 0;
 	g_dmic_current_working_mode = DEEP_SLEEP;
 
 	//wakeup_open();
@@ -292,6 +293,8 @@ int get_sleep_process(void)
 {
 	struct sleep_buffer *sleep_buffer = g_sleep_buffer;
 	int i, len, ret = SYS_WAKEUP_FAILED;
+
+	cpu_wakeup_by = 0;
 
 	if(!voice_wakeup_enabled) {
 		return SYS_WAKEUP_FAILED;

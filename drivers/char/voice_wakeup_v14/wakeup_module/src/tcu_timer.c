@@ -50,24 +50,101 @@ unsigned long time = 0;
 
 
 int tcu_irq_handler(int irq, void * dev);
+#ifdef TCU_VOICE_DEBUG
+static void tcu_dump_reg_hex(void);
+static void tcu_dump_reg(void);
+#endif
 
+struct tcu_register{
+unsigned long TCSR;
+unsigned long TDFR;
+unsigned long TDHR;
+unsigned long TCNT;
 
-
-unsigned int save_tcsr;
+unsigned long TER;
+unsigned long TFR;
+unsigned long TMR;
+unsigned long TSR;
+unsigned long TSTR;
+} save;
 
 int tcu_timer_save(int r)
 {
 	tcu_channel = r;
-	save_tcsr = tcu_readl(CH_TCSR(tcu_channel));
 
+	cpm_start_tcu_clock(0);
+
+	//tcu_dump_reg_hex();
+	save.TCSR = tcu_readl(CH_TCSR(tcu_channel));
+	save.TDFR = tcu_readl(CH_TDFR(tcu_channel));
+	save.TDHR = tcu_readl(CH_TDHR(tcu_channel));
+	save.TCNT = tcu_readl(CH_TCNT(tcu_channel));
+
+	save.TER = tcu_readl(TCU_TER);
+	save.TFR = tcu_readl(TCU_TFR);
+	save.TMR = tcu_readl(TCU_TMR);
+	save.TSR = tcu_readl(TCU_TSR);
+	save.TSTR = tcu_readl(TCU_TSTR);
+
+#if 0
+	vtw_print(LOG_INFO, "tcu_channel: ");
+	vtw_print_hex(LOG_INFO, tcu_channel);
+	vtw_print(LOG_INFO, "\r\n");
+
+	vtw_print(LOG_INFO, "save.TCSR: ");
+	vtw_print_hex(LOG_INFO, save.TCSR);
+	vtw_print(LOG_INFO, "\r\n");
+
+#endif
 	return 0;
 }
 
 int tcu_timer_restore(int r)
 {
+	//tcu_dump_reg_hex();
 	tcu_timer_release(tcu_channel);
 
-	tcu_writel(CH_TCSR(tcu_channel), save_tcsr);
+#if 0
+	vtw_print(LOG_INFO, "tcu_channel: ");
+	vtw_print_hex(LOG_INFO, tcu_channel);
+	vtw_print(LOG_INFO, "\r\n");
+	vtw_print(LOG_INFO, "save.TCSR: ");
+	vtw_print_hex(LOG_INFO, save.TCSR);
+	vtw_print(LOG_INFO, "\r\n");
+#endif
+	tcu_writel(CH_TCSR(tcu_channel), save.TCSR);
+	tcu_writel(CH_TDFR(tcu_channel), save.TDFR);
+	tcu_writel(CH_TDHR(tcu_channel), save.TDHR);
+	//tcu_writel(CH_TCNT(tcu_channel), save.TCNT);
+
+	if (save.TER & (1<<tcu_channel))
+		tcu_writel(TCU_TESR, (1<<tcu_channel));
+	else
+		tcu_writel(TCU_TECR, (1<<tcu_channel));
+
+	if (save.TMR & (1<<tcu_channel))
+		tcu_writel(TCU_TMSR, (1<<tcu_channel));
+	else
+		tcu_writel(TCU_TMCR, (1<<tcu_channel));
+	if (save.TMR & (1<<(tcu_channel+16)))
+		tcu_writel(TCU_TMSR, (1<<(tcu_channel+16)));
+	else
+		tcu_writel(TCU_TMCR, (1<<(tcu_channel+16)));
+
+	if (save.TSR & (1<<tcu_channel))
+		tcu_writel(TCU_TSSR, (1<<tcu_channel));
+	else
+		tcu_writel(TCU_TSCR, (1<<tcu_channel));
+
+	/* clear status and flags */
+	{
+		const int ctrlbit = 1 << (tcu_channel+16) | 1 << (tcu_channel);
+		tcu_writel(TCU_TFCR,ctrlbit);
+	}
+
+	//tcu_dump_reg_hex();
+
+	cpm_stop_tcu_clock(0);
 
 	return 0;
 }
@@ -107,7 +184,8 @@ static void tcu_dump_reg_hex(void)
 	   [14.681352 0.062945] irp 04000000 00000000
 	   G 0000002C 00000595 000002CA 0000003C 00008020 00218001 00FF80DF 00000000 00040000 H
 	*/
-	TCSM_PCHAR('G');
+
+	vtw_print(LOG_INFO, "tcu_dump_reg_hex()\r\n: ");
 	TCSM_PCHAR(' '); serial_put_hex(tcu_readl(CH_TCSR(tcu_channel)));
 	TCSM_PCHAR(' '); serial_put_hex(tcu_readl(CH_TDFR(tcu_channel)));
 	TCSM_PCHAR(' '); serial_put_hex(tcu_readl(CH_TDHR(tcu_channel)));
@@ -117,14 +195,23 @@ static void tcu_dump_reg_hex(void)
 	TCSM_PCHAR(' '); serial_put_hex(tcu_readl(TCU_TMR));
 	TCSM_PCHAR(' '); serial_put_hex(tcu_readl(TCU_TSR));
 	TCSM_PCHAR(' '); serial_put_hex(tcu_readl(TCU_TSTR));
-	TCSM_PCHAR(' '); TCSM_PCHAR('H');
+
+	vtw_print(LOG_INFO, "\r\n");
 }
 #endif
+
+static inline void clear_irq_flags(void)
+{
+	const int ctrlbit = (1 << (tcu_channel+16)) | (1 << (tcu_channel));
+	tcu_writel(TCU_TFCR,ctrlbit);
+}
+
 static inline void stop_timer()
 {
 	/* disable tcu n */
 	tcu_writel(TCU_TECR,(1 << tcu_channel));
-	tcu_writel(TCU_TFCR , (1 << tcu_channel));
+	/* clear half flag and full flag */
+	tcu_writel(TCU_TFCR , (1 << (tcu_channel+16)) | (1 << tcu_channel));
 }
 static inline void start_timer()
 {
@@ -263,8 +350,11 @@ void tcu_timer_release(int tcu_chan)
 	tcu_writel(TCU_TMSR , (1 << tcu_channel));
 	stop_timer();
 
+	/* clear flags */
+	//clear_irq_flags();
+
 	//REG32(CPM_IOBASE + CPM_CLKGR0) |= 1<<30;
-	cpm_stop_tcu_clock(0);
+	//cpm_stop_tcu_clock(0);
 	return;
 }
 

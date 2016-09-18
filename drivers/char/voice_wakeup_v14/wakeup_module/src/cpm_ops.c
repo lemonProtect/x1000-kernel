@@ -3,17 +3,45 @@
 #include "print.h"
 #include "cpm_ops.h"
 
+unsigned long save_clkgate0;
 
+int cpm_dump_regs(void)
+{
+	unsigned long clkgate0;
+	unsigned long opcr;
+
+	/* save clock gate register */
+	vtw_print(LOG_INFO, "cpm_dump_regs()\tCPM_CLKGR0: ");
+	clkgate0 = REG32(CPM_IOBASE + CPM_CLKGR0);
+	vtw_print_hex(LOG_INFO, clkgate0);
+
+	vtw_print(LOG_INFO, "\tCPM_OPCR: ");
+	opcr = REG32(CPM_IOBASE + CPM_OPCR);
+	vtw_print_hex(LOG_INFO, opcr);
+
+	vtw_print(LOG_INFO, "\r\n");
+
+	return 0;
+}
 
 int cpm_init_save(int ch)
 {
-	/* save clock gate register */
+	//vtw_print(LOG_INFO, "cpm_init_save()\r\n");
+	//cpm_dump_regs();
+
+	save_clkgate0 = REG32(CPM_IOBASE + CPM_CLKGR0);
+
 	return 0;
 }
 
 int cpm_exit_restore(int ch)
 {
+	//vtw_print(LOG_INFO, "cpm_exit_restore()\r\n");
+	//cpm_dump_regs();
 
+	REG32(CPM_IOBASE + CPM_CLKGR0) = save_clkgate0;
+
+	//cpm_dump_regs();
 	return 0;
 }
 
@@ -26,7 +54,7 @@ int cpm_start_tcu_clock(int ch)
 
 int cpm_stop_tcu_clock(int ch)
 {
-	/* REG32(CPM_IOBASE + CPM_CLKGR0) |= 1<<18; */
+	REG32(CPM_IOBASE + CPM_CLKGR0) |= 1<<18;
 	return 0;
 }
 

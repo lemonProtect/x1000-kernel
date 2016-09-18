@@ -47,7 +47,18 @@ static unsigned int intc_readl(int group, unsigned int reg)
 	return REG32(INTC_BASE_ADDR + group*0x20 + reg);
 }
 
+#ifdef DEBUG_IRQ
+void intc_dump_regs(void)
+{
+	vtw_print(LOG_INFO, "intc_dump_reg_hex()\r\n: ");
+	vtw_print_hex(LOG_INFO, intc_readl(0, INTC_ICMR));
+	vtw_print(LOG_INFO, "\t");
+	vtw_print_hex(LOG_INFO, intc_readl(1, INTC_ICMR));
+	vtw_print(LOG_INFO, "\r\n");
 
+	return;
+}
+#endif
 /*
   save INTC MASK register
  */
@@ -56,6 +67,9 @@ int intc_save(int intc)
 	int g;
 	int iii;
 
+#ifdef DEBUG_IRQ
+	intc_dump_regs();
+#endif
 	for (g=0; g<INTC_GROUP_NUM; g++) {
 		intc_mask[g] = intc_readl(g, INTC_ICMR);
 	}
@@ -75,12 +89,18 @@ int intc_restore(int intc)
 {
 	int g;
 
+#ifdef DEBUG_IRQ
+	intc_dump_regs();
+#endif
 	/* restore irq mask */
 	for (g=0; g<INTC_GROUP_NUM; g++) {
 		intc_writel(g, INTC_ICMSR, intc_mask[g]);
+		intc_writel(g, INTC_ICMCR, ~intc_mask[g]);
 	}
 
-
+#ifdef DEBUG_IRQ
+	intc_dump_regs();
+#endif
 	return 0;
 }
 
