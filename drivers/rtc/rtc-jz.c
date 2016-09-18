@@ -299,16 +299,17 @@ static int jz_rtc_alarm_irq_enable(struct device *dev, unsigned int enabled)
 
 	mutex_lock(&rtc->mutexlock);
 	if (enabled) {
-		jzrtc_clrl(rtc,RTC_RTCCR, RTCCR_AIE | RTCCR_AE | RTCCR_AF);
+		//jzrtc_clrl(rtc,RTC_RTCCR, RTCCR_AIE | RTCCR_AE | RTCCR_AF);
 		tmp = jzrtc_readl(rtc, RTC_RTCCR);
 		tmp &= ~RTCCR_AF;
 		tmp |= RTCCR_AIE | RTCCR_AE;
 		jzrtc_writel(rtc, RTC_RTCCR, tmp);
+		/* RTC Alarm wakeup enable. */
+		jzrtc_setl(rtc, RTC_HWCR, HWCR_EALM);
 	} else {
-		tmp = jzrtc_readl(rtc, RTC_RTCCR);
-		tmp &= ~RTCCR_AF;
-		tmp |= RTCCR_AIE | RTCCR_AE;
-		jzrtc_writel(rtc, RTC_RTCCR, tmp);
+		jzrtc_clrl(rtc,RTC_RTCCR, RTCCR_AIE | RTCCR_AE | RTCCR_AF);
+		/* RTC Alarm wakeup enable. */
+		jzrtc_clrl(rtc, RTC_HWCR, HWCR_EALM);
 	}
 	mutex_unlock(&rtc->mutexlock);
 	return 0;
