@@ -50,8 +50,9 @@ int tPROG = 0;
 int tBERS = 0;
 /*nand ecc informtion*/
 int ecc_shift = 4;
-char ecc_mask = 0x3;//how many bits ecc has
-int ecc_max = 0x2;//greater than this value meaning read error page
+char ecc_mask = 0x3;//how many bits ecc has (ECCS1,ECCS0)
+int ecc_max = 0x3;//ECC capability(status reg's value: ECCS1,ECCS0)
+int EccErrValue = 0x2;// the status value when ecc err(Value : ECCS1,ECCS0)
 /*nand read id command information*/
 int id_addr = 0x0;//if read id command need addr or not
 int id_addr_len = 1;//if read id commad don't need add, this value equal 0
@@ -148,8 +149,7 @@ static int jz_sfc_nand_read(struct sfc_flash *flash, int page, int column, char*
 	ret = sfc_sync(flash->sfc, &message);
 	if(ret) {
 		dev_err(flash->dev,"sfc_sync error ! %s %s %d\n",__FILE__,__func__,__LINE__);
-		ret=-EIO;
-		return ret;
+		return -EIO;
 	}
 //	udelay(tRD);
 
@@ -168,14 +168,14 @@ static int jz_sfc_nand_read(struct sfc_flash *flash, int page, int column, char*
 	ret = sfc_sync(flash->sfc, &message);
 	if(ret) {
 		dev_err(flash->dev,"sfc_sync error ! %s %s %d\n",__FILE__,__func__,__LINE__);
-		ret=-EIO;
-		return ret;
+		return -EIO;
 	}
 
 	*status = (u8)sfc_get_sta_rt(flash->sfc);
 	*status = ((*status)>>ecc_shift)&(ecc_mask);
-	if((*status) == (ecc_max)) {
+	if((*status) == (EccErrValue)) {
 		pr_info("spi nand read error page %d ret = %02x !!! %s %s %d \n",page,ret,__FILE__,__func__,__LINE__);
+		*status = -EBADMSG;
 	}
 
 
@@ -206,8 +206,7 @@ static int jz_sfc_nand_read(struct sfc_flash *flash, int page, int column, char*
 	ret = sfc_sync(flash->sfc, &message);
 	if(ret) {
 		dev_err(flash->dev,"sfc_sync error ! %s %s %d\n",__FILE__,__func__,__LINE__);
-		ret=-EIO;
-		return ret;
+		return -EIO;
 	}
 	return 0;
 }
@@ -780,8 +779,8 @@ static int jz_sfcnand_read(struct mtd_info *mtd, loff_t from, size_t len, size_t
 	int page_size = mtd->writesize;
 	unsigned int ops_addr = (unsigned int)from;
 	size_t ops_len = len;
-	int ret;
-	u8 status;
+	int ret = 0;
+	u8 status = -1;
 
 	flash=to_jz_spi_nand(mtd);
 	mutex_lock(&flash->lock);
@@ -791,7 +790,7 @@ static int jz_sfcnand_read(struct mtd_info *mtd, loff_t from, size_t len, size_t
 		page = ops_addr/page_size;
 		rlen = min_t(unsigned int,ops_len,page_size-column);
 		ret = jz_sfc_nand_read(flash, page, column, buffer, rlen, &status);
-		if(ret<0){
+		if(ret < 0 || status < 0){
 			break;
 		}
 		ops_len = ops_len-rlen;
@@ -807,7 +806,10 @@ static int jz_sfcnand_read(struct mtd_info *mtd, loff_t from, size_t len, size_t
 		}
 	}
 	mutex_unlock(&flash->lock);
-	return ret;
+	if(status < 0 || status == ecc_max)
+		return status;
+	else
+		return ret;
 }
 
 static int jz_sfcnand_write(struct mtd_info *mtd, loff_t to, size_t len, size_t *retlen, const u_char *buf)
