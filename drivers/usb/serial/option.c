@@ -1421,6 +1421,20 @@ static int option_probe(struct usb_serial *serial,
 				&serial->interface->cur_altsetting->desc;
 	struct usb_device_descriptor *dev_desc = &serial->dev->descriptor;
 
+    printk("%s idVendor=%x, idProduct=%x, bInterfaceNumber =%d\r\n", __func__,
+        serial->dev->descriptor.idVendor,
+        serial->dev->descriptor.idProduct,
+        serial->interface->cur_altsetting->desc.bInterfaceNumber);
+
+    if (serial->dev->descriptor.idVendor == 0x19d2 &&
+        serial->dev->descriptor.idProduct == 0x1476 &&
+        serial->interface->cur_altsetting->desc.bInterfaceNumber == 3)
+        return -ENODEV;
+    if (serial->dev->descriptor.idVendor == 0x19d2 &&
+        serial->dev->descriptor.idProduct == 0x1476 &&
+        serial->interface->cur_altsetting->desc.bInterfaceNumber == 4)
+        return -ENODEV;
+
 	/* Never bind to the CD-Rom emulation interface	*/
 	if (iface_desc->bInterfaceClass == 0x08)
 		return -ENODEV;
